@@ -1,4 +1,4 @@
-package com.example;
+package com.agroveterinaria;
 
 import com.vaadin.flow.theme.aura.Aura;
 import org.springframework.boot.SpringApplication;
