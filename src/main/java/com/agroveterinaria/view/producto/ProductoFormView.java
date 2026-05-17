@@ -49,6 +49,8 @@ public class ProductoFormView extends VerticalLayout {
     private final Binder<Producto> binder = new Binder<>(Producto.class);
 
     private byte[] fotoBytes = null;
+    private final ByteArrayOutputStream bufferArchivo = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream bufferCamara  = new ByteArrayOutputStream();
     private final Upload uploadArchivo = new Upload();
     private final Upload uploadCamara  = new Upload();
     private final Image  preview       = new Image();
@@ -127,59 +129,30 @@ public class ProductoFormView extends VerticalLayout {
 
         // Subir desde archivo
         uploadArchivo.setAcceptedFileTypes("image/jpeg", "image/png", "image/webp");
-        uploadArchivo.setMaxFileSize(5 * 1024 * 1024);
+        uploadArchivo.setMaxFileSize(25 * 1024 * 1024);
         uploadArchivo.setUploadButton(new Button("Subir archivo"));
         uploadArchivo.setDropLabel(new Span("o arrastra una imagen aquí"));
 
-        uploadArchivo.setUploadHandler((UploadEvent event) -> {
-            try {
-                java.io.InputStream stream = event.getInputStream();
+        uploadArchivo.setMaxFiles(1);
+        uploadArchivo.getElement().addEventListener("file-remove", event -> limpiarFoto());
 
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buffer = new byte[1024];
-                int bytesLeidos;
-                while ((bytesLeidos = stream.read(buffer)) != -1) {
-                    baos.write(buffer, 0, bytesLeidos);
-                }
-                fotoBytes = baos.toByteArray();
-                getUI().ifPresent(ui -> ui.access(this::mostrarPreview));
+        uploadArchivo.setUploadHandler((UploadEvent event) -> procesarArchivo(event, uploadCamara));
 
-            } catch (IOException e) {
-                getUI().ifPresent(ui -> ui.access(() ->
-                        mostrarNotificacion("Error al leer la imagen", NotificationVariant.LUMO_ERROR)
-                ));
-            }
-        });
 
         // Subir desde cámara
         uploadCamara.setAcceptedFileTypes("image/jpeg", "image/png");
-        uploadCamara.setMaxFileSize(5 * 1024 * 1024);
+        uploadCamara.setMaxFileSize(25 * 1024 * 1024);
         uploadCamara.setUploadButton(new Button("Tomar foto"));
         uploadCamara.setDropAllowed(false);
+
+        uploadCamara.setMaxFiles(1);
+        uploadCamara.getElement().addEventListener("file-remove", event -> limpiarFoto());
 
         uploadCamara.getElement()
                 .getChild(0)
                 .setAttribute("capture", "environment");
 
-        uploadCamara.setUploadHandler((UploadEvent event) -> {
-            try {
-                java.io.InputStream stream = event.getInputStream();
-
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                byte[] buffer = new byte[1024];
-                int bytesLeidos;
-                while ((bytesLeidos = stream.read(buffer)) != -1) {
-                    baos.write(buffer, 0, bytesLeidos);
-                }
-                fotoBytes = baos.toByteArray();
-                getUI().ifPresent(ui -> ui.access(this::mostrarPreview));
-
-            } catch (IOException e) {
-                getUI().ifPresent(ui -> ui.access(() ->
-                        mostrarNotificacion("Error al leer la imagen", NotificationVariant.LUMO_ERROR)
-                ));
-            }
-        });
+        uploadCamara.setUploadHandler((UploadEvent event) -> procesarArchivo(event, uploadArchivo));
 
 
         preview.setWidth("200px");
@@ -188,6 +161,31 @@ public class ProductoFormView extends VerticalLayout {
                 .set("object-fit",    "cover")
                 .set("border-radius", "8px")
                 .set("display",       "none");
+    }
+
+    private void procesarArchivo(UploadEvent event, Upload uploadContrario) {
+        try (java.io.InputStream stream = event.getInputStream();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+            byte[] buffer = new byte[8192];
+            int bytesLeidos;
+            while ((bytesLeidos = stream.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesLeidos);
+            }
+
+            byte[] bytesFinales = baos.toByteArray();
+
+            getUI().ifPresent(ui -> ui.access(() -> {
+                uploadContrario.clearFileList();
+                fotoBytes = bytesFinales;
+                mostrarPreview();
+            }));
+
+        } catch (Exception e) {
+            getUI().ifPresent(ui -> ui.access(() ->
+                    mostrarNotificacion("Error de conexión al subir la imagen", NotificationVariant.LUMO_ERROR)
+            ));
+        }
     }
 
     private void mostrarPreview() {
@@ -287,5 +285,14 @@ public class ProductoFormView extends VerticalLayout {
 
     private void limpiarFormulario() {
         binder.readBean(new Producto());
+        limpiarFoto();
+    }
+
+    private void limpiarFoto() {
+        uploadArchivo.clearFileList();
+        uploadCamara.clearFileList();
+        fotoBytes = null;
+        preview.getElement().removeAttribute("src");
+        preview.getStyle().set("display", "none");
     }
 }
