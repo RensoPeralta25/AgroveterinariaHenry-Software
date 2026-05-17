@@ -22,13 +22,12 @@ public class Producto {
 
     public Producto(){}
 
-    public Producto(Long idProducto, String nombre, BigDecimal precioUnitario, CategoriaProducto categoria, BigDecimal presentacion, UnidadMedida unidadMedida, byte[] foto) {
+    public Producto(Long idProducto, String nombre, BigDecimal precioUnitario, CategoriaProducto categoria, BigDecimal presentacion, UnidadMedida unidadMedida) {
         this.idProducto = idProducto;
         this.nombre = nombre;
         this.precioUnitario = precioUnitario;
         this.categoria = categoria;
         this.presentacion = presentacion;
         this.unidadMedida = unidadMedida;
-        this.foto = foto;
     }
 }
