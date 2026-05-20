@@ -24,10 +24,7 @@ public class ProductoCrudView extends VerticalLayout {
         crud.getGrid().setColumns("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida");
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
 
-        formFactory.setVisibleProperties(CrudOperation.ADD,
-                "nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida", "foto");
-        formFactory.setVisibleProperties(CrudOperation.UPDATE,
-                "nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida", "foto");
+        formFactory.setVisibleProperties("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida", "foto");
 
         formFactory.setFieldCaptions("Nombre del producto", "Precio unitario", "Categoría", "Presentación", "Unidad de medida", "");
 
@@ -60,10 +57,10 @@ public class ProductoCrudView extends VerticalLayout {
 
         crud.setCrudFormFactory(formFactory);
 
-        crud.setFindAllOperation(backend::findAll);
-        crud.setAddOperation(backend::save);
-        crud.setUpdateOperation(backend::save);
-        crud.setDeleteOperation(backend::delete);
+        crud.setFindAllOperation(backend::listarTodos);
+        crud.setAddOperation(backend::guardar);
+        crud.setUpdateOperation(backend::guardar);
+        crud.setDeleteOperation(backend::eliminar);
 
         crud.setSizeFull();
         setSizeFull();
