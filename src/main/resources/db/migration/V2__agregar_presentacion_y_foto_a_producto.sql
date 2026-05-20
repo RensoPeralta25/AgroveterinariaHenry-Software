@@ -1,0 +1,3 @@
+ALTER TABLE producto
+    ADD COLUMN presentacion DECIMAL(10,2) NOT NULL DEFAULT 0,
+    ADD COLUMN foto BYTEA;
