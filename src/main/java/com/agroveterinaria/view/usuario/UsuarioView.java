@@ -45,6 +45,8 @@ public class UsuarioView extends VerticalLayout {
             }
         });
 
+        crudUsuario.setDeleteOperation(usuarioService::delete);
+
         add(crudUsuario);
     }
 }

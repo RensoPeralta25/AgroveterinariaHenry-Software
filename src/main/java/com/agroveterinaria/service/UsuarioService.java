@@ -26,4 +26,8 @@ public class UsuarioService {
     }
 
     public List<Usuario> findAll(){return usuarioRepository.findAll();}
+
+    public void delete(Usuario u){
+        usuarioRepository.delete(u);
+    }
 }
