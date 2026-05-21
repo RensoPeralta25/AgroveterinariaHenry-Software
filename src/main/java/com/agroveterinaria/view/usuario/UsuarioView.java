@@ -13,7 +13,11 @@ import org.vaadin.crudui.crud.impl.GridCrud;
 @Route("usuarios")
 public class UsuarioView extends VerticalLayout {
 
+    private final UsuarioService usuarioService;
+
     public UsuarioView(UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
+
         GridCrud<Usuario> crudUsuario = new GridCrud<>(Usuario.class);
         crudUsuario.getGrid().setColumns("idUsuario", "username");
         crudUsuario.getGrid().getColumnByKey("idUsuario").setHeader("ID");
@@ -23,28 +27,21 @@ public class UsuarioView extends VerticalLayout {
         crudUsuario.getCrudFormFactory().setFieldType("password", PasswordField.class);
 
         crudUsuario.setFindAllOperation(usuarioService::findAll);
-        crudUsuario.setAddOperation(usuario -> {
-            try{
-                return usuarioService.add(usuario);
-            } catch (IllegalArgumentException e){
-                Notification notificacion = Notification.show(e.getMessage(), 4000, Notification.Position.MIDDLE);
-                notificacion.addThemeVariants(NotificationVariant.LUMO_ERROR);
-
-                throw new RuntimeException("Validación fallida");
-            }
-        });
-
-        crudUsuario.setUpdateOperation(usuario -> {
-            try{
-                return usuarioService.add(usuario);
-            } catch (IllegalArgumentException e) {
-                Notification notificacion = Notification.show(e.getMessage(), 4000, Notification.Position.MIDDLE);
-                notificacion.addThemeVariants(NotificationVariant.LUMO_ERROR);
-
-                throw new RuntimeException("Validación fallida");
-            }
-        });
+        crudUsuario.setAddOperation(this::guardarConValidacion);
+        crudUsuario.setUpdateOperation(this::guardarConValidacion);
+        crudUsuario.setDeleteOperation(usuarioService::delete);
 
         add(crudUsuario);
+    }
+
+    private Usuario guardarConValidacion(Usuario usuario){
+        try{
+            return usuarioService.add(usuario);
+        } catch (IllegalArgumentException e) {
+            Notification notificacion = Notification.show(e.getMessage(), 4000, Notification.Position.MIDDLE);
+            notificacion.addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+            throw new RuntimeException("Validación fallida");
+        }
     }
 }
