@@ -125,7 +125,7 @@ public class FotoProductoField extends CustomField<byte[]> {
             preview.getElement().setAttribute("src", "data:image/jpeg;base64," + base64);
             preview.getStyle().set("display", "block");
 
-            btnEliminar.setVisible(true);
+            btnEliminar.setVisible(!isReadOnly());
         }
     }
 
@@ -153,6 +153,20 @@ public class FotoProductoField extends CustomField<byte[]> {
             mostrarPreview();
         } else {
             limpiarFoto();
+        }
+    }
+
+    @Override
+    public void setReadOnly(boolean readOnly) {
+        super.setReadOnly(readOnly);
+
+        uploadArchivo.setVisible(!readOnly);
+        uploadCamara.setVisible(!readOnly);
+
+        if (readOnly) {
+            btnEliminar.setVisible(false);
+        } else {
+            btnEliminar.setVisible(fotoBytes != null);
         }
     }
 }
