@@ -3,7 +3,9 @@ package com.agroveterinaria.view.producto;
 import com.agroveterinaria.component.FotoProductoField;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.service.ProductoService;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -14,6 +16,8 @@ import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
+import java.util.Base64;
+
 @Route("productos")
 @PageTitle("Gestión de Productos")
 public class ProductoCrudView extends VerticalLayout {
@@ -21,7 +25,40 @@ public class ProductoCrudView extends VerticalLayout {
     public ProductoCrudView(ProductoService backend) {
 
         GridCrud<Producto> crud = new GridCrud<>(Producto.class, new WindowBasedCrudLayout());
-        crud.getGrid().setColumns("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida");
+
+        crud.getGrid().removeAllColumns();
+        crud.getGrid().addComponentColumn(producto -> {
+            HorizontalLayout layout = new HorizontalLayout();
+            layout.setAlignItems(Alignment.CENTER);
+            layout.setSpacing(true);
+
+            Image avatar = new Image();
+            avatar.setWidth("44px");
+            avatar.setHeight("44px");
+            avatar.getStyle()
+                    .set("object-fit", "cover")
+                    .set("border-radius", "8px")
+                    .set("border", "1px solid #e0e0e0")
+                    .set("background-color", "#f5f5f5");
+
+            if (producto.getFoto() != null && producto.getFoto().length > 0) {
+                String base64 = Base64.getEncoder().encodeToString(producto.getFoto());
+                avatar.setSrc("data:image/jpeg;base64," + base64);
+            }
+
+            Span nombreSpan = new Span(producto.getNombre() != null ? producto.getNombre() : "");
+            nombreSpan.getStyle()
+                    .set("font-weight", "500")
+                    .set("color", "#333");
+
+            layout.add(avatar, nombreSpan);
+            return layout;
+        }).setHeader("Producto").setKey("nombre").setComparator(producto -> producto.getNombre());
+        crud.getGrid().addColumn("categoria").setHeader("Categoría");
+        crud.getGrid().addColumn("precioUnitario");
+        crud.getGrid().addColumn("presentacion").setHeader("Presentación");
+        crud.getGrid().addColumn("unidadMedida").setHeader("Unidad de Medida");
+
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
 
         formFactory.setUseBeanValidation(true);
