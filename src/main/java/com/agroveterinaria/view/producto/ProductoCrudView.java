@@ -64,19 +64,22 @@ public class ProductoCrudView extends VerticalLayout {
                 .setHeader("Categoría")
                 .setKey("categoria")
                 .setComparator(producto -> producto.getCategoria().getEtiqueta());
-        crud.getGrid().addColumn("precioUnitario");
+        crud.getGrid().addColumn(producto -> String.format("RD$ %,.2f", producto.getPrecioUnitario()))
+                .setKey("precioUnitario")
+                .setHeader("Precio Unitario")
+                .setComparator(producto -> producto.getPrecioUnitario());
         crud.getGrid().addColumn("presentacion").setHeader("Presentación");
         crud.getGrid().addColumn(producto -> producto.getUnidadMedida().getEtiqueta())
                 .setHeader("Unidad de Medida")
                 .setKey("unidadMedida")
                 .setComparator(producto -> producto.getCategoria().getEtiqueta());
 
+
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
 
         formFactory.setUseBeanValidation(true);
         formFactory.setVisibleProperties("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida", "foto");
         formFactory.setFieldCaptions("Nombre del producto", "Precio unitario", "Categoría", "Presentación", "Unidad de medida", "");
-
 
         formFactory.setFieldCreationListener("nombre", field -> {
             TextField nombreField = (TextField) field;
