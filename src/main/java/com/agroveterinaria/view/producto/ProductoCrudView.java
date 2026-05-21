@@ -2,6 +2,8 @@ package com.agroveterinaria.view.producto;
 
 import com.agroveterinaria.component.FotoProductoField;
 import com.agroveterinaria.entity.Producto;
+import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.UnidadMedida;
 import com.agroveterinaria.service.ProductoService;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
@@ -13,6 +15,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
+import com.vaadin.flow.component.combobox.ComboBox;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
@@ -53,11 +56,20 @@ public class ProductoCrudView extends VerticalLayout {
 
             layout.add(avatar, nombreSpan);
             return layout;
-        }).setHeader("Producto").setKey("nombre").setComparator(producto -> producto.getNombre());
-        crud.getGrid().addColumn("categoria").setHeader("Categoría");
+        })
+                .setHeader("Producto")
+                .setKey("nombre")
+                .setComparator(producto -> producto.getNombre());
+        crud.getGrid().addColumn(producto -> producto.getCategoria().getEtiqueta())
+                .setHeader("Categoría")
+                .setKey("categoria")
+                .setComparator(producto -> producto.getCategoria().getEtiqueta());
         crud.getGrid().addColumn("precioUnitario");
         crud.getGrid().addColumn("presentacion").setHeader("Presentación");
-        crud.getGrid().addColumn("unidadMedida").setHeader("Unidad de Medida");
+        crud.getGrid().addColumn(producto -> producto.getUnidadMedida().getEtiqueta())
+                .setHeader("Unidad de Medida")
+                .setKey("unidadMedida")
+                .setComparator(producto -> producto.getCategoria().getEtiqueta());
 
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
 
@@ -88,6 +100,21 @@ public class ProductoCrudView extends VerticalLayout {
             com.vaadin.flow.component.Component componenteFoto = (com.vaadin.flow.component.Component) field;
             componenteFoto.getElement().setAttribute("colspan", "2");
         });
+
+        formFactory.setFieldProvider("categoria", producto -> {
+            ComboBox<CategoriaProducto> combo = new ComboBox<>();
+            combo.setItems(CategoriaProducto.values());
+            combo.setItemLabelGenerator(CategoriaProducto::getEtiqueta);
+            return combo;
+        });
+
+        formFactory.setFieldProvider("unidadMedida", producto -> {
+            ComboBox<UnidadMedida> combo = new ComboBox<>();
+            combo.setItems(UnidadMedida.values());
+            combo.setItemLabelGenerator(UnidadMedida::getEtiqueta);
+            return combo;
+        });
+
 
         crud.getCrudFormFactory().setCaption(CrudOperation.ADD, "Registrar nuevo producto");
         crud.getCrudFormFactory().setCaption(CrudOperation.UPDATE, "Editar producto");
