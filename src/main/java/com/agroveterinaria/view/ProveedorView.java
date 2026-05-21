@@ -17,10 +17,10 @@ public class ProveedorView extends VerticalLayout {
 
         GridCrud<Proveedor> crud = new GridCrud<>(Proveedor.class);
 
+
         crud.setFindAllOperation(repository::findAll);
         crud.setAddOperation(repository::save);
         crud.setUpdateOperation(repository::save);
-        crud.setDeleteOperation(repository::delete);
 
         crud.getGrid().setColumns("rnc", "nombre", "telefono", "direccion", "numPersonaContacto", "status");
 
