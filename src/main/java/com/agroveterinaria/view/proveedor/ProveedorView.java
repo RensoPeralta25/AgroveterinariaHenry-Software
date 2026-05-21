@@ -1,4 +1,4 @@
-package com.agroveterinaria.view;
+package com.agroveterinaria.view.proveedor;
 
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.StatusEntidad;
