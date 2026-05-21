@@ -5,6 +5,7 @@ import com.agroveterinaria.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UsuarioService {
@@ -15,6 +16,12 @@ public class UsuarioService {
     }
 
     public Usuario add(Usuario u) {
+        Optional<Usuario> existente = usuarioRepository.findByUsername(u.getUsername());
+
+        if(existente.isPresent() && !existente.get().getIdUsuario().equals(u.getIdUsuario())){
+            throw new IllegalArgumentException("Error: El nombre de usuario '" + u.getUsername() + "' ya está en uso");
+        }
+
         return usuarioRepository.save(u);
     }
 

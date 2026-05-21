@@ -2,6 +2,8 @@ package com.agroveterinaria.view;
 
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.service.UsuarioService;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.router.Route;
@@ -21,8 +23,27 @@ public class UsuarioView extends VerticalLayout {
         crudUsuario.getCrudFormFactory().setFieldType("password", PasswordField.class);
 
         crudUsuario.setFindAllOperation(usuarioService::findAll);
-        crudUsuario.setAddOperation(usuarioService::add);
-        crudUsuario.setUpdateOperation(usuarioService::add);
+        crudUsuario.setAddOperation(usuario -> {
+            try{
+                return usuarioService.add(usuario);
+            } catch (IllegalArgumentException e){
+                Notification notificacion = Notification.show(e.getMessage(), 4000, Notification.Position.MIDDLE);
+                notificacion.addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+                throw new RuntimeException("Validación fallida");
+            }
+        });
+
+        crudUsuario.setUpdateOperation(usuario -> {
+            try{
+                return usuarioService.add(usuario);
+            } catch (IllegalArgumentException e) {
+                Notification notificacion = Notification.show(e.getMessage(), 4000, Notification.Position.MIDDLE);
+                notificacion.addThemeVariants(NotificationVariant.LUMO_ERROR);
+
+                throw new RuntimeException("Validación fallida");
+            }
+        });
 
         add(crudUsuario);
     }
