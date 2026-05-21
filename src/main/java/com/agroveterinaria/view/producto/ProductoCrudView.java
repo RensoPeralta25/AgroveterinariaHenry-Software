@@ -24,8 +24,8 @@ public class ProductoCrudView extends VerticalLayout {
         crud.getGrid().setColumns("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida");
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
 
+        formFactory.setUseBeanValidation(true);
         formFactory.setVisibleProperties("nombre", "precioUnitario", "categoria", "presentacion", "unidadMedida", "foto");
-
         formFactory.setFieldCaptions("Nombre del producto", "Precio unitario", "Categoría", "Presentación", "Unidad de medida", "");
 
 
