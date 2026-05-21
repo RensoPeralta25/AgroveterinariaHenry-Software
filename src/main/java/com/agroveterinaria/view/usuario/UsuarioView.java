@@ -1,4 +1,4 @@
-package com.agroveterinaria.view;
+package com.agroveterinaria.view.usuario;
 
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.service.UsuarioService;
