@@ -6,6 +6,7 @@ import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.upload.Upload;
@@ -19,7 +20,8 @@ public class FotoProductoField extends CustomField<byte[]> {
     private byte[] fotoBytes = null;
     private final Upload uploadArchivo = new Upload();
     private final Upload uploadCamara  = new Upload();
-    private final Image preview       = new Image();
+    private final Image preview        = new Image();
+    private final Button btnEliminar   = new Button("Eliminar foto");
 
     public FotoProductoField() {
         configurarUpload();
@@ -53,6 +55,10 @@ public class FotoProductoField extends CustomField<byte[]> {
                 .set("object-fit", "cover")
                 .set("border-radius", "8px")
                 .set("display", "none");
+
+        btnEliminar.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
+        btnEliminar.setVisible(false);
+        btnEliminar.addClickListener(e -> limpiarFoto());
     }
 
     private void procesarArchivo(UploadEvent event, Upload uploadContrario) {
@@ -71,7 +77,7 @@ public class FotoProductoField extends CustomField<byte[]> {
                 uploadContrario.clearFileList();
                 this.fotoBytes = bytesFinales;
                 mostrarPreview();
-                updateValue(); // ¡IMPORTANTE! Le avisa al CRUD que el valor cambió
+                updateValue();
             }));
 
         } catch (Exception e) {
@@ -102,7 +108,14 @@ public class FotoProductoField extends CustomField<byte[]> {
                 .set("flex-direction", "column")
                 .set("gap", "8px");
 
-        seccionFoto.add(opcionesFoto, preview);
+        Div contenedorPreview = new Div(preview, btnEliminar);
+        contenedorPreview.getStyle()
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("align-items", "center")
+                .set("gap", "8px");
+
+        seccionFoto.add(opcionesFoto, contenedorPreview);
         add(seccionFoto);
     }
 
@@ -111,6 +124,8 @@ public class FotoProductoField extends CustomField<byte[]> {
             String base64 = Base64.getEncoder().encodeToString(fotoBytes);
             preview.getElement().setAttribute("src", "data:image/jpeg;base64," + base64);
             preview.getStyle().set("display", "block");
+
+            btnEliminar.setVisible(true);
         }
     }
 
@@ -120,6 +135,9 @@ public class FotoProductoField extends CustomField<byte[]> {
         this.fotoBytes = null;
         preview.getElement().removeAttribute("src");
         preview.getStyle().set("display", "none");
+
+        btnEliminar.setVisible(false);
+
         updateValue();
     }
 
