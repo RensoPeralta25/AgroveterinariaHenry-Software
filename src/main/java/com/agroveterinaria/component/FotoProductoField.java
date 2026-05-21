@@ -91,9 +91,8 @@ public class FotoProductoField extends CustomField<byte[]> {
         Div seccionFoto = new Div();
         seccionFoto.getStyle()
                 .set("display", "flex")
+                .set("flex-direction", "column")
                 .set("gap", "16px")
-                .set("align-items", "center")
-                .set("flex-wrap", "wrap")
                 .set("padding", "12px")
                 .set("border", "1px dashed #ccc")
                 .set("border-radius", "8px")
@@ -102,7 +101,14 @@ public class FotoProductoField extends CustomField<byte[]> {
         H2 titulo = new H2("Foto del producto");
         titulo.getStyle().set("margin", "0").set("font-size", "1.2em");
 
-        Div opcionesFoto = new Div(titulo, uploadArchivo, uploadCamara);
+        Div contenidoFoto = new Div();
+        contenidoFoto.getStyle()
+                .set("display", "flex")
+                .set("gap", "16px")
+                .set("align-items", "center")
+                .set("flex-wrap", "wrap");
+
+        Div opcionesFoto = new Div(uploadArchivo, uploadCamara);
         opcionesFoto.getStyle()
                 .set("display", "flex")
                 .set("flex-direction", "column")
@@ -115,7 +121,9 @@ public class FotoProductoField extends CustomField<byte[]> {
                 .set("align-items", "center")
                 .set("gap", "8px");
 
-        seccionFoto.add(opcionesFoto, contenedorPreview);
+        contenidoFoto.add(opcionesFoto, contenedorPreview);
+        seccionFoto.add(titulo, contenidoFoto);
+
         add(seccionFoto);
     }
 
