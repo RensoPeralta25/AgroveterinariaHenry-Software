@@ -11,7 +11,7 @@ import com.vaadin.flow.component.page.AppShellConfigurator;
 // Your custom styles
 @StyleSheet("styles.css")
 public class Application implements AppShellConfigurator {
-
+    //prueba
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
