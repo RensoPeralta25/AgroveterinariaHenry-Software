@@ -22,6 +22,7 @@ public class UsuarioView extends VerticalLayout {
 
         crudUsuario.setFindAllOperation(usuarioService::findAll);
         crudUsuario.setAddOperation(usuarioService::add);
+        crudUsuario.setUpdateOperation(usuarioService::add);
 
         add(crudUsuario);
     }
