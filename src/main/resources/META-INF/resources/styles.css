@@ -1,2 +1,352 @@
-@import "./theme-editor.css";
-/* Add your styles here */
+html,
+body {
+    height: 100%;
+    margin: 0;
+    background: #f6f8fb;
+}
+
+.main-view {
+    min-height: 100vh;
+    background: #f6f8fb;
+    color: #1f2937;
+}
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    flex: 0 0 280px;
+    width: 280px;
+    min-width: 280px;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    color: #1f2937;
+}
+
+.brand {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 30px 22px 38px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 14px;
+}
+
+.brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1676f3;
+    font-size: 17px;
+    font-weight: 750;
+}
+
+.brand-name {
+    margin: 0;
+    color: #111827;
+    font-size: 17px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.brand-subtitle {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.sidebar-nav {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 34px 20px 0;
+    gap: 12px;
+}
+
+.menu-button {
+    justify-content: flex-start;
+    height: 52px;
+    border-radius: 8px;
+    color: #334155;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 560;
+    padding-inline: 14px;
+}
+
+.menu-button vaadin-icon {
+    width: 22px;
+    height: 22px;
+    color: #475569;
+    margin-right: 12px;
+}
+
+.menu-button:hover {
+    background: #eef6ff;
+    color: #1676f3;
+}
+
+.menu-button:hover vaadin-icon {
+    color: #1676f3;
+}
+
+.menu-button-active,
+.menu-button-active:hover {
+    background: #e8f3ff;
+    color: #1676f3;
+    font-weight: 720;
+}
+
+.menu-button-active vaadin-icon,
+.menu-button-active:hover vaadin-icon {
+    color: #1676f3;
+}
+
+.sidebar-footer {
+    width: calc(100% - 28px);
+    box-sizing: border-box;
+    margin: 14px;
+    padding: 0 12px 18px;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.main-panel {
+    flex: 1 1 auto;
+    width: calc(100% - 280px);
+    min-width: 0;
+    background: #f6f8fb;
+}
+
+.module-header {
+    width: 100%;
+    box-sizing: border-box;
+    height: 98px;
+    padding: 0 28px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.topbar-left {
+    gap: 28px;
+}
+
+.collapse-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 8px;
+    color: #64748b;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.module-title {
+    margin: 0;
+    color: #111827;
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.user-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.content-area {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 24px 26px 34px;
+    overflow: auto;
+}
+
+.panel-summary {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 118px;
+    margin-bottom: 24px;
+    padding: 24px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.panel-summary-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    border-radius: 50%;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1676f3;
+    margin-right: 18px;
+}
+
+.panel-summary-icon vaadin-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.panel-summary-title {
+    margin: 0;
+    color: #111827;
+    font-size: 23px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.panel-summary-description {
+    margin: 10px 0 0;
+    color: #64748b;
+    font-size: 15px;
+}
+
+.module-content-grid {
+    width: 100%;
+    min-height: 540px;
+    gap: 16px;
+}
+
+.module-card {
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 22px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.module-card > vaadin-vertical-layout {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0;
+}
+
+.module-card vaadin-grid {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    box-shadow: none;
+}
+
+.quick-actions-card {
+    flex: 0 0 248px;
+    width: 248px;
+    min-width: 248px;
+    box-sizing: border-box;
+    padding: 24px 16px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.quick-actions-title {
+    margin: 0 0 18px;
+    color: #111827;
+    font-size: 18px;
+    font-weight: 760;
+}
+
+.quick-action-button {
+    justify-content: flex-start;
+    height: 48px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #60a5fa;
+    color: #1676f3;
+    font-weight: 650;
+    padding-inline: 14px;
+    font-size: 14px;
+}
+
+.quick-action-button:hover {
+    background: #eff6ff;
+    color: #1676f3;
+}
+
+.quick-action-button vaadin-icon {
+    margin-right: 10px;
+    color: #1676f3;
+}
+
+.welcome-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 360px;
+    color: #64748b;
+    font-size: 16px;
+}
+
+@media (max-width: 760px) {
+    .app-shell {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-width: 0;
+        height: auto;
+    }
+
+    .brand {
+        padding: 16px;
+    }
+
+    .sidebar-nav {
+        padding: 10px 12px;
+    }
+
+    .module-header {
+        height: auto;
+        padding: 18px;
+    }
+
+    .topbar-left {
+        gap: 14px;
+    }
+
+    .module-title {
+        font-size: 22px;
+    }
+
+    .content-area {
+        padding: 16px;
+    }
+
+    .module-content-grid {
+        flex-direction: column;
+    }
+
+    .quick-actions-card {
+        width: 100%;
+        min-width: 0;
+    }
+}
