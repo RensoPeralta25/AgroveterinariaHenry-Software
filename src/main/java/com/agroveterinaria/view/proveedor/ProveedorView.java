@@ -3,6 +3,7 @@ package com.agroveterinaria.view.proveedor;
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.repository.ProveedorRepository;
+import com.agroveterinaria.service.ProveedorService;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
@@ -13,15 +14,15 @@ import org.vaadin.crudui.crud.impl.GridCrud;
 @PageTitle("Gestión de Proveedores | Agroveterinaria")
 public class ProveedorView extends VerticalLayout {
 
-    public ProveedorView(ProveedorRepository repository) {
+    public ProveedorView(ProveedorService proveedorService) {
 
         GridCrud<Proveedor> crud = new GridCrud<>(Proveedor.class);
 
 
-        crud.setFindAllOperation(repository::findAll);
-        crud.setAddOperation(repository::save);
-        crud.setUpdateOperation(repository::save);
-        crud.setDeleteOperation(repository::save);
+        crud.setFindAllOperation(proveedorService::listarTodos);
+        crud.setAddOperation(proveedorService::guardar);
+        crud.setUpdateOperation(proveedorService::guardar);
+        crud.setDeleteOperation(proveedorService::guardar);
 
         crud.getGrid().setColumns("rnc", "nombre", "telefono", "direccion", "numPersonaContacto", "status");
 
