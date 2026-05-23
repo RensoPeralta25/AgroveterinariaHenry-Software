@@ -11,6 +11,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
@@ -19,6 +20,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
+import java.math.RoundingMode;
 import java.util.Base64;
 
 @Route("productos")
@@ -91,10 +93,23 @@ public class ProductoCrudView extends VerticalLayout {
             BigDecimalField bf = (BigDecimalField) field;
             bf.setPlaceholder("0.00");
             bf.setPrefixComponent(new Span("RD$"));
+            bf.setValueChangeMode(ValueChangeMode.EAGER);
+            bf.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.getValue().scale() > 2) {
+                    bf.setValue(e.getValue().setScale(2, RoundingMode.DOWN));
+                }
+            });
         });
 
         formFactory.setFieldCreationListener("presentacion", field -> {
-            ((BigDecimalField) field).setPlaceholder("Ej: 100, 250, 2.5");
+            BigDecimalField bf = (BigDecimalField) field;
+            bf.setPlaceholder("Ej: 100, 250, 2.50");
+            bf.setValueChangeMode(ValueChangeMode.EAGER);
+            bf.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.getValue().scale() > 2) {
+                    bf.setValue(e.getValue().setScale(2, RoundingMode.DOWN));
+                }
+            });
         });
 
         formFactory.setFieldProvider("foto", producto -> new FotoProductoField());
