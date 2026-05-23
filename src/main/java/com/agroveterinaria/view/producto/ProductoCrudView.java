@@ -139,7 +139,35 @@ public class ProductoCrudView extends VerticalLayout {
 
         crud.setCrudFormFactory(formFactory);
 
-        crud.setFindAllOperation(backend::listarTodos);
+
+        TextField searchField = new TextField();
+        searchField.setPlaceholder("Buscar producto...");
+        searchField.setClearButtonVisible(true);
+        searchField.setValueChangeMode(ValueChangeMode.EAGER);
+        searchField.addValueChangeListener(e -> crud.refreshGrid());
+        crud.getCrudLayout().addFilterComponent(searchField);
+
+        crud.setFindAllOperation(() -> {
+            String termino = searchField.getValue().toLowerCase().trim();
+            if (termino.isEmpty()) {
+                return backend.listarTodos();
+            }
+            return backend.listarTodos().stream()
+                    .filter(producto -> {
+                        boolean coincideNombre = producto.getNombre() != null &&
+                                producto.getNombre().toLowerCase().contains(termino);
+                        boolean coincideCategoria = producto.getCategoria() != null &&
+                                producto.getCategoria().getEtiqueta().toLowerCase().contains(termino);
+                        boolean coincideUnidad = producto.getUnidadMedida() != null &&
+                                producto.getUnidadMedida().getEtiqueta().toLowerCase().contains(termino);
+                        boolean coincidePrecio = producto.getPrecioUnitario() != null &&
+                                producto.getPrecioUnitario().toString().contains(termino);
+                        boolean coincidePresentacion = producto.getPresentacion() != null &&
+                                producto.getPresentacion().toString().contains(termino);
+                        return coincideNombre || coincideCategoria || coincideUnidad || coincidePrecio || coincidePresentacion;
+                    })
+                    .toList();
+        });
         crud.setAddOperation(backend::guardar);
         crud.setUpdateOperation(backend::guardar);
         crud.setDeleteOperation(backend::eliminar);
