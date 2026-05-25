@@ -174,6 +174,7 @@ public class MainView extends Div {
         mainPanel.setPadding(false);
         mainPanel.setSpacing(false);
         mainPanel.expand(contentArea);
+mainPanel.getStyle().setFlexGrow("1");
 
         return mainPanel;
     }
