@@ -1,0 +1,1 @@
+ALTER TABLE empleado ALTER COLUMN id_usuario DROP NOT NULL;
