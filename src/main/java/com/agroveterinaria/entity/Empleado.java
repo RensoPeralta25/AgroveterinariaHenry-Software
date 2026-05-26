@@ -2,6 +2,9 @@ package com.agroveterinaria.entity;
 
 import com.agroveterinaria.enums.RolEmpleado;
 import jakarta.persistence.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,7 +12,6 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -25,6 +27,7 @@ public class Empleado {
     @Column(name = "id_empleado")
     private Long IdEmpleado;
 
+    @Valid
     @OneToOne
     @JoinColumn(name = "id_persona")
     private Persona persona;
@@ -39,6 +42,8 @@ public class Empleado {
     @Column(name = "rol")
     private Set<RolEmpleado> cargos = new HashSet<>();
 
+    @NotNull(message = "El salario es obligatorio")
+    @PositiveOrZero
     private BigDecimal salario;
 
 }
