@@ -60,6 +60,10 @@ public class EmpleadoService {
         return empleadoRepository.save(emp);
     }
 
+    public void delete(Empleado emp){
+        empleadoRepository.delete(emp);
+    }
+
     public void validar(Empleado empleado){
         if (empleado.getPersona() != null && empleado.getPersona().getCedula() != null) {
             String cedula = empleado.getPersona().getCedula();
