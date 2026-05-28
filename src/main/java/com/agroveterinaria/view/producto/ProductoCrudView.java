@@ -240,19 +240,33 @@ public class ProductoCrudView extends VerticalLayout {
         searchField.addValueChangeListener(e -> crud.refreshGrid());
         crud.getCrudLayout().addFilterComponent(searchField);
 
+        ComboBox<StatusEntidad> statusFilter = new ComboBox<>();
+        statusFilter.setPlaceholder("Todos los estados");
+        statusFilter.setItems(StatusEntidad.values());
+        statusFilter.setItemLabelGenerator(StatusEntidad::getEtiqueta);
+        statusFilter.setClearButtonVisible(true);
+        statusFilter.addValueChangeListener(e -> crud.refreshGrid());
+        crud.getCrudLayout().addFilterComponent(statusFilter);
         crud.setFindAllOperation(() -> {
             String termino = searchField.getValue().toLowerCase().trim();
-            if (termino.isEmpty()) {
-                return backend.listarTodos();
-            }
+            StatusEntidad estadoSeleccionado = statusFilter.getValue();
+
             return backend.listarTodos().stream()
                     .filter(producto -> {
-                        boolean coincideNombre = producto.getNombre() != null && producto.getNombre().toLowerCase().contains(termino);
-                        boolean coincideCategoria = producto.getCategoria() != null && producto.getCategoria().getEtiqueta().toLowerCase().contains(termino);
-                        boolean coincideEmpaque = producto.getUnidadEmpaque() != null && producto.getUnidadEmpaque().getEtiqueta().toLowerCase().contains(termino);
-                        boolean coincidePrecio = producto.getPrecioEmpaque() != null && producto.getPrecioEmpaque().toString().contains(termino);
+                        if (estadoSeleccionado != null && producto.getStatus() != estadoSeleccionado) {
+                            return false;
+                        }
 
-                        return coincideNombre || coincideCategoria || coincideEmpaque || coincidePrecio;
+                        if (!termino.isEmpty()) {
+                            boolean coincideNombre = producto.getNombre() != null && producto.getNombre().toLowerCase().contains(termino);
+                            boolean coincideCategoria = producto.getCategoria() != null && producto.getCategoria().getEtiqueta().toLowerCase().contains(termino);
+                            boolean coincideEmpaque = producto.getUnidadEmpaque() != null && producto.getUnidadEmpaque().getEtiqueta().toLowerCase().contains(termino);
+                            boolean coincidePrecio = producto.getPrecioEmpaque() != null && producto.getPrecioEmpaque().toString().contains(termino);
+
+                            return coincideNombre || coincideCategoria || coincideEmpaque || coincidePrecio;
+                        }
+
+                        return true;
                     })
                     .toList();
         });
