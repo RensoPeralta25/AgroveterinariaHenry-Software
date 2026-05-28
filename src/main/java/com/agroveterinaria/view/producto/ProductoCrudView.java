@@ -3,6 +3,7 @@ package com.agroveterinaria.view.producto;
 import com.agroveterinaria.component.FotoProductoField;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.UnidadEmpaque;
 import com.agroveterinaria.enums.UnidadMedida;
 import com.agroveterinaria.service.ProductoService;
@@ -10,6 +11,8 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
@@ -32,7 +35,9 @@ public class ProductoCrudView extends VerticalLayout {
 
     public ProductoCrudView(ProductoService backend) {
 
-        GridCrud<Producto> crud = new GridCrud<>(Producto.class, new WindowBasedCrudLayout());
+        WindowBasedCrudLayout crudLayout = new WindowBasedCrudLayout();
+        crudLayout.setFormWindowWidth("600px");
+        GridCrud<Producto> crud = new GridCrud<>(Producto.class, crudLayout);
 
         crud.getGrid().removeAllColumns();
         crud.getGrid().addComponentColumn(producto -> {
@@ -76,6 +81,13 @@ public class ProductoCrudView extends VerticalLayout {
                 .setKey("precioEmpaque")
                 .setComparator(Producto::getPrecioEmpaque);
 
+        crud.getGrid().addComponentColumn(producto -> {
+            boolean isActivo = producto.getStatus() == StatusEntidad.ACTIVO;
+            Span badge = new Span(producto.getStatus() != null ? producto.getStatus().getEtiqueta() : "");
+            badge.getElement().getThemeList().add("badge " + (isActivo ? "success" : "error"));
+            return badge;
+        }).setHeader("Estado").setKey("status").setComparator(producto -> producto.getStatus().getEtiqueta());
+
         crud.getGrid().addColumn(producto -> (producto.getPermiteFraccionamiento() != null && producto.getPermiteFraccionamiento()) ? "Sí" : "No")
                 .setHeader("Al Detalle")
                 .setKey("permiteFraccionamiento");
@@ -88,12 +100,12 @@ public class ProductoCrudView extends VerticalLayout {
 
         formFactory.setVisibleProperties(
                 "nombre", "categoria", "unidadEmpaque", "precioEmpaque",
-                "permiteFraccionamiento", "contenidoPorEmpaque", "unidadFraccion", "precioFraccion", "foto"
+                "status", "permiteFraccionamiento", "contenidoPorEmpaque", "unidadFraccion", "precioFraccion", "foto"
         );
 
         formFactory.setFieldCaptions(
-                "Nombre del producto", "Categoría", "Formato de Almacén (Empaque)", "Precio por Empaque cerrado",
-                "¿Permite venta al detalle (fraccionada)?", "Unidades/Fracciones que trae el empaque", "Unidad de Venta al Detalle", "Precio de la Fracción", ""
+                "Nombre del producto", "Categoría", "Formato de Almacén (Empaque)", "Precio por Empaque",
+                "Estado del Producto", "¿Permite venta al detalle?", "Fracciones/Unidades por empaque", "Unidad al Detalle", "Precio Fracción", ""
         );
 
 
@@ -194,6 +206,25 @@ public class ProductoCrudView extends VerticalLayout {
         formFactory.setFieldCreationListener("foto", field -> {
             com.vaadin.flow.component.Component componenteFoto = (com.vaadin.flow.component.Component) field;
             componenteFoto.getElement().setAttribute("colspan", "2");
+        });
+
+        formFactory.setFieldProvider("status", p -> {
+            ComboBox<StatusEntidad> cbStatus = new ComboBox<>();
+            cbStatus.setItems(StatusEntidad.values());
+            cbStatus.setItemLabelGenerator(StatusEntidad::getEtiqueta);
+            Producto productoActual = (Producto) p;
+            cbStatus.setValue(productoActual.getStatus() != null ? productoActual.getStatus() : StatusEntidad.ACTIVO);
+            cbStatus.getElement().setAttribute("colspan", "2");
+            return cbStatus;
+        });
+
+        formFactory.setErrorListener(e -> {
+            Notification alerta = Notification.show(
+                    e.getMessage(),
+                    5000,
+                    Notification.Position.MIDDLE
+            );
+            alerta.addThemeVariants(NotificationVariant.LUMO_ERROR);
         });
 
         crud.getCrudFormFactory().setCaption(CrudOperation.ADD, "Registrar nuevo producto");

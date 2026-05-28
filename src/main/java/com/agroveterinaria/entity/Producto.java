@@ -1,6 +1,7 @@
 package com.agroveterinaria.entity;
 
 import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.UnidadEmpaque;
 import com.agroveterinaria.enums.UnidadMedida;
 import jakarta.persistence.*;
@@ -67,4 +68,10 @@ public class Producto {
     @JdbcTypeCode(Types.BINARY)
     @Column(name = "foto")
     private byte[] foto;
+
+    @NotNull(message = "El estado del producto es obligatorio")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private StatusEntidad status = StatusEntidad.ACTIVO;
+
 }
