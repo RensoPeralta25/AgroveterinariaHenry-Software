@@ -32,7 +32,9 @@ public class ProductoCrudView extends VerticalLayout {
 
     public ProductoCrudView(ProductoService backend) {
 
-        GridCrud<Producto> crud = new GridCrud<>(Producto.class, new WindowBasedCrudLayout());
+        WindowBasedCrudLayout crudLayout = new WindowBasedCrudLayout();
+        crudLayout.setFormWindowWidth("600px");
+        GridCrud<Producto> crud = new GridCrud<>(Producto.class, crudLayout);
 
         crud.getGrid().removeAllColumns();
         crud.getGrid().addComponentColumn(producto -> {
