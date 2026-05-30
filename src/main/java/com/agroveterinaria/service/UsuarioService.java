@@ -15,7 +15,7 @@ public class UsuarioService {
         this.usuarioRepository = usuarioRepository;
     }
 
-    public Usuario add(Usuario u) {
+    public Usuario save(Usuario u) {
         Optional<Usuario> existente = usuarioRepository.findByUsername(u.getUsername());
 
         if(existente.isPresent() && !existente.get().getIdUsuario().equals(u.getIdUsuario())){
