@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
+import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,6 +84,10 @@ public class EmpleadoService {
         if (empleado.getCargos() == null || empleado.getCargos().isEmpty()) {
             throw new IllegalArgumentException("Error: El empleado debe tener al menos un rol asignado.");
         }
+    }
+
+    public Empleado findByUsuario (Usuario usuario){
+        return empleadoRepository.findByUsuario(usuario).orElse(null);
     }
 
 }
