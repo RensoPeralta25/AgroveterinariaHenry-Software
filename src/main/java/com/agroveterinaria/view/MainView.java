@@ -230,38 +230,13 @@ mainPanel.getStyle().setFlexGrow("1");
         Div moduleCard = new Div(moduleView);
         moduleCard.addClassName("module-card");
 
-        VerticalLayout quickActions = createQuickActions();
-
-        HorizontalLayout layout = new HorizontalLayout(moduleCard, quickActions);
+        HorizontalLayout layout = new HorizontalLayout(moduleCard);
         layout.addClassName("module-content-grid");
         layout.setAlignItems(FlexComponent.Alignment.STRETCH);
         layout.setPadding(false);
         layout.setSpacing(false);
 
         return layout;
-    }
-
-    private VerticalLayout createQuickActions() {
-        H3 title = new H3("Acciones rápidas");
-        title.addClassName("quick-actions-title");
-
-        Button registrarProveedor = createQuickActionButton(VaadinIcon.TRUCK, "Registrar proveedor");
-        Button crearUsuario = createQuickActionButton(VaadinIcon.USER_CARD, "Crear usuario");
-        Button inventarioBajo = createQuickActionButton(VaadinIcon.BAR_CHART, "Ver inventario bajo");
-
-        VerticalLayout quickActions = new VerticalLayout(title, registrarProveedor, crearUsuario, inventarioBajo);
-        quickActions.addClassName("quick-actions-card");
-        quickActions.setPadding(false);
-        quickActions.setSpacing(false);
-
-        return quickActions;
-    }
-
-    private Button createQuickActionButton(VaadinIcon icon, String label) {
-        Button button = new Button(label, icon.create());
-        button.addClassName("quick-action-button");
-        button.setWidthFull();
-        return button;
     }
 
     private Component createWelcomePanel() {
