@@ -1,0 +1,8 @@
+:host(.usuario-grid) [part~="header-cell"] {
+    background-color: #002899;
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 14px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}

@@ -1,6 +1,7 @@
 package com.agroveterinaria.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,8 +21,10 @@ public class Usuario {
     private Long idUsuario;
 
     @Column(name = "username", nullable = false, length = 20, unique = true)
+    @NotBlank(message = "El nombre de usuario es obligatorio")
     private String username;
 
+    @NotBlank(message = "La contraseña es obligatoria")
     @Column(name = "password", nullable = false)
     private String password;
 

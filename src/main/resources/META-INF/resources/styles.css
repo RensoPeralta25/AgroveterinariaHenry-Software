@@ -351,3 +351,34 @@ body {
         min-width: 0;
     }
 }
+
+/* CRUD DE USUARIO */
+
+.btn-nuevo {
+    background: #2563eb !important;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 8px 14px;
+    gap: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+
+.btn-accion-editar {
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.btn-accion-eliminar {
+    color: #ef4444;
+    cursor: pointer;
+}
+
+.usuario-toolbar {
+    background: #fff;
+    padding: 2px 4px;
+}

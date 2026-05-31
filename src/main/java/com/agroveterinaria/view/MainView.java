@@ -1,5 +1,6 @@
 package com.agroveterinaria.view;
 
+import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.ProductoService;
 import com.agroveterinaria.service.ProveedorService;
 import com.agroveterinaria.service.UsuarioService;
@@ -35,12 +36,13 @@ public class MainView extends Div {
     public MainView(
             UsuarioService usuarioService,
             ProductoService productoService,
-            ProveedorService proveedorService
+            ProveedorService proveedorService,
+            EmpleadoService empleadoService
     ) {
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -64,7 +66,8 @@ public class MainView extends Div {
     private VerticalLayout createSidebar(
             UsuarioService usuarioService,
             ProductoService productoService,
-            ProveedorService proveedorService
+            ProveedorService proveedorService,
+            EmpleadoService empleadoService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -122,7 +125,7 @@ public class MainView extends Div {
                 "Panel de Usuarios",
                 "Accesos internos y credenciales del sistema",
                 VaadinIcon.USERS,
-                new UsuarioView(usuarioService)
+                new UsuarioView(usuarioService, empleadoService)
         ));
 
         VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton);

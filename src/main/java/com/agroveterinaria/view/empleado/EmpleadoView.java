@@ -65,6 +65,8 @@ public class EmpleadoView extends VerticalLayout {
 
         crudEmpleado.setFindAllOperation(empleadoService::findAll);
         crudEmpleado.setAddOperation(empleadoService::save);
+        crudEmpleado.setUpdateOperation(empleadoService::update);
+        crudEmpleado.setDeleteOperation(empleadoService::delete);
 
         add(crudEmpleado);
     }
