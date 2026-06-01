@@ -1,9 +1,7 @@
 package com.agroveterinaria.view;
 
-import com.agroveterinaria.service.EmpleadoService;
-import com.agroveterinaria.service.ProductoService;
-import com.agroveterinaria.service.ProveedorService;
-import com.agroveterinaria.service.UsuarioService;
+import com.agroveterinaria.service.*;
+import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.usuario.UsuarioView;
@@ -37,12 +35,13 @@ public class MainView extends Div {
             UsuarioService usuarioService,
             ProductoService productoService,
             ProveedorService proveedorService,
-            EmpleadoService empleadoService
+            EmpleadoService empleadoService,
+            ClienteService clienteService
     ) {
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -67,7 +66,8 @@ public class MainView extends Div {
             UsuarioService usuarioService,
             ProductoService productoService,
             ProveedorService proveedorService,
-            EmpleadoService empleadoService
+            EmpleadoService empleadoService,
+            ClienteService clienteService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -91,6 +91,7 @@ public class MainView extends Div {
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
+        Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -128,7 +129,16 @@ public class MainView extends Div {
                 new UsuarioView(usuarioService, empleadoService)
         ));
 
-        VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton);
+        clientesButton.addClickListener(event -> showModule(
+                clientesButton,
+                "Gestión de Clientes",
+                "Panel de Clientes",
+                "Accesos internos y credenciales del sistema",
+                VaadinIcon.USER,
+                new ClienteView(clienteService)
+        ));
+
+        VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton, clientesButton);
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
         navigation.setSpacing(false);

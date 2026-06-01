@@ -2,11 +2,11 @@ package com.agroveterinaria.entity;
 
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import tools.jackson.databind.annotation.JsonPOJOBuilder;
 
 import java.util.List;
 
@@ -23,8 +23,9 @@ public class Cliente {
     @Column(name = "id_cliente")
     private Long idCliente;
 
+    @NotNull
     @OneToOne
-    @JoinColumn(name = "id_persona")
+    @JoinColumn(name = "id_persona", nullable = false, unique = true)
     private Persona persona;
 
     @Column(name = "longitud")
@@ -39,13 +40,17 @@ public class Cliente {
     @OneToMany(mappedBy = "cliente")
     private List<Cita> citas;
 
+    @NotNull
     @ManyToOne
-    @JoinColumn(name = "id_tipo_cliente")
+    @JoinColumn(name = "id_tipo_cliente", nullable = false)
     private TipoCliente tipoCliente;
 
+    @OneToMany(mappedBy = "cliente")
+    private List<Venta> ventas;
 
+    @OneToMany(mappedBy = "cliente")
+    private List<Cobro> cobros;
 
-
-
-
+    @OneToMany(mappedBy = "cliente")
+    private List<NotaDeCredito> notasDeCredito;
 }
