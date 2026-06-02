@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "inventario", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"id_almacen", "id_lote"})
@@ -29,6 +31,7 @@ public class Inventario {
     @JoinColumn(name = "id_lote", nullable = false)
     private Lote lote;
 
-    @Column(name = "cantidad_actual", nullable = false)
-    private Integer cantidadActual;
+    //representación en las unidad de medida de la fracción si se se permite el fraccionamiento, sino pues la unidad del completo
+    @Column(name = "cantidad_actual", nullable = false, precision = 12, scale = 2)
+    private BigDecimal cantidadActual;
 }
