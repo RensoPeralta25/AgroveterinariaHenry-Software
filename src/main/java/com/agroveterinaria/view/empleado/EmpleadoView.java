@@ -6,8 +6,6 @@ import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.service.EmpleadoService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.CheckboxGroup;
-import com.vaadin.flow.component.checkbox.CheckboxGroupVariant;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -17,12 +15,9 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
-import org.vaadin.crudui.form.CrudFormFactory;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
@@ -140,6 +135,10 @@ public class EmpleadoView extends VerticalLayout {
             campo.setRequiredIndicatorVisible(false);
         });
 
+        formFactory.setFieldCreationListener("cargos", campo -> {
+            campo.setRequiredIndicatorVisible(false);
+        });
+
         formFactory.setFieldProvider("persona.cedula", empleado -> crearCampoCedula());
         formFactory.setFieldProvider("persona.telefono", empleado -> crearCampoTelefono());
         formFactory.setFieldProvider("cargos", empleado -> {
@@ -173,7 +172,13 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Empleado?");
 
         crudEmpleado.setFindAllOperation(empleadoService::findAll);
-        crudEmpleado.setAddOperation(empleadoService::save);
+        crudEmpleado.setAddOperation(empleado -> {
+            try {
+                return empleadoService.save(empleado);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException(e);
+            }
+        });
         crudEmpleado.setUpdateOperation(empleadoService::update);
         crudEmpleado.setDeleteOperation(empleadoService::delete);
 
@@ -183,22 +188,16 @@ public class EmpleadoView extends VerticalLayout {
     private TextField crearCampoCedula() {
         TextField cedula = new TextField("Cédula");
         cedula.setPlaceholder("000-0000000-0");
-        cedula.setHelperText("Formato: 000-0000000-0");
         cedula.setPattern(CEDULA_PATTERN);
         cedula.setErrorMessage("Usa el formato 000-0000000-0");
-        cedula.setRequiredIndicatorVisible(true);
-        cedula.setClearButtonVisible(true);
         return cedula;
     }
 
     private TextField crearCampoTelefono() {
         TextField telefono = new TextField("Teléfono");
         telefono.setPlaceholder("000-000-0000");
-        telefono.setHelperText("Formato: 000-000-0000");
         telefono.setPattern(TELEFONO_PATTERN);
         telefono.setErrorMessage("Usa el formato 000-000-0000");
-        telefono.setRequiredIndicatorVisible(true);
-        telefono.setClearButtonVisible(true);
         return telefono;
     }
 
