@@ -148,7 +148,7 @@ public class MainView extends Div {
                 "Gestión de Empleados",
                 "Panel de Empleados",
                 "Información general del equipo de trabajo y roles",
-                VaadinIcon.USER_CARD,
+                VaadinIcon.GROUP,
                 new EmpleadoView(empleadoService)
         ));
 
