@@ -66,18 +66,25 @@ public class EmpleadoService {
     }
 
     public void validar(Empleado empleado){
-        if (empleado.getPersona() != null && empleado.getPersona().getCedula() != null) {
-            String cedula = empleado.getPersona().getCedula();
-            Optional<Empleado> empleadoExistente = empleadoRepository.findByPersonaCedula(cedula);
+        if (empleado == null) {
+            throw new IllegalArgumentException("Error: El objeto empleado es nulo.");
+        }
 
-            if (empleadoExistente.isPresent()) {
-                if (empleado.getIdEmpleado() == null) {
-                    throw new IllegalArgumentException("Error: Ya existe un empleado registrado con la cédula " + cedula);
-                }
+        if (empleado.getPersona() == null || empleado.getPersona().getCedula() == null ||
+                empleado.getPersona().getCedula().trim().isEmpty()) {
+            throw new IllegalArgumentException("Error: El empleado debe tener datos personales y una cédula válida.");
+        }
 
-                else if (!empleadoExistente.get().getIdEmpleado().equals(empleado.getIdEmpleado())) {
-                    throw new IllegalArgumentException("Error: La cédula " + cedula + " ya le pertenece a otro empleado.");
-                }
+        String cedula = empleado.getPersona().getCedula();
+        Optional<Empleado> empleadoExistente = empleadoRepository.findByPersonaCedula(cedula);
+
+        if (empleadoExistente.isPresent()) {
+            if (empleado.getIdEmpleado() == null) {
+                throw new IllegalArgumentException("Error: Ya existe un empleado registrado con la cédula " + cedula);
+            }
+
+            else if (!empleadoExistente.get().getIdEmpleado().equals(empleado.getIdEmpleado())) {
+                throw new IllegalArgumentException("Error: La cédula " + cedula + " ya le pertenece a otro empleado.");
             }
         }
 
