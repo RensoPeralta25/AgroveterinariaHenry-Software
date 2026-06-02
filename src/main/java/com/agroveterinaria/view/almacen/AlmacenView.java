@@ -11,6 +11,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H3;
@@ -18,6 +19,11 @@ import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.map.Map;
+import com.vaadin.flow.component.map.configuration.Coordinate;
+import com.vaadin.flow.component.map.configuration.feature.MarkerFeature;
+import com.vaadin.flow.component.map.configuration.layer.VectorLayer;
+import com.vaadin.flow.component.map.configuration.source.VectorSource;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -152,25 +158,32 @@ public class AlmacenView extends VerticalLayout {
 
     private void dialogAlmacen(Almacen almacen, GridCrud<Almacen> crudAlmacen, boolean esNuevo) {
         Dialog dialog = new Dialog();
-        dialog.setWidth("500px");
+        dialog.setWidth("650px");
         dialog.setCloseOnOutsideClick(false);
 
         H3 titulo = new H3(esNuevo ? "Registrar Nuevo Almacén" : "Editar Almacén");
         titulo.getStyle().set("margin", "0 0 16px 0");
 
+        HorizontalLayout primeraFila = new HorizontalLayout();
+        primeraFila.setWidthFull();
+        primeraFila.setSpacing(true);
+
         TextField txtNombre = new TextField("Nombre del Almacén");
         txtNombre.setWidthFull();
         txtNombre.setValue(almacen.getNombre() != null ? almacen.getNombre() : "");
 
-        TextField txtDireccion = new TextField("Dirección");
-        txtDireccion.setWidthFull();
-        txtDireccion.setValue(almacen.getDireccion() != null ? almacen.getDireccion() : "");
-
         ComboBox<StatusEntidad> cbStatus = new ComboBox<>("Estado");
-        cbStatus.setWidthFull();
+        cbStatus.setWidth("150px");
         cbStatus.setItems(StatusEntidad.values());
         cbStatus.setItemLabelGenerator(StatusEntidad::getEtiqueta);
         cbStatus.setValue(almacen.getStatus() != null ? almacen.getStatus() : StatusEntidad.ACTIVO);
+
+        primeraFila.add(txtNombre, cbStatus);
+        primeraFila.expand(txtNombre);
+
+        TextField txtDireccion = new TextField("Dirección Físico-Descriptiva");
+        txtDireccion.setWidthFull();
+        txtDireccion.setValue(almacen.getDireccion() != null ? almacen.getDireccion() : "");
 
         NumberField numLatitud = new NumberField("Latitud");
         numLatitud.setWidthFull();
@@ -180,16 +193,77 @@ public class AlmacenView extends VerticalLayout {
         NumberField numLongitud = new NumberField("Longitud");
         numLongitud.setWidthFull();
         numLongitud.setValue(almacen.getLongitud());
-        numLongitud.setPlaceholder("Ej: -70.6667");
+        numLongitud.setPlaceholder("Ej: -70.6167");
 
         HorizontalLayout layoutCoordenadas = new HorizontalLayout(numLatitud, numLongitud);
         layoutCoordenadas.setWidthFull();
         layoutCoordenadas.setSpacing(true);
 
+        String mapId = "map-" + java.util.UUID.randomUUID().toString();
+        com.vaadin.flow.component.html.Div mapContainer = new com.vaadin.flow.component.html.Div();
+        mapContainer.setId(mapId);
+        mapContainer.setWidthFull();
+        mapContainer.setHeight("250px");
+        mapContainer.getStyle()
+                .set("border-radius", "8px")
+                .set("border", "1px solid #e0e0e0")
+                .set("z-index", "1");
+
+        double latInicial = almacen.getLatitud() != null ? almacen.getLatitud() : 19.428239;
+        double lngInicial = almacen.getLongitud() != null ? almacen.getLongitud() : -70.629731;
+
+        mapContainer.addAttachListener(evt -> {
+            String jsCode =
+                    "if (!window.L) {" +
+                            "  var css = document.createElement('link');" +
+                            "  css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" +
+                            "  document.head.appendChild(css);" +
+                            "  var script = document.createElement('script');" +
+                            "  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';" +
+                            "  script.onload = function() { initMyMap($0, $1, $2, $3, $4); };" +
+                            "  document.head.appendChild(script);" +
+                            "} else {" +
+                            "  initMyMap($0, $1, $2, $3, $4);" +
+                            "}" +
+                            "function initMyMap(containerId, lat, lng, latField, lngField) {" +
+                            "  var container = document.getElementById(containerId);" +
+                            "  if (!container || container._leaflet_id) return;" +
+                            "  var map = L.map(container).setView([lat, lng], 14);" +
+                            "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {" +
+                            "    attribution: '© OpenStreetMap'" +
+                            "  }).addTo(map);" +
+                            "  var marker = L.marker([lat, lng]).addTo(map);" +
+                            "  setTimeout(function(){ map.invalidateSize(); }, 300);" +
+                            "  map.on('click', function(e) {" +
+                            "    marker.setLatLng(e.latlng);" +
+                            "    latField.value = e.latlng.lat.toFixed(6);" +
+                            "    lngField.value = e.latlng.lng.toFixed(6);" +
+                            "    latField.dispatchEvent(new Event('change'));" +
+                            "    lngField.dispatchEvent(new Event('change'));" +
+                            "  });" +
+                            "}";
+
+            evt.getUI().getPage().executeJs(
+                    jsCode, mapId, latInicial, lngInicial, numLatitud.getElement(), numLongitud.getElement()
+            );
+        });
+
+        numLatitud.addValueChangeListener(e -> {
+            if (e.isFromClient() && numLatitud.getValue() != null && numLongitud.getValue() != null) {
+                mapContainer.getElement().executeJs(
+                        "if(window.L && document.getElementById($0) && document.getElementById($0)._leaflet_id) {" +
+                                "   var map = window.L.Map.instances[document.getElementById($0)._leaflet_id - 1];" +
+                                "   map.setView([$1, $2]);" +
+                                "}", mapId, numLatitud.getValue(), numLongitud.getValue()
+                );
+            }
+        });
+
+
         Anchor linkMaps = new Anchor();
-        linkMaps.setText("Ver ubicación en Google Maps");
+        linkMaps.setText("Abrir externamente en Google Maps");
         linkMaps.setTarget("_blank");
-        linkMaps.getStyle().set("font-size", "14px").set("color", "#0066cc").set("font-weight", "500");
+        linkMaps.getStyle().set("font-size", "14px").set("color", "#0066cc").set("font-weight", "500").set("margin-top", "5px");
 
         Runnable actualizarLink = () -> {
             if (numLatitud.getValue() != null && numLongitud.getValue() != null) {
@@ -242,7 +316,10 @@ public class AlmacenView extends VerticalLayout {
         botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
         botones.getStyle().set("margin-top", "16px");
 
-        VerticalLayout contenido = new VerticalLayout(titulo, txtNombre, txtDireccion, cbStatus, layoutCoordenadas, linkMaps, botones);
+        Span mapHint = new Span("Haz clic en el mapa para fijar la ubicación:");
+        mapHint.getStyle().set("font-size", "13px").set("color", "gray");
+
+        VerticalLayout contenido = new VerticalLayout(titulo, primeraFila, txtDireccion, layoutCoordenadas, mapHint, mapContainer, linkMaps, botones);
         contenido.setPadding(true);
         contenido.setSpacing(true);
 
@@ -297,7 +374,7 @@ public class AlmacenView extends VerticalLayout {
         gridInventario.addColumn(inv ->
                         String.format("%,.2f", inv.getCantidadActual())
                 ).setHeader("Cantidad Actual").setWidth("140px").setFlexGrow(0)
-                .setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END);
+                .setTextAlign(ColumnTextAlign.END);
 
         List<Inventario> existencias = inventarioService.listarPorAlmacen(almacen);
         gridInventario.setItems(existencias);
