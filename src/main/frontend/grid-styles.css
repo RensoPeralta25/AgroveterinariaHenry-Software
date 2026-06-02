@@ -1,4 +1,5 @@
-:host(.usuario-grid) [part~="header-cell"] {
+:host(.usuario-grid) [part~="header-cell"],
+:host(.lote-grid) [part~="header-cell"] {
     background-color: #002899;
     color: #ffffff;
     font-weight: 500;

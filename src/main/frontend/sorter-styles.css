@@ -1,0 +1,12 @@
+[part="content"] {
+    color: #ffffff !important;
+}
+
+[part="indicators"] {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:host([direction]) [part="indicators"] {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
