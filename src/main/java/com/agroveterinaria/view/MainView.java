@@ -3,6 +3,7 @@ package com.agroveterinaria.view;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
+import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.usuario.UsuarioView;
@@ -38,12 +39,13 @@ public class MainView extends Div {
             ProveedorService proveedorService,
             EmpleadoService empleadoService,
             ClienteService clienteService,
-            CitaService citaService
+            CitaService citaService,
+            MascotaService mascotaService
     ) {
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -70,7 +72,8 @@ public class MainView extends Div {
             ProveedorService proveedorService,
             EmpleadoService empleadoService,
             ClienteService clienteService,
-            CitaService citaService
+            CitaService citaService,
+            MascotaService mascotaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -95,6 +98,7 @@ public class MainView extends Div {
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
+        Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
 
         inicioButton.addClickListener(event -> showModule(
@@ -142,6 +146,15 @@ public class MainView extends Div {
                 new ClienteView(clienteService)
         ));
 
+        mascotasButton.addClickListener(event -> showModule(
+                mascotasButton,
+                "Gestión de Mascotas",
+                "Panel de Mascotas",
+                "Registro de pacientes y propietarios",
+                VaadinIcon.HEART,
+                new MascotaView(mascotaService, clienteService)
+        ));
+
         citasButton.addClickListener(event -> showModule(
                 citasButton,
                 "Gestión de Citas",
@@ -157,6 +170,7 @@ public class MainView extends Div {
                 proveedoresButton,
                 usuariosButton,
                 clientesButton,
+                mascotasButton,
                 citasButton
         );
         navigation.addClassName("sidebar-nav");
