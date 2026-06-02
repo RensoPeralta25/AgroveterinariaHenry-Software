@@ -152,7 +152,6 @@ public class MainView extends Div {
                 new EmpleadoView(empleadoService)
         ));
 
-        VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton, empleadosButton);
         clientesButton.addClickListener(event -> showModule(
                 clientesButton,
                 "Gestión de Clientes",
@@ -185,6 +184,7 @@ public class MainView extends Div {
                 productosButton,
                 proveedoresButton,
                 usuariosButton,
+                empleadosButton,
                 clientesButton,
                 mascotasButton,
                 citasButton
