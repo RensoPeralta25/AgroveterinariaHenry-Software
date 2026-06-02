@@ -5,6 +5,10 @@ import com.agroveterinaria.service.ProductoService;
 import com.agroveterinaria.service.ProveedorService;
 import com.agroveterinaria.service.UsuarioService;
 import com.agroveterinaria.view.empleado.EmpleadoView;
+import com.agroveterinaria.service.*;
+import com.agroveterinaria.view.cita.CitaView;
+import com.agroveterinaria.view.cliente.ClienteView;
+import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.usuario.UsuarioView;
@@ -38,12 +42,15 @@ public class MainView extends Div {
             UsuarioService usuarioService,
             ProductoService productoService,
             ProveedorService proveedorService,
-            EmpleadoService empleadoService
+            EmpleadoService empleadoService,
+            ClienteService clienteService,
+            CitaService citaService,
+            MascotaService mascotaService
     ) {
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -68,7 +75,10 @@ public class MainView extends Div {
             UsuarioService usuarioService,
             ProductoService productoService,
             ProveedorService proveedorService,
-            EmpleadoService empleadoService
+            EmpleadoService empleadoService,
+            ClienteService clienteService,
+            CitaService citaService,
+            MascotaService mascotaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -93,6 +103,9 @@ public class MainView extends Div {
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
         Button empleadosButton = createMenuButton(VaadinIcon.GROUP, "Empleados");
+        Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
+        Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
+        Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -140,6 +153,42 @@ public class MainView extends Div {
         ));
 
         VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton, empleadosButton);
+        clientesButton.addClickListener(event -> showModule(
+                clientesButton,
+                "Gestión de Clientes",
+                "Panel de Clientes",
+                "Expedientes, mascotas e historial comercial",
+                VaadinIcon.USER,
+                new ClienteView(clienteService)
+        ));
+
+        mascotasButton.addClickListener(event -> showModule(
+                mascotasButton,
+                "Gestión de Mascotas",
+                "Panel de Mascotas",
+                "Registro de pacientes y propietarios",
+                VaadinIcon.HEART,
+                new MascotaView(mascotaService, clienteService)
+        ));
+
+        citasButton.addClickListener(event -> showModule(
+                citasButton,
+                "Gestión de Citas",
+                "Panel de Citas",
+                "Programación de servicios veterinarios",
+                VaadinIcon.CALENDAR,
+                new CitaView(citaService, clienteService, empleadoService, productoService)
+        ));
+
+        VerticalLayout navigation = new VerticalLayout(
+                inicioButton,
+                productosButton,
+                proveedoresButton,
+                usuariosButton,
+                clientesButton,
+                mascotasButton,
+                citasButton
+        );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
         navigation.setSpacing(false);
@@ -244,38 +293,13 @@ mainPanel.getStyle().setFlexGrow("1");
         Div moduleCard = new Div(moduleView);
         moduleCard.addClassName("module-card");
 
-        VerticalLayout quickActions = createQuickActions();
-
-        HorizontalLayout layout = new HorizontalLayout(moduleCard, quickActions);
+        HorizontalLayout layout = new HorizontalLayout(moduleCard);
         layout.addClassName("module-content-grid");
         layout.setAlignItems(FlexComponent.Alignment.STRETCH);
         layout.setPadding(false);
         layout.setSpacing(false);
 
         return layout;
-    }
-
-    private VerticalLayout createQuickActions() {
-        H3 title = new H3("Acciones rápidas");
-        title.addClassName("quick-actions-title");
-
-        Button registrarProveedor = createQuickActionButton(VaadinIcon.TRUCK, "Registrar proveedor");
-        Button crearUsuario = createQuickActionButton(VaadinIcon.USER_CARD, "Crear usuario");
-        Button inventarioBajo = createQuickActionButton(VaadinIcon.BAR_CHART, "Ver inventario bajo");
-
-        VerticalLayout quickActions = new VerticalLayout(title, registrarProveedor, crearUsuario, inventarioBajo);
-        quickActions.addClassName("quick-actions-card");
-        quickActions.setPadding(false);
-        quickActions.setSpacing(false);
-
-        return quickActions;
-    }
-
-    private Button createQuickActionButton(VaadinIcon icon, String label) {
-        Button button = new Button(label, icon.create());
-        button.addClassName("quick-action-button");
-        button.setWidthFull();
-        return button;
     }
 
     private Component createWelcomePanel() {

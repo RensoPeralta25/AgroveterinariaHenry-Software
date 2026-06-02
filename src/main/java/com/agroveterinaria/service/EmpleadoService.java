@@ -7,12 +7,17 @@ import com.agroveterinaria.repository.EmpleadoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional
 public class EmpleadoService {
+    private static final Pattern CEDULA_PATTERN = Pattern.compile("^\\d{3}-\\d{7}-\\d{1}$");
+    private static final Pattern TELEFONO_PATTERN = Pattern.compile("^\\d{3}-\\d{3}-\\d{4}$");
+
     private final EmpleadoRepository empleadoRepository;
     private final PersonaService personaService;
 
@@ -67,12 +72,17 @@ public class EmpleadoService {
 
     public void validar(Empleado empleado){
         if (empleado == null) {
-            throw new IllegalArgumentException("Error: El objeto empleado es nulo.");
+            throw new IllegalArgumentException("Error: No se recibieron datos del empleado.");
         }
 
-        if (empleado.getPersona() == null || empleado.getPersona().getCedula() == null ||
-                empleado.getPersona().getCedula().trim().isEmpty()) {
-            throw new IllegalArgumentException("Error: El empleado debe tener datos personales y una cédula válida.");
+        validarPersona(empleado.getPersona());
+
+        if (empleado.getSalario() == null) {
+            throw new IllegalArgumentException("Error: El salario es obligatorio.");
+        }
+
+        if (empleado.getSalario().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Error: El salario no puede ser negativo.");
         }
 
         String cedula = empleado.getPersona().getCedula();
@@ -91,6 +101,45 @@ public class EmpleadoService {
         if (empleado.getCargos() == null || empleado.getCargos().isEmpty()) {
             throw new IllegalArgumentException("Error: El empleado debe tener al menos un rol asignado.");
         }
+    }
+
+    private void validarPersona(Persona persona) {
+        if (persona == null) {
+            throw new IllegalArgumentException("Error: Los datos personales del empleado son obligatorios.");
+        }
+
+        persona.setCedula(valorNormalizado(persona.getCedula()));
+        persona.setNombre(valorNormalizado(persona.getNombre()));
+        persona.setTelefono(valorNormalizado(persona.getTelefono()));
+        persona.setDireccion(valorNormalizado(persona.getDireccion()));
+
+        if (persona.getCedula().isBlank()) {
+            throw new IllegalArgumentException("Error: La cédula es obligatoria.");
+        }
+
+        if (!CEDULA_PATTERN.matcher(persona.getCedula()).matches()) {
+            throw new IllegalArgumentException("Error: La cédula debe tener el formato 000-0000000-0.");
+        }
+
+        if (persona.getNombre().isBlank()) {
+            throw new IllegalArgumentException("Error: El nombre es obligatorio.");
+        }
+
+        if (persona.getTelefono().isBlank()) {
+            throw new IllegalArgumentException("Error: El teléfono es obligatorio.");
+        }
+
+        if (!TELEFONO_PATTERN.matcher(persona.getTelefono()).matches()) {
+            throw new IllegalArgumentException("Error: El teléfono debe tener el formato 000-000-0000.");
+        }
+
+        if (persona.getDireccion().isBlank()) {
+            throw new IllegalArgumentException("Error: La dirección es obligatoria.");
+        }
+    }
+
+    private String valorNormalizado(String valor) {
+        return valor == null ? "" : valor.trim();
     }
 
     public Empleado findByUsuario (Usuario usuario){
