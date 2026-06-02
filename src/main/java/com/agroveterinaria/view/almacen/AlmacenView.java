@@ -199,11 +199,18 @@ public class AlmacenView extends VerticalLayout {
         layoutCoordenadas.setWidthFull();
         layoutCoordenadas.setSpacing(true);
 
-        String mapId = "map-" + java.util.UUID.randomUUID().toString();
+        Button btnToggleMapa = new Button("Seleccionar en mapa", new Icon(VaadinIcon.MAP_MARKER));
+        btnToggleMapa.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnToggleMapa.getStyle().set("margin-top", "5px");
+
+        Span mapHint = new Span("Haz clic en el mapa para fijar la ubicación:");
+        mapHint.getStyle().set("font-size", "13px").set("color", "gray");
+        mapHint.setVisible(false);
+
         com.vaadin.flow.component.html.Div mapContainer = new com.vaadin.flow.component.html.Div();
-        mapContainer.setId(mapId);
         mapContainer.setWidthFull();
         mapContainer.setHeight("250px");
+        mapContainer.setVisible(false);
         mapContainer.getStyle()
                 .set("border-radius", "8px")
                 .set("border", "1px solid #e0e0e0")
@@ -212,28 +219,30 @@ public class AlmacenView extends VerticalLayout {
         double latInicial = almacen.getLatitud() != null ? almacen.getLatitud() : 19.428239;
         double lngInicial = almacen.getLongitud() != null ? almacen.getLongitud() : -70.629731;
 
+        if (almacen.getLatitud() != null && almacen.getLongitud() != null) {
+            mapContainer.setVisible(true);
+            mapHint.setVisible(true);
+            btnToggleMapa.setText("Ocultar mapa");
+            btnToggleMapa.setIcon(new Icon(VaadinIcon.CHEVRON_UP));
+        }
+
         mapContainer.addAttachListener(evt -> {
             String jsCode =
-                    "if (!window.L) {" +
-                            "  var css = document.createElement('link');" +
-                            "  css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" +
-                            "  document.head.appendChild(css);" +
-                            "  var script = document.createElement('script');" +
-                            "  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';" +
-                            "  script.onload = function() { initMyMap($0, $1, $2, $3, $4); };" +
-                            "  document.head.appendChild(script);" +
-                            "} else {" +
-                            "  initMyMap($0, $1, $2, $3, $4);" +
-                            "}" +
-                            "function initMyMap(containerId, lat, lng, latField, lngField) {" +
-                            "  var container = document.getElementById(containerId);" +
-                            "  if (!container || container._leaflet_id) return;" +
-                            "  var map = L.map(container).setView([lat, lng], 14);" +
+                    "const el = this;" +
+                            "const lat = $0;" +
+                            "const lng = $1;" +
+                            "const latField = $2;" +
+                            "const lngField = $3;" +
+                            "function initMap() {" +
+                            "  if(el._leaflet_map) return;" +
+                            "  const map = L.map(el).setView([lat, lng], 14);" +
+                            "  el._leaflet_map = map;" +
                             "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {" +
                             "    attribution: '© OpenStreetMap'" +
                             "  }).addTo(map);" +
-                            "  var marker = L.marker([lat, lng]).addTo(map);" +
-                            "  setTimeout(function(){ map.invalidateSize(); }, 300);" +
+                            "  const marker = L.marker([lat, lng]).addTo(map);" +
+                            "  el._leaflet_marker = marker;" +
+                            "  setTimeout(() => map.invalidateSize(), 300);" +
                             "  map.on('click', function(e) {" +
                             "    marker.setLatLng(e.latlng);" +
                             "    latField.value = e.latlng.lat.toFixed(6);" +
@@ -241,20 +250,50 @@ public class AlmacenView extends VerticalLayout {
                             "    latField.dispatchEvent(new Event('change'));" +
                             "    lngField.dispatchEvent(new Event('change'));" +
                             "  });" +
+                            "}" +
+                            "if (!window.L) {" +
+                            "  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);" +
+                            "  const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = initMap; document.head.appendChild(script);" +
+                            "} else {" +
+                            "  initMap();" +
                             "}";
 
-            evt.getUI().getPage().executeJs(
-                    jsCode, mapId, latInicial, lngInicial, numLatitud.getElement(), numLongitud.getElement()
-            );
+            mapContainer.getElement().executeJs(jsCode, latInicial, lngInicial, numLatitud.getElement(), numLongitud.getElement());
+        });
+
+        btnToggleMapa.addClickListener(e -> {
+            boolean hacerVisible = !mapContainer.isVisible();
+            mapContainer.setVisible(hacerVisible);
+            mapHint.setVisible(hacerVisible);
+
+            btnToggleMapa.setText(hacerVisible ? "Ocultar mapa" : "Seleccionar en mapa");
+            btnToggleMapa.setIcon(hacerVisible ? new Icon(VaadinIcon.CHEVRON_UP) : new Icon(VaadinIcon.MAP_MARKER));
+
+            if (hacerVisible) {
+                mapContainer.getElement().executeJs(
+                        "if (this._leaflet_map) { " +
+                                "  setTimeout(() => { this._leaflet_map.invalidateSize(); this._leaflet_map.setView([$0, $1]); }, 150); " +
+                                "}",
+                        numLatitud.getValue() != null ? numLatitud.getValue() : latInicial,
+                        numLongitud.getValue() != null ? numLongitud.getValue() : lngInicial
+                );
+            }
         });
 
         numLatitud.addValueChangeListener(e -> {
             if (e.isFromClient() && numLatitud.getValue() != null && numLongitud.getValue() != null) {
                 mapContainer.getElement().executeJs(
-                        "if(window.L && document.getElementById($0) && document.getElementById($0)._leaflet_id) {" +
-                                "   var map = window.L.Map.instances[document.getElementById($0)._leaflet_id - 1];" +
-                                "   map.setView([$1, $2]);" +
-                                "}", mapId, numLatitud.getValue(), numLongitud.getValue()
+                        "if(this._leaflet_map) { this._leaflet_map.setView([$0, $1]); this._leaflet_marker.setLatLng([$0, $1]); }",
+                        numLatitud.getValue(), numLongitud.getValue()
+                );
+            }
+        });
+
+        numLongitud.addValueChangeListener(e -> {
+            if (e.isFromClient() && numLatitud.getValue() != null && numLongitud.getValue() != null) {
+                mapContainer.getElement().executeJs(
+                        "if(this._leaflet_map) { this._leaflet_map.setView([$0, $1]); this._leaflet_marker.setLatLng([$0, $1]); }",
+                        numLatitud.getValue(), numLongitud.getValue()
                 );
             }
         });
@@ -316,10 +355,9 @@ public class AlmacenView extends VerticalLayout {
         botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
         botones.getStyle().set("margin-top", "16px");
 
-        Span mapHint = new Span("Haz clic en el mapa para fijar la ubicación:");
         mapHint.getStyle().set("font-size", "13px").set("color", "gray");
 
-        VerticalLayout contenido = new VerticalLayout(titulo, primeraFila, txtDireccion, layoutCoordenadas, mapHint, mapContainer, linkMaps, botones);
+        VerticalLayout contenido = new VerticalLayout(titulo, primeraFila, txtDireccion, layoutCoordenadas, btnToggleMapa, mapHint, mapContainer, linkMaps, botones);
         contenido.setPadding(true);
         contenido.setSpacing(true);
 
