@@ -3,6 +3,7 @@ package com.agroveterinaria.entity;
 import com.agroveterinaria.enums.RolEmpleado;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,7 @@ public class Empleado {
     @JoinColumn(name = "id_usuario")
     private Usuario usuario;
 
+    @NotEmpty(message = "Debe asignar almenos un cargo")
     @ElementCollection(targetClass = RolEmpleado.class, fetch = FetchType.EAGER)
     @CollectionTable(name = "empleado_rol", joinColumns = @JoinColumn(name = "id_empleado"))
     @Enumerated(EnumType.STRING)

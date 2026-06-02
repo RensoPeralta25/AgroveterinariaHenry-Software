@@ -1,5 +1,10 @@
 package com.agroveterinaria.view;
 
+import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.ProductoService;
+import com.agroveterinaria.service.ProveedorService;
+import com.agroveterinaria.service.UsuarioService;
+import com.agroveterinaria.view.empleado.EmpleadoView;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
@@ -97,6 +102,7 @@ public class MainView extends Div {
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
+        Button empleadosButton = createMenuButton(VaadinIcon.GROUP, "Empleados");
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
@@ -137,6 +143,16 @@ public class MainView extends Div {
                 new UsuarioView(usuarioService, empleadoService)
         ));
 
+        empleadosButton.addClickListener(event -> showModule(
+                empleadosButton,
+                "Gestión de Empleados",
+                "Panel de Empleados",
+                "Información general del equipo de trabajo y roles",
+                VaadinIcon.USER_CARD,
+                new EmpleadoView(empleadoService)
+        ));
+
+        VerticalLayout navigation = new VerticalLayout(inicioButton, productosButton, proveedoresButton, usuariosButton, empleadosButton);
         clientesButton.addClickListener(event -> showModule(
                 clientesButton,
                 "Gestión de Clientes",

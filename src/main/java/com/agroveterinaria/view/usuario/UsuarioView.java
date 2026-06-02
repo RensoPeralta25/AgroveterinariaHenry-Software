@@ -43,7 +43,6 @@ public class UsuarioView extends VerticalLayout {
         setSpacing(false);
 
         GridCrud<Usuario> crudUsuario = new GridCrud<>(Usuario.class, new WindowBasedCrudLayout());
-        crudUsuario.addClassName("usuario-crud");
         crudUsuario.getGrid().addClassName("usuario-grid");
 
         DefaultCrudFormFactory<Usuario> formFactory = (DefaultCrudFormFactory<Usuario>) crudUsuario.getCrudFormFactory();
@@ -180,19 +179,26 @@ public class UsuarioView extends VerticalLayout {
                 .toList();
         gridEmpleados.setItems(sinUsuario);
 
-        Button btnGuardar = new Button("Crear", e -> {
+        usernameField.addValueChangeListener(e -> usernameField.setInvalid(false));
+        passwordField.addValueChangeListener(e -> passwordField.setInvalid(false));
+
+        Button btnGuardar = new Button("Crear",new Icon(VaadinIcon.CHECK), e -> {
             Empleado empleadoSeleccionado = gridEmpleados.asSingleSelect().getValue();
 
             if (usernameField.isEmpty()) {
-                mostrarError("El nombre de usuario es obligatorio");
+                usernameField.setInvalid(true);
+                usernameField.setErrorMessage("El nombre de usuario es obligatorio");
                 return;
             }
             if (passwordField.isEmpty()) {
-                mostrarError("La contraseña es obligatoria");
+                passwordField.setInvalid(true);
+                passwordField.setErrorMessage("La contraseña es obligatoria");
                 return;
             }
             if (empleadoSeleccionado == null) {
-                mostrarError("Debes seleccionar un empleado");
+                Notification notif = Notification.show(
+                        "Debes seleccionar un empleado", 3500, Notification.Position.MIDDLE);
+                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
 
@@ -214,13 +220,16 @@ public class UsuarioView extends VerticalLayout {
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             } catch (IllegalArgumentException ex) {
-                mostrarError(ex.getMessage());
+                Notification notif = Notification.show(
+                        ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
         btnGuardar.addClassName("btn-nuevo");
         btnGuardar.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+        btnCancelar.addClassName("btn-cancelar");
         btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         HorizontalLayout botones = new HorizontalLayout(btnGuardar, btnCancelar);
@@ -232,7 +241,6 @@ public class UsuarioView extends VerticalLayout {
                 titulo, campos, tituloTabla, gridEmpleados, botones);
         contenido.setPadding(true);
         contenido.setSpacing(false);
-        contenido.addClassName("usuario-form");
 
         dialog.add(contenido);
         dialog.open();
@@ -254,13 +262,18 @@ public class UsuarioView extends VerticalLayout {
         passwordField.setWidthFull();
         passwordField.setValue(usuario.getPassword() != null ? usuario.getPassword() : "");
 
-        Button btnGuardar = new Button("Guardar cambios", e -> {
+        usernameField.addValueChangeListener(e -> usernameField.setInvalid(false));
+        passwordField.addValueChangeListener(e -> passwordField.setInvalid(false));
+
+        Button btnGuardar = new Button("Guardar cambios", new Icon(VaadinIcon.CHECK), e -> {
             if (usernameField.isEmpty()) {
-                mostrarError("El nombre de usuario es obligatorio");
+                usernameField.setInvalid(true);
+                usernameField.setErrorMessage("El nombre de usuario es obligatorio");
                 return;
             }
             if (passwordField.isEmpty()) {
-                mostrarError("La contraseña es obligatoria");
+                passwordField.setInvalid(true);
+                passwordField.setErrorMessage("La contraseña es obligatoria");
                 return;
             }
 
@@ -277,31 +290,28 @@ public class UsuarioView extends VerticalLayout {
                         3500, Notification.Position.BOTTOM_END);
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             } catch (IllegalArgumentException ex) {
-                mostrarError(ex.getMessage());
+                Notification notif = Notification.show(
+                        ex.getMessage(), 4000, Notification.Position.MIDDLE);
+                notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
         btnGuardar.addClassName("btn-nuevo");
         btnGuardar.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+        btnCancelar.addClassName("btn-cancelar");
         btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
         HorizontalLayout botones = new HorizontalLayout(btnGuardar, btnCancelar);
         botones.setWidthFull();
-        botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
         botones.getStyle().set("margin-top", "16px");
 
         VerticalLayout contenido = new VerticalLayout(titulo, usernameField, passwordField, botones);
         contenido.setPadding(true);
         contenido.setSpacing(true);
-        contenido.addClassName("usuario-form");
 
         dialog.add(contenido);
         dialog.open();
     }
 
-    private void mostrarError(String mensaje) {
-        Notification notif = Notification.show(mensaje, 4000, Notification.Position.MIDDLE);
-        notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
-    }
 }
