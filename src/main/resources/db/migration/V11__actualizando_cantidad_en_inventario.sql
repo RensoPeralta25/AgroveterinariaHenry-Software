@@ -1,0 +1,1 @@
+ALTER TABLE inventario ALTER COLUMN cantidad_actual TYPE NUMERIC(12, 2);
