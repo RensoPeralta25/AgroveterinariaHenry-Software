@@ -7,10 +7,15 @@ import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.UnidadEmpaque;
 import com.agroveterinaria.enums.UnidadMedida;
 import com.agroveterinaria.service.ProductoService;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -29,6 +34,8 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 import java.math.RoundingMode;
 import java.util.Base64;
 
+@CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
+@CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
 @Route("productos")
 @PageTitle("Gestión de Productos")
 public class ProductoCrudView extends VerticalLayout {
@@ -38,6 +45,8 @@ public class ProductoCrudView extends VerticalLayout {
         WindowBasedCrudLayout crudLayout = new WindowBasedCrudLayout();
         crudLayout.setFormWindowWidth("600px");
         GridCrud<Producto> crud = new GridCrud<>(Producto.class, crudLayout);
+        crud.addClassName("producto-crud");
+        crud.getGrid().addClassName("producto-grid");
 
         crud.getGrid().removeAllColumns();
         crud.getGrid().addComponentColumn(producto -> {
@@ -64,22 +73,26 @@ public class ProductoCrudView extends VerticalLayout {
 
             layout.add(avatar, nombreSpan);
             return layout;
-        }).setHeader("Producto").setKey("nombre").setComparator(producto -> producto.getNombre());
+        }).setHeader("Producto").setKey("nombre").setFlexGrow(2).setComparator(Producto::getNombre);
+
 
         crud.getGrid().addColumn(producto -> producto.getCategoria() != null ? producto.getCategoria().getEtiqueta() : "")
                 .setHeader("Categoría")
                 .setKey("categoria")
-                .setComparator(producto -> producto.getCategoria().getEtiqueta());
+                .setFlexGrow(1).setComparator(producto -> producto.getCategoria().getEtiqueta());
+
 
         crud.getGrid().addColumn(producto -> producto.getUnidadEmpaque() != null ? producto.getUnidadEmpaque().getEtiqueta() : "")
                 .setHeader("Empaque")
                 .setKey("unidadEmpaque")
-                .setComparator(producto -> producto.getUnidadEmpaque().getEtiqueta());
+                .setFlexGrow(1).setComparator(producto -> producto.getUnidadEmpaque().getEtiqueta());
+
 
         crud.getGrid().addColumn(producto -> producto.getPrecioEmpaque() != null ? String.format("RD$ %,.2f", producto.getPrecioEmpaque()) : "RD$ 0.00")
                 .setHeader("Precio Empaque")
                 .setKey("precioEmpaque")
-                .setComparator(Producto::getPrecioEmpaque);
+                .setFlexGrow(1).setComparator(Producto::getPrecioEmpaque);
+
 
         crud.getGrid().addComponentColumn(producto -> {
             boolean isActivo = producto.getStatus() == StatusEntidad.ACTIVO;
@@ -90,8 +103,37 @@ public class ProductoCrudView extends VerticalLayout {
 
         crud.getGrid().addColumn(producto -> (producto.getPermiteFraccionamiento() != null && producto.getPermiteFraccionamiento()) ? "Sí" : "No")
                 .setHeader("Al Detalle")
-                .setKey("permiteFraccionamiento");
+                .setKey("permiteFraccionamiento").setWidth("110px").setFlexGrow(0);
 
+        crud.getGrid().addComponentColumn(producto -> {
+            Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
+            btnEditar.addClassName("btn-accion-editar");
+            btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnEditar.addClickListener(e -> {
+                crud.getGrid().select(producto);
+                crud.getUpdateButton().click();
+            });
+
+            Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
+            btnEliminar.addClassName("btn-accion-eliminar");
+            btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnEliminar.addClickListener(e -> {
+                crud.getGrid().select(producto);
+                crud.getDeleteButton().click();
+            });
+
+            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEliminar);
+            acciones.setSpacing(false);
+            acciones.setPadding(false);
+            return acciones;
+        }).setHeader("Acciones").setWidth("120px").setFlexGrow(0);
+
+        crud.getGrid().addThemeNames("row-stripes");
+
+        crud.getAddButton().setVisible(false);
+        crud.getUpdateButton().setVisible(false);
+        crud.getDeleteButton().setVisible(false);
+        crud.getFindAllButton().setVisible(false);
 
 
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
@@ -229,16 +271,24 @@ public class ProductoCrudView extends VerticalLayout {
 
         crud.getCrudFormFactory().setCaption(CrudOperation.ADD, "Registrar nuevo producto");
         crud.getCrudFormFactory().setCaption(CrudOperation.UPDATE, "Editar producto");
+        crud.getCrudFormFactory().setCaption(CrudOperation.DELETE, "¿Eliminar Producto?");
+        formFactory.setButtonCaption(CrudOperation.DELETE, "Sí, eliminar");
+        formFactory.setCancelButtonCaption("Cancelar");
 
         crud.setCrudFormFactory(formFactory);
 
+        Button btnNuevo = new Button("Nuevo Producto", new Icon(VaadinIcon.PLUS));
+        btnNuevo.addClassName("btn-nuevo");
+        btnNuevo.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnNuevo.addClickListener(e -> crud.getAddButton().click());
 
         TextField searchField = new TextField();
+        searchField.setWidthFull();
         searchField.setPlaceholder("Buscar producto...");
+        searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         searchField.setClearButtonVisible(true);
-        searchField.setValueChangeMode(ValueChangeMode.EAGER);
+        searchField.setValueChangeMode(ValueChangeMode.LAZY);
         searchField.addValueChangeListener(e -> crud.refreshGrid());
-        crud.getCrudLayout().addFilterComponent(searchField);
 
         ComboBox<StatusEntidad> statusFilter = new ComboBox<>();
         statusFilter.setPlaceholder("Todos los estados");
@@ -246,7 +296,13 @@ public class ProductoCrudView extends VerticalLayout {
         statusFilter.setItemLabelGenerator(StatusEntidad::getEtiqueta);
         statusFilter.setClearButtonVisible(true);
         statusFilter.addValueChangeListener(e -> crud.refreshGrid());
-        crud.getCrudLayout().addFilterComponent(statusFilter);
+
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, searchField, statusFilter);
+        toolbar.setWidthFull();
+        toolbar.setAlignItems(Alignment.CENTER);
+        toolbar.addClassName("producto-toolbar");
+        toolbar.expand(searchField);
+
         crud.setFindAllOperation(() -> {
             String termino = searchField.getValue().toLowerCase().trim();
             StatusEntidad estadoSeleccionado = statusFilter.getValue();
@@ -285,8 +341,9 @@ public class ProductoCrudView extends VerticalLayout {
 
         crud.setSizeFull();
         setSizeFull();
-        setPadding(false);
-        add(crud);
+        setPadding(true);
+        setSpacing(false);
+        add(toolbar, crud);
     }
 
 
