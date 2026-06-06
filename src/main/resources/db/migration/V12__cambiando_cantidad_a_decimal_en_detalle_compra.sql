@@ -1,0 +1,1 @@
+ALTER TABLE detalle_compra ALTER COLUMN cantidad TYPE NUMERIC(12, 2);

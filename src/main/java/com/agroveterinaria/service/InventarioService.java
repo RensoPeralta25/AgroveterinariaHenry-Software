@@ -2,11 +2,13 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Inventario;
+import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.repository.AlmacenRepository;
 import com.agroveterinaria.repository.InventarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,6 +49,14 @@ public class InventarioService {
     @Transactional(readOnly = true)
     public List<Inventario> listarPorAlmacen(Almacen almacen) {
         return inventarioRepository.findByAlmacen(almacen);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal obtenerStockTotal(Producto producto) {
+        if (producto == null || producto.getIdProducto() == null) {
+            return BigDecimal.ZERO;
+        }
+        return inventarioRepository.sumarStockPorProducto(producto);
     }
 
 }
