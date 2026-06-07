@@ -20,7 +20,6 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
@@ -28,7 +27,6 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
-@Route("mascotas")
 @PageTitle("Gestión de Mascotas")
 public class MascotaView extends VerticalLayout {
 

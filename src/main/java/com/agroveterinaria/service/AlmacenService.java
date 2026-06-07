@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.repository.AlmacenRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class AlmacenService {
 
     private final AlmacenRepository almacenRepository;

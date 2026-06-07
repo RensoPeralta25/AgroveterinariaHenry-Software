@@ -19,7 +19,6 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
@@ -28,7 +27,6 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 import java.util.List;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
-@Route("usuarios")
 public class UsuarioView extends VerticalLayout {
 
     private final UsuarioService usuarioService;

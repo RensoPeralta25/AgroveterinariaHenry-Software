@@ -4,10 +4,13 @@ import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.repository.ProveedorRepository;
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class ProveedorService {
 
     private final ProveedorRepository proveedorRepository;

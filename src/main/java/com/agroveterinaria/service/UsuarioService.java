@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.repository.UsuarioRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;

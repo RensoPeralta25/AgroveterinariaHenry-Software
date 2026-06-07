@@ -24,7 +24,6 @@ import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.CrudOperationException;
 import org.vaadin.crudui.crud.impl.GridCrud;
@@ -36,7 +35,6 @@ import java.util.Base64;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
-@Route("productos")
 @PageTitle("Gestión de Productos")
 public class ProductoCrudView extends VerticalLayout {
 

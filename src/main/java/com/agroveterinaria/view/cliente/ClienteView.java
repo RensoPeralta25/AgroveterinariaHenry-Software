@@ -29,7 +29,6 @@ import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -39,7 +38,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-@Route("clientes")
 @PageTitle("Gestión de Clientes | Agroveterinaria")
 public class ClienteView extends VerticalLayout {
 

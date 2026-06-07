@@ -26,17 +26,23 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouterLayout;
+import com.vaadin.flow.spring.security.AuthenticationContext;
+import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Route("")
 @PageTitle("Agroveterinaria Henry | Panel principal")
+@PermitAll
 public class MainView extends Div {
 
     private final Div contentArea = new Div();
     private final H2 moduleTitle = new H2();
     private final List<Button> menuButtons = new ArrayList<>();
+
+    private final transient AuthenticationContext authContext;
 
     public MainView(
             UsuarioService usuarioService,
@@ -45,8 +51,11 @@ public class MainView extends Div {
             EmpleadoService empleadoService,
             ClienteService clienteService,
             CitaService citaService,
-            MascotaService mascotaService
+            MascotaService mascotaService,
+            AuthenticationContext authContext
     ) {
+        this.authContext = authContext;
+
         addClassName("main-view");
         setSizeFull();
 
@@ -63,11 +72,11 @@ public class MainView extends Div {
         add(shell);
         showModule(
                 menuButtons.get(0),
-                "Gestión de Productos",
-                "Panel de Productos",
-                "Inventario, precios y presentaciones",
-                VaadinIcon.PACKAGE,
-                new ProductoCrudView(productoService)
+                "Inicio",
+                "Panel Principal",
+                "Resumen general de la operación administrativa.",
+                VaadinIcon.DASHBOARD,
+                createWelcomePanel()
         );
     }
 
@@ -98,6 +107,11 @@ public class MainView extends Div {
         brand.addClassName("brand");
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
 
+        boolean esAdmin = authContext.hasRole("ADMINISTRADOR");
+        boolean esCajero = authContext.hasRole("CAJERO");
+        boolean esVeterinario = authContext.hasRole("VETERINARIO");
+        boolean esConductor = authContext.hasRole("CONDUCTOR");
+
         Button inicioButton = createMenuButton(VaadinIcon.HOME, "Inicio");
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
@@ -106,6 +120,18 @@ public class MainView extends Div {
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
+
+        inicioButton.setEnabled(true);
+
+        clientesButton.setEnabled(esAdmin || esCajero || esVeterinario);
+
+        mascotasButton.setEnabled(esAdmin || esVeterinario);
+        citasButton.setEnabled(esAdmin || esVeterinario);
+
+        productosButton.setEnabled(esAdmin);
+        proveedoresButton.setEnabled(esAdmin);
+        usuariosButton.setEnabled(esAdmin);
+        empleadosButton.setEnabled(esAdmin);
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -218,11 +244,18 @@ public class MainView extends Div {
         avatar.addClassName("user-avatar");
         avatar.add(VaadinIcon.USER.create());
 
+        Button logoutButton = new Button("Salir", VaadinIcon.SIGN_OUT.create());
+        logoutButton.addClickListener(event -> authContext.logout());
+
         HorizontalLayout topBarLeft = new HorizontalLayout(collapseButton, moduleTitle);
         topBarLeft.addClassName("topbar-left");
         topBarLeft.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        HorizontalLayout moduleHeader = new HorizontalLayout(topBarLeft, avatar);
+        HorizontalLayout topBarRight = new HorizontalLayout(avatar, logoutButton);
+        topBarRight.setAlignItems(FlexComponent.Alignment.CENTER);
+        topBarRight.setSpacing(true);
+
+        HorizontalLayout moduleHeader = new HorizontalLayout(topBarLeft, topBarRight);
         moduleHeader.addClassName("module-header");
         moduleHeader.setAlignItems(FlexComponent.Alignment.CENTER);
         moduleHeader.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
