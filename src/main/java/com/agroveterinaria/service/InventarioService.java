@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.repository.AlmacenRepository;
 import com.agroveterinaria.repository.InventarioRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class InventarioService {
 
     private final InventarioRepository inventarioRepository;

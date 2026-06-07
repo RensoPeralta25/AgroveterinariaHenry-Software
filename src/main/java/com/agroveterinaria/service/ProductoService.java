@@ -5,6 +5,7 @@ import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.UnidadMedida;
 import com.agroveterinaria.repository.ProductoRepository;
 import com.agroveterinaria.repository.ProveedorRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class ProductoService {
 
     private final ProductoRepository productoRepository;

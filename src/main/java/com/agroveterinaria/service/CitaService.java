@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Mascota;
 import com.agroveterinaria.repository.CitaRepository;
 import com.agroveterinaria.repository.MascotaRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,7 @@ import java.util.List;
 
 @Service
 @Transactional
+@RolesAllowed({"ADMINISTRADOR", "VETERINARIO"})
 public class CitaService {
 
     private final CitaRepository citaRepository;

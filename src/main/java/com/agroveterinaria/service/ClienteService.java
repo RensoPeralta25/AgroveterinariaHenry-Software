@@ -8,6 +8,7 @@ import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.TipoCliente;
 import com.agroveterinaria.repository.ClienteRepository;
 import com.agroveterinaria.repository.TipoClienteRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 @Service
 @Transactional
+@RolesAllowed({"ADMINISTRADOR", "VETERINARIO"})
 public class ClienteService {
     private final ClienteRepository clienteRepository;
     private final TipoClienteRepository tipoClienteRepository;

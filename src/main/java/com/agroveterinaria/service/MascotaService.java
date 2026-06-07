@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Mascota;
 import com.agroveterinaria.repository.MascotaRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,7 @@ import java.util.List;
 
 @Service
 @Transactional
+@RolesAllowed({"ADMINISTRADOR","VETERINARIO"})
 public class MascotaService {
 
     private final MascotaRepository mascotaRepository;
