@@ -22,16 +22,16 @@ public class Persona {
     private Long idPersona;
 
     @NotBlank(message = "El nombre no puede estar vacío")
-    protected String nombre;
+    private String nombre;
 
     @NotBlank(message = "La cédula es obligatoria")
     @Pattern(regexp = "^\\d{3}-\\d{7}-\\d{1}$", message = "El formato debe ser 000-0000000-0")
-    protected String cedula;
+    private String cedula;
 
     @NotBlank(message = "La dirección es obligatoria")
-    protected String direccion;
+    private String direccion;
 
     @NotBlank(message = "El teléfono es obligatorio")
     @Pattern(regexp = "^\\d{3}-\\d{3}-\\d{4}$", message = "El formato debe ser 000-000-0000")
-    protected String telefono;
+    private String telefono;
 }
