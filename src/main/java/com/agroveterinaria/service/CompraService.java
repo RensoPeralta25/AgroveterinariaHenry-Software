@@ -2,10 +2,14 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.dto.detalle_compra.DetalleCompraDTO;
 import com.agroveterinaria.entity.Compra;
+import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
+import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.repository.CompraRepository;
 import com.agroveterinaria.repository.DetalleCompraRepository;
+import com.agroveterinaria.repository.DetalleRecepcionRepository;
+import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,14 +18,17 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@RolesAllowed("ADMINISTRADOR")
 public class CompraService {
 
     private final CompraRepository compraRepository;
     private final DetalleCompraRepository detalleCompraRepository;
+    private final DetalleRecepcionRepository detalleRecepcionRepository;
 
-    public CompraService(CompraRepository compraRepository, DetalleCompraRepository detalleCompraRepository) {
+    public CompraService(CompraRepository compraRepository, DetalleCompraRepository detalleCompraRepository, DetalleRecepcionRepository detalleRecepcionRepository) {
         this.compraRepository = compraRepository;
         this.detalleCompraRepository = detalleCompraRepository;
+        this.detalleRecepcionRepository = detalleRecepcionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -62,8 +69,50 @@ public class CompraService {
     }
 
     @Transactional
-    public void registrarCompra(Proveedor proveedor, List<DetalleCompraDTO> detalles) {
-        //Implementar en ticket AHS-58
+    public void registrarCompra(Proveedor proveedor, List<DetalleCompraDTO> detallesDTO) {
+        if (proveedor == null) {
+            throw new IllegalArgumentException("El proveedor no puede ser nulo");
+        }
+        if (detallesDTO == null || detallesDTO.isEmpty()) {
+            throw new IllegalArgumentException("La compra debe tener al menos un producto");
+        }
+
+        Compra nuevaCompra = new Compra();
+        nuevaCompra.setProveedor(proveedor);
+        nuevaCompra.setFechaHoraCompra(java.time.LocalDateTime.now());
+        // El estadoRecepcion ya es pendiente por defecto en la entidad
+
+        BigDecimal totalCompra = BigDecimal.ZERO;
+        for (DetalleCompraDTO dto : detallesDTO) {
+            totalCompra = totalCompra.add(dto.getSubtotal());
+        }
+        nuevaCompra.setTotal(totalCompra);
+
+        for (DetalleCompraDTO dto : detallesDTO) {
+            DetalleCompra detalleReal = new DetalleCompra();
+            detalleReal.setCompra(nuevaCompra);
+            detalleReal.setProducto(dto.getProducto());
+            detalleReal.setCantidad(dto.getCantidad());
+            detalleReal.setPrecioUnitarioCompra(dto.getCostoActual());
+            detalleReal.setImpuesto(BigDecimal.ZERO);
+
+            nuevaCompra.addDetalle(detalleReal);
+        }
+
+        compraRepository.save(nuevaCompra);
+    }
+
+    public List<Compra> listarComprasPendientes() {
+        return compraRepository.findByEstadoRecepcion(EstadoRecepcion.PENDIENTE);
+    }
+
+    public List<DetalleCompra> obtenerDetallesPorCompra(Long idCompra) {
+        return detalleCompraRepository.findByCompra_IdCompra(idCompra);
+    }
+
+    public BigDecimal calcularCantidadPendiente(DetalleCompra detalleCompra) {
+        BigDecimal yaRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(detalleCompra);
+        return detalleCompra.getCantidad().subtract(yaRecibido);
     }
 
 }

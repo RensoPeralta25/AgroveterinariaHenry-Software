@@ -3,8 +3,10 @@ package com.agroveterinaria.repository;
 import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface DetalleCompraRepository extends JpaRepository<DetalleCompra, Long> {
@@ -12,5 +14,8 @@ public interface DetalleCompraRepository extends JpaRepository<DetalleCompra, Lo
     Optional<DetalleCompra> findFirstByProductoAndCompraProveedorOrderByCompraFechaHoraCompraDesc(
             Producto producto, Proveedor proveedor
     );
+
+    @EntityGraph(attributePaths = {"producto"})
+    List<DetalleCompra> findByCompra_IdCompra(Long idCompra);
 
 }

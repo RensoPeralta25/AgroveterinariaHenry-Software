@@ -1,6 +1,7 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Lote;
+import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.repository.LoteRepository;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,10 @@ public class LoteService {
     @Transactional
     public void eliminar(Lote lote) {
         loteRepository.delete(lote);
+    }
+
+    public List<Lote> buscarPorProducto(Producto producto) {
+        return loteRepository.findByProducto(producto);
     }
 
 }

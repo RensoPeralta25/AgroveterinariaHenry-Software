@@ -1,0 +1,1 @@
+ALTER TABLE ruta ALTER COLUMN tiempo_estimado TYPE NUMERIC(21,0);
