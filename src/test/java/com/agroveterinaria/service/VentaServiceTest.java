@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -135,6 +136,74 @@ class VentaServiceTest {
     }
 
     @Test
+    void metodosDePagoDisponiblesEstanModeladosPeroSoloEfectivoEstaHabilitado() {
+        assertTrue(List.of(MetodoPago.values()).containsAll(List.of(
+                MetodoPago.EFECTIVO,
+                MetodoPago.TARJETA,
+                MetodoPago.NOTA_CREDITO,
+                MetodoPago.TRANSFERENCIA
+        )));
+
+        Venta venta = venta(cliente, "1000.00");
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(cliente, venta, MetodoPago.TARJETA, new BigDecimal("100.00"))
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(cliente, venta, MetodoPago.NOTA_CREDITO, new BigDecimal("100.00"))
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"))
+        );
+    }
+
+    @Test
+    void estadosDisponiblesDeVentaSonNegociacionPendienteYCerrada() {
+        assertEquals(List.of(
+                EstadoVenta.NEGOCIACION,
+                EstadoVenta.PENDIENTE,
+                EstadoVenta.CERRADA
+        ), List.of(EstadoVenta.values()));
+    }
+
+    @Test
+    void calcularResumenAsignaEstadoPendienteOCerradaSegunPago() {
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
+
+        VentaService.ResumenVenta pagoParcial = ventaService.calcularResumen(solicitud(
+                "0.00",
+                "200.00",
+                List.of(linea(100L, "2.00", "54.00"))
+        ));
+
+        VentaService.ResumenVenta pagoTotal = ventaService.calcularResumen(solicitud(
+                "0.00",
+                "354.00",
+                List.of(linea(100L, "2.00", "54.00"))
+        ));
+
+        assertEquals(EstadoVenta.PENDIENTE, pagoParcial.estado());
+        assertEquals(new BigDecimal("154.00"), pagoParcial.balancePendiente());
+        assertEquals(EstadoVenta.CERRADA, pagoTotal.estado());
+        assertEquals(BigDecimal.ZERO.setScale(2), pagoTotal.balancePendiente());
+    }
+
+    @Test
+    void calcularResumenRechazaMontoPagadoMayorQueTotal() {
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
+
+        VentaService.SolicitudVenta solicitud = solicitud(
+                "0.00",
+                "355.00",
+                List.of(linea(100L, "2.00", "54.00"))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(solicitud));
+    }
+
+    @Test
     void registrarVentaAsignaCadaDetalleALaVentaGuardada() {
         Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
         Producto medicamento = producto(200L, CategoriaProducto.MEDICAMENTO, "80.00");
@@ -213,6 +282,29 @@ class VentaServiceTest {
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.EFECTIVO, new BigDecimal("200.00"))
         );
+    }
+
+    @Test
+    void registrarCobroActualizaEstadoACerradaCuandoLiquidaLaDeuda() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.sumMontoByVenta(venta)).thenReturn(new BigDecimal("900.00"));
+        when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ventaService.registrarCobro(cliente, venta, MetodoPago.EFECTIVO, new BigDecimal("100.00"));
+
+        assertEquals(EstadoVenta.CERRADA, venta.getEstado());
+        verify(ventaRepository).save(venta);
+    }
+
+    @Test
+    void registrarCobroMantienePendienteCuandoQuedaDeuda() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.sumMontoByVenta(venta)).thenReturn(new BigDecimal("300.00"));
+        when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ventaService.registrarCobro(cliente, venta, MetodoPago.EFECTIVO, new BigDecimal("200.00"));
+
+        assertEquals(EstadoVenta.PENDIENTE, venta.getEstado());
     }
 
     @Test

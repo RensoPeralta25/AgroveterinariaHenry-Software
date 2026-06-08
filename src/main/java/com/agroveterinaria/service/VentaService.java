@@ -217,6 +217,9 @@ public class VentaService {
             throw new IllegalArgumentException("Debes seleccionar el metodo de pago.");
         }
 
+        validarMetodoPagoDisponible(metodoPago);
+
+        BigDecimal deudaDespuesDelCobro = null;
         if (venta != null) {
             if (!esMismoCliente(cliente, venta.getCliente())) {
                 throw new IllegalArgumentException("El cobro debe pertenecer al mismo cliente de la venta.");
@@ -226,6 +229,7 @@ public class VentaService {
             if (montoNormalizado.compareTo(deudaRestante) > 0) {
                 throw new IllegalArgumentException("El monto cobrado no puede ser mayor que la deuda restante de la venta.");
             }
+            deudaDespuesDelCobro = deudaRestante.subtract(montoNormalizado).setScale(2, RoundingMode.HALF_UP);
         }
 
         Cobro cobro = new Cobro();
@@ -233,7 +237,11 @@ public class VentaService {
         cobro.setVenta(venta);
         cobro.setMontoTotal(montoNormalizado);
         cobro.setMetodoPago(metodoPago);
-        return cobroRepository.save(cobro);
+        Cobro cobroGuardado = cobroRepository.save(cobro);
+
+        actualizarEstadoPorDeuda(venta, deudaDespuesDelCobro);
+
+        return cobroGuardado;
     }
 
     @Transactional(readOnly = true)
@@ -271,6 +279,27 @@ public class VentaService {
             return cliente.getIdCliente().equals(clienteVenta.getIdCliente());
         }
         return cliente == clienteVenta;
+    }
+
+    private void validarMetodoPagoDisponible(MetodoPago metodoPago) {
+        if (metodoPago != MetodoPago.EFECTIVO) {
+            throw new IllegalArgumentException("Por ahora solo se aceptan pagos en efectivo.");
+        }
+    }
+
+    private void actualizarEstadoPorDeuda(Venta venta, BigDecimal deudaDespuesDelCobro) {
+        if (venta == null || deudaDespuesDelCobro == null) {
+            return;
+        }
+
+        EstadoVenta nuevoEstado = deudaDespuesDelCobro.compareTo(BigDecimal.ZERO) == 0
+                ? EstadoVenta.CERRADA
+                : EstadoVenta.PENDIENTE;
+
+        if (venta.getEstado() != nuevoEstado) {
+            venta.setEstado(nuevoEstado);
+            ventaRepository.save(venta);
+        }
     }
 
     private void validarSolicitud(SolicitudVenta solicitud) {

@@ -243,7 +243,7 @@ public class VentaView extends VerticalLayout {
         montoPagado.setValueChangeMode(ValueChangeMode.EAGER);
         montoPagado.addValueChangeListener(event -> actualizarResumen());
 
-        metodoPago.setItems(MetodoPago.values());
+        metodoPago.setItems(MetodoPago.EFECTIVO);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
     }
 
