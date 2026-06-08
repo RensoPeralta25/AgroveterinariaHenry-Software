@@ -13,3 +13,7 @@
 node_modules/
 src/main/frontend/generated/
 vite.generated.ts
+
+
+src/main/bundles/
+package-lock.json
