@@ -67,4 +67,26 @@ public class Venta {
 
     @Column(name = "fecha_vencimiento_pago")
     private LocalDateTime fechaVencimientoPago;
+
+    public void agregarDetalle(DetalleVenta detalle) {
+        if (detalle == null) {
+            return;
+        }
+        detalle.setVenta(this);
+        detallesVentas.add(detalle);
+    }
+
+    public void reemplazarDetalles(List<DetalleVenta> nuevosDetalles) {
+        detallesVentas.clear();
+        if (nuevosDetalles == null) {
+            return;
+        }
+        nuevosDetalles.forEach(this::agregarDetalle);
+    }
+
+    public BigDecimal calcularSubtotalDetalles() {
+        return detallesVentas.stream()
+                .map(DetalleVenta::calcularSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 }
