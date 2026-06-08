@@ -30,8 +30,6 @@ import java.util.Optional;
 @Service
 public class VentaService {
 
-    // accidentalmente trabaje en otra rama que no era el AHS-64
-
     private final VentaRepository ventaRepository;
     private final ClienteRepository clienteRepository;
     private final TipoClienteRepository tipoClienteRepository;
@@ -109,7 +107,6 @@ public class VentaService {
             BigDecimal impuesto = normalizarMonto(linea.impuesto());
 
             DetalleVenta detalle = new DetalleVenta();
-            detalle.setVenta(venta);
             detalle.setProducto(producto);
             detalle.setCantidad(cantidad);
             detalle.setPrecioUnitarioVenta(precioUnitario);
@@ -117,8 +114,7 @@ public class VentaService {
             detalles.add(detalle);
         }
 
-        venta.getDetallesVentas().clear();
-        venta.getDetallesVentas().addAll(detalles);
+        venta.reemplazarDetalles(detalles);
         venta.setMontoTotal(resumen.total());
 
         Venta ventaGuardada = ventaRepository.save(venta);
@@ -136,7 +132,12 @@ public class VentaService {
                     .orElseThrow(() -> new IllegalArgumentException("Uno de los productos seleccionados no existe."));
             BigDecimal cantidad = normalizarCantidad(linea.cantidad());
             BigDecimal impuesto = normalizarMonto(linea.impuesto());
-            subtotal = subtotal.add(seleccionarPrecio(producto, cantidad).multiply(cantidad)).add(impuesto);
+            DetalleVenta detalle = new DetalleVenta();
+            detalle.setProducto(producto);
+            detalle.setCantidad(cantidad);
+            detalle.setPrecioUnitarioVenta(seleccionarPrecio(producto, cantidad));
+            detalle.setImpuesto(impuesto.setScale(4, RoundingMode.HALF_UP));
+            subtotal = subtotal.add(detalle.calcularSubtotal());
         }
 
         BigDecimal descuento = normalizarMonto(solicitud.descuento());

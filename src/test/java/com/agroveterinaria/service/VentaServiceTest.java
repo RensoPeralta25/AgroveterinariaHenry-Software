@@ -91,6 +91,29 @@ class VentaServiceTest {
     }
 
     @Test
+    void detalleVentaCalculaSuSubtotal() {
+        DetalleVenta detalle = new DetalleVenta();
+        detalle.setCantidad(new BigDecimal("3.00"));
+        detalle.setPrecioUnitarioVenta(new BigDecimal("125.50"));
+        detalle.setImpuesto(new BigDecimal("67.7700"));
+
+        assertEquals(new BigDecimal("444.27"), detalle.calcularSubtotal());
+    }
+
+    @Test
+    void ventaReemplazaDetallesYAsignaRelacionPadre() {
+        Venta venta = new Venta();
+        DetalleVenta primerDetalle = new DetalleVenta();
+        DetalleVenta segundoDetalle = new DetalleVenta();
+
+        venta.reemplazarDetalles(List.of(primerDetalle, segundoDetalle));
+
+        assertEquals(2, venta.getDetallesVentas().size());
+        assertSame(venta, primerDetalle.getVenta());
+        assertSame(venta, segundoDetalle.getVenta());
+    }
+
+    @Test
     void calcularResumenCalculaSubtotalDescuentoTotalYBalance() {
         Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
         when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));

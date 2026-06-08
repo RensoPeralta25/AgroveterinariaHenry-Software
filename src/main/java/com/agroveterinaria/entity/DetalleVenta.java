@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Entity
 @Table(name = "detalle_venta")
@@ -46,4 +47,14 @@ public class DetalleVenta {
     @Digits(integer = 12, fraction = 4, message = "El impuesto solo puede tener hasta 4 decimales")
     @Column(name = "impuesto", nullable = false, precision = 12, scale = 4)
     private BigDecimal impuesto;
+
+    public BigDecimal calcularSubtotal() {
+        BigDecimal precio = precioUnitarioVenta != null ? precioUnitarioVenta : BigDecimal.ZERO;
+        BigDecimal cantidadVendida = cantidad != null ? cantidad : BigDecimal.ZERO;
+        BigDecimal impuestoAplicado = impuesto != null ? impuesto : BigDecimal.ZERO;
+
+        return precio.multiply(cantidadVendida)
+                .add(impuestoAplicado)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
 }
