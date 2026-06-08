@@ -173,6 +173,8 @@ public class ProveedorView extends VerticalLayout {
 
         formFactory.setFieldCreationListener("rnc", field -> {
             TextField rncField = (TextField) field;
+            rncField.setAllowedCharPattern("[0-9]");
+            rncField.setMaxLength(11);
             rncField.setPlaceholder("Ej: 101234567");
             rncField.setClearButtonVisible(true);
         });
@@ -180,6 +182,7 @@ public class ProveedorView extends VerticalLayout {
         formFactory.setFieldCreationListener("nombre", field -> {
             TextField nombreField = (TextField) field;
             nombreField.setPlaceholder("Ej: Distribuidora Agrovet");
+            nombreField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
             nombreField.setClearButtonVisible(true);
             nombreField.getElement().setAttribute("colspan", "2");
         });
@@ -193,12 +196,16 @@ public class ProveedorView extends VerticalLayout {
 
         formFactory.setFieldCreationListener("telefono", field -> {
             TextField telefonoField = (TextField) field;
+            telefonoField.setAllowedCharPattern("[0-9-]");
+            telefonoField.setMaxLength(12);
             telefonoField.setPlaceholder("000-000-0000");
             telefonoField.setClearButtonVisible(true);
         });
 
         formFactory.setFieldCreationListener("numPersonaContacto", field -> {
             TextField contactoField = (TextField) field;
+            contactoField.setAllowedCharPattern("[0-9-]");
+            contactoField.setMaxLength(12);
             contactoField.setPlaceholder("000-000-0000");
             contactoField.setClearButtonVisible(true);
         });
@@ -211,6 +218,10 @@ public class ProveedorView extends VerticalLayout {
             statusComboBox.setValue(proveedorActual.getStatus() != null ? proveedorActual.getStatus() : StatusEntidad.ACTIVO);
             statusComboBox.getElement().setAttribute("colspan", "2");
             return statusComboBox;
+        });
+
+        formFactory.setFieldCreationListener("status", field -> {
+            field.setRequiredIndicatorVisible(false);
         });
 
         formFactory.setErrorListener(error -> {
@@ -230,6 +241,8 @@ public class ProveedorView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.ADD, "Registrar nuevo proveedor");
         formFactory.setCaption(CrudOperation.UPDATE, "Editar proveedor");
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Proveedor?");
+        formFactory.setButtonCaption(CrudOperation.ADD,    "Registrar");
+        formFactory.setButtonCaption(CrudOperation.UPDATE, "Guardar cambios");
         formFactory.setButtonCaption(CrudOperation.DELETE, "Sí, eliminar");
         formFactory.setCancelButtonCaption("Cancelar");
 
