@@ -30,6 +30,8 @@ import java.util.Optional;
 @Service
 public class VentaService {
 
+    // accidentalmente trabaje en otra rama que no era el AHS-64
+
     private final VentaRepository ventaRepository;
     private final ClienteRepository clienteRepository;
     private final TipoClienteRepository tipoClienteRepository;
