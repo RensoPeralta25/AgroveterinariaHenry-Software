@@ -1,5 +1,6 @@
 package com.agroveterinaria.entity;
 
+import com.agroveterinaria.enums.EstadoRecepcion;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -43,6 +44,10 @@ public class Compra {
 
     @Column(name = "fecha_vencimiento_pago")
     private LocalDateTime fechaVencimientoDePago;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_recepcion", nullable = false, length = 20)
+    private EstadoRecepcion estadoRecepcion = EstadoRecepcion.PENDIENTE;
 
     public void addDetalle(DetalleCompra detalle) {
         detalles.add(detalle);

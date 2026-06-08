@@ -1,0 +1,1 @@
+ALTER TABLE detalle_recepcion ALTER COLUMN cantidad TYPE DECIMAL(12,2);

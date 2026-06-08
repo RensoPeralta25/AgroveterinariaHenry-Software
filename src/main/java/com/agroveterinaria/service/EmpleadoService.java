@@ -3,6 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Usuario;
+import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
 import org.springframework.stereotype.Service;
@@ -146,6 +147,10 @@ public class EmpleadoService {
 
     public Empleado findByUsuario (Usuario usuario){
         return empleadoRepository.findByUsuario(usuario).orElse(null);
+    }
+
+    public List<Empleado> findByCargo(RolEmpleado cargo) {
+        return empleadoRepository.findByCargo(cargo);
     }
 
 }

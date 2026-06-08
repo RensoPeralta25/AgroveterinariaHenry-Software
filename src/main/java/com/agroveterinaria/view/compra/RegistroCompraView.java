@@ -30,6 +30,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import jakarta.annotation.security.RolesAllowed;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ import java.util.List;
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @Route("compras/registro")
 @PageTitle("Registrar Compra")
+@RolesAllowed("ADMINISTRADOR")
 public class RegistroCompraView extends VerticalLayout {
 
     private final ProveedorService proveedorService;
@@ -313,21 +315,53 @@ public class RegistroCompraView extends VerticalLayout {
             return;
         }
 
-        try {
-            compraService.registrarCompra(cbProveedor.getValue(), carrito);
+        mostrarDialogoConfirmacion();
+    }
 
-            Notification notif = Notification.show("Compra procesada correctamente", 4000, Notification.Position.BOTTOM_END);
-            notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+    private void mostrarDialogoConfirmacion() {
+        Dialog dialog = new Dialog();
+        dialog.setCloseOnOutsideClick(false);
 
-            carrito.clear();
-            gridDetalles.getDataProvider().refreshAll();
-            cbProveedor.clear();
-            actualizarTotal();
-            gridProductos.getDataProvider().refreshAll();
+        H3 titulo = new H3("Confirmar Compra");
+        titulo.getStyle().set("margin", "0 0 10px 0");
 
-        } catch (Exception ex) {
-            mostrarError("Ocurrió un error al procesar la compra: " + ex.getMessage());
-        }
+        Span mensaje = new Span(String.format("¿Estás seguro de registrar esta compra a %s por un total de %s?",
+                cbProveedor.getValue().getNombre(), lblTotalGlobal.getText()));
+
+        Button btnConfirmar = new Button("Sí, registrar compra", e -> {
+            try {
+                compraService.registrarCompra(cbProveedor.getValue(), carrito);
+
+                Notification notif = Notification.show("Compra registrada exitosamente", 4000, Notification.Position.BOTTOM_END);
+                notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+                dialog.close();
+
+                carrito.clear();
+                gridDetalles.getDataProvider().refreshAll();
+                cbProveedor.clear();
+                actualizarTotal();
+                gridProductos.getDataProvider().refreshAll();
+            } catch (Exception ex) {
+                mostrarError("Ocurrió un error al procesar la compra: " + ex.getMessage());
+                dialog.close();
+            }
+        });
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+
+        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout layoutBotones = new HorizontalLayout(btnConfirmar, btnCancelar);
+        layoutBotones.getStyle().set("margin-top", "20px");
+
+        VerticalLayout layoutContenido = new VerticalLayout(titulo, mensaje, layoutBotones);
+        layoutContenido.setPadding(true);
+        layoutContenido.setSpacing(false);
+        layoutContenido.setAlignItems(Alignment.CENTER);
+
+        dialog.add(layoutContenido);
+        dialog.open();
     }
 
 

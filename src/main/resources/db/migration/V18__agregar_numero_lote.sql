@@ -1,0 +1,1 @@
+ALTER TABLE lote ADD COLUMN numero_lote VARCHAR(100);
