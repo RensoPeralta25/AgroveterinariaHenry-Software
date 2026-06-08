@@ -34,6 +34,9 @@ public class Venta {
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleVenta> detallesVentas = new ArrayList<>();
 
+    @OneToMany(mappedBy = "venta")
+    private List<Cobro> cobros = new ArrayList<>();
+
     @NotNull
     @Digits(integer = 12, fraction = 2, message = "El monto total solo puede tener hasta 2 decimales")
     @Column(name = "monto_total", nullable = false, precision = 12, scale = 2)

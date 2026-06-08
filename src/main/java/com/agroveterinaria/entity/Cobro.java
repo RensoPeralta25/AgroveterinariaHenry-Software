@@ -38,6 +38,10 @@ public class Cobro {
     @JoinColumn(name = "id_cliente", nullable = false)
     private Cliente cliente;
 
+    @ManyToOne
+    @JoinColumn(name = "id_venta")
+    private Venta venta;
+
     @NotNull
     @Digits(integer = 12, fraction = 2, message = "El monto total solo puede tener hasta 2 decimales")
     @Column(name = "monto_total", nullable = false, precision = 12, scale = 2)

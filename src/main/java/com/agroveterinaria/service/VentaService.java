@@ -118,7 +118,7 @@ public class VentaService {
         venta.setMontoTotal(resumen.total());
 
         Venta ventaGuardada = ventaRepository.save(venta);
-        registrarCobroInicial(cliente, solicitud.metodoPago(), montoPagado);
+        registrarCobroInicial(cliente, ventaGuardada, solicitud.metodoPago(), montoPagado);
         return ventaGuardada;
     }
 
@@ -202,19 +202,75 @@ public class VentaService {
         return clienteRepository.save(cliente);
     }
 
-    private void registrarCobroInicial(Cliente cliente, MetodoPago metodoPago, BigDecimal montoPagado) {
-        if (montoPagado.compareTo(BigDecimal.ZERO) == 0) {
-            return;
+    @Transactional
+    public Cobro registrarCobro(Cliente cliente, Venta venta, MetodoPago metodoPago, BigDecimal monto) {
+        if (cliente == null) {
+            throw new IllegalArgumentException("Debes indicar el cliente del cobro.");
         }
+
+        BigDecimal montoNormalizado = normalizarMonto(monto);
+        if (montoNormalizado.compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("El monto cobrado debe ser mayor que cero.");
+        }
+
         if (metodoPago == null) {
-            throw new IllegalArgumentException("Debes seleccionar el metodo de pago cuando registras un monto pagado.");
+            throw new IllegalArgumentException("Debes seleccionar el metodo de pago.");
+        }
+
+        if (venta != null) {
+            if (!esMismoCliente(cliente, venta.getCliente())) {
+                throw new IllegalArgumentException("El cobro debe pertenecer al mismo cliente de la venta.");
+            }
+
+            BigDecimal deudaRestante = calcularDeudaRestante(venta);
+            if (montoNormalizado.compareTo(deudaRestante) > 0) {
+                throw new IllegalArgumentException("El monto cobrado no puede ser mayor que la deuda restante de la venta.");
+            }
         }
 
         Cobro cobro = new Cobro();
         cobro.setCliente(cliente);
-        cobro.setMontoTotal(montoPagado);
+        cobro.setVenta(venta);
+        cobro.setMontoTotal(montoNormalizado);
         cobro.setMetodoPago(metodoPago);
-        cobroRepository.save(cobro);
+        return cobroRepository.save(cobro);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calcularTotalCobrado(Venta venta) {
+        if (venta == null || venta.getIdVenta() == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal totalCobrado = cobroRepository.sumMontoByVenta(venta);
+        return (totalCobrado != null ? totalCobrado : BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calcularDeudaRestante(Venta venta) {
+        if (venta == null || venta.getMontoTotal() == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return venta.getMontoTotal()
+                .subtract(calcularTotalCobrado(venta))
+                .max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void registrarCobroInicial(Cliente cliente, Venta venta, MetodoPago metodoPago, BigDecimal montoPagado) {
+        if (montoPagado.compareTo(BigDecimal.ZERO) == 0) {
+            return;
+        }
+        registrarCobro(cliente, venta, metodoPago, montoPagado);
+    }
+
+    private boolean esMismoCliente(Cliente cliente, Cliente clienteVenta) {
+        if (cliente == null || clienteVenta == null) {
+            return false;
+        }
+        if (cliente.getIdCliente() != null && clienteVenta.getIdCliente() != null) {
+            return cliente.getIdCliente().equals(clienteVenta.getIdCliente());
+        }
+        return cliente == clienteVenta;
     }
 
     private void validarSolicitud(SolicitudVenta solicitud) {

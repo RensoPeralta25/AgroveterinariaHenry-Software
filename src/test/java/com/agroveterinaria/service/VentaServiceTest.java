@@ -1,6 +1,7 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Cliente;
+import com.agroveterinaria.entity.Cobro;
 import com.agroveterinaria.entity.DetalleVenta;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -161,6 +163,71 @@ class VentaServiceTest {
     }
 
     @Test
+    void registrarVentaRegistraCobroInicialAsociadoAlClienteYVentaCorrectos() {
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        prepararVenta(alimento);
+
+        ventaService.registrarVenta(solicitud(
+                "0.00",
+                "354.00",
+                List.of(linea(100L, "2.00", "54.00"))
+        ));
+
+        ArgumentCaptor<Venta> ventaCaptor = ArgumentCaptor.forClass(Venta.class);
+        ArgumentCaptor<Cobro> cobroCaptor = ArgumentCaptor.forClass(Cobro.class);
+        verify(ventaRepository).save(ventaCaptor.capture());
+        verify(cobroRepository).save(cobroCaptor.capture());
+
+        Venta ventaGuardada = ventaCaptor.getValue();
+        Cobro cobroGuardado = cobroCaptor.getValue();
+
+        assertSame(cliente, cobroGuardado.getCliente());
+        assertSame(ventaGuardada, cobroGuardado.getVenta());
+        assertEquals(new BigDecimal("354.00"), cobroGuardado.getMontoTotal());
+        assertEquals(MetodoPago.EFECTIVO, cobroGuardado.getMetodoPago());
+    }
+
+    @Test
+    void calcularDeudaRestanteQuedaEnCeroCuandoLaVentaEstaTotalmenteCobrada() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.sumMontoByVenta(venta)).thenReturn(new BigDecimal("1000.00"));
+
+        assertEquals(new BigDecimal("1000.00"), ventaService.calcularTotalCobrado(venta));
+        assertEquals(BigDecimal.ZERO.setScale(2), ventaService.calcularDeudaRestante(venta));
+    }
+
+    @Test
+    void calcularDeudaRestanteDetectaDiferenciaEntreVentaCobroParcialYDeuda() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.sumMontoByVenta(venta)).thenReturn(new BigDecimal("400.00"));
+
+        assertEquals(new BigDecimal("400.00"), ventaService.calcularTotalCobrado(venta));
+        assertEquals(new BigDecimal("600.00"), ventaService.calcularDeudaRestante(venta));
+    }
+
+    @Test
+    void registrarCobroRechazaMontoMayorQueDeudaRestanteDeLaVenta() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.sumMontoByVenta(venta)).thenReturn(new BigDecimal("900.00"));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(cliente, venta, MetodoPago.EFECTIVO, new BigDecimal("200.00"))
+        );
+    }
+
+    @Test
+    void registrarCobroPermiteCobroSinVentaAsociada() {
+        when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Cobro cobro = ventaService.registrarCobro(cliente, null, MetodoPago.EFECTIVO, new BigDecimal("125.00"));
+
+        assertSame(cliente, cobro.getCliente());
+        assertNull(cobro.getVenta());
+        assertEquals(new BigDecimal("125.00"), cobro.getMontoTotal());
+        assertEquals(MetodoPago.EFECTIVO, cobro.getMetodoPago());
+    }
+
+    @Test
     void calcularResumenSoportaMultiplesLineasMezclandoProductosYServicios() {
         Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
         Producto servicio = producto(300L, CategoriaProducto.SERVICIO, "500.00");
@@ -259,6 +326,15 @@ class VentaServiceTest {
         empleado.setIdEmpleado(idEmpleado);
         empleado.setPersona(persona);
         return empleado;
+    }
+
+    private Venta venta(Cliente cliente, String montoTotal) {
+        Venta venta = new Venta();
+        venta.setIdVenta(99L);
+        venta.setCliente(cliente);
+        venta.setMontoTotal(bd(montoTotal));
+        venta.setEstado(EstadoVenta.PENDIENTE);
+        return venta;
     }
 
     private BigDecimal bd(String value) {
