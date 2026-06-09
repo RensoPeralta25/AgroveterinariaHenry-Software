@@ -11,6 +11,7 @@ import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
+import com.agroveterinaria.view.Venta.VentaView;
 import com.agroveterinaria.view.usuario.UsuarioView;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
@@ -53,6 +54,7 @@ public class MainView extends Div {
             ClienteService clienteService,
             CitaService citaService,
             MascotaService mascotaService,
+            VentaService ventaService,
             AuthenticationContext authContext,
             PersonaService personaService) {
         this.authContext = authContext;
@@ -60,7 +62,7 @@ public class MainView extends Div {
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService, ventaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -89,7 +91,8 @@ public class MainView extends Div {
             EmpleadoService empleadoService,
             ClienteService clienteService,
             CitaService citaService,
-            MascotaService mascotaService
+            MascotaService mascotaService,
+            VentaService ventaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -122,10 +125,12 @@ public class MainView extends Div {
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
+        Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
 
         inicioButton.setEnabled(true);
 
         clientesButton.setEnabled(esAdmin || esCajero || esVeterinario);
+        ventasButton.setEnabled(esAdmin || esCajero);
 
         mascotasButton.setEnabled(esAdmin || esVeterinario);
         citasButton.setEnabled(esAdmin || esVeterinario);
@@ -207,6 +212,15 @@ public class MainView extends Div {
                 new CitaView(citaService, clienteService, empleadoService, productoService)
         ));
 
+        ventasButton.addClickListener(event -> showModule(
+                ventasButton,
+                "Gestión de Ventas",
+                "Panel de Ventas",
+                "Registro de clientes, productos y descuentos de venta",
+                VaadinIcon.CART,
+                new VentaView(ventaService, clienteService, empleadoService, productoService)
+        ));
+
         VerticalLayout navigation = new VerticalLayout(
                 inicioButton,
                 productosButton,
@@ -215,7 +229,8 @@ public class MainView extends Div {
                 empleadosButton,
                 clientesButton,
                 mascotasButton,
-                citasButton
+                citasButton,
+                ventasButton
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);

@@ -153,4 +153,12 @@ public class EmpleadoService {
         return empleadoRepository.findByCargo(cargo);
     }
 
+    @RolesAllowed({"ADMINISTRADOR", "CAJERO"})
+    public List<Empleado> findVendedores() {
+        return empleadoRepository.findAll().stream()
+                .filter(empleado -> empleado.getCargos().contains(RolEmpleado.CAJERO)
+                        || empleado.getCargos().contains(RolEmpleado.ADMINISTRADOR))
+                .toList();
+    }
+
 }
