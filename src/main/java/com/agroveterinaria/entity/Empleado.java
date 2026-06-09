@@ -33,7 +33,7 @@ public class Empleado {
     @JoinColumn(name = "id_persona")
     private Persona persona;
 
-    @OneToOne(cascade = CascadeType.REMOVE)
+    @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "id_usuario")
     private Usuario usuario;
 
@@ -45,7 +45,7 @@ public class Empleado {
     private Set<RolEmpleado> cargos = new HashSet<>();
 
     @NotNull(message = "El salario es obligatorio")
-    @PositiveOrZero
+    @PositiveOrZero(message = "El salario no puede ser negativo")
     private BigDecimal salario;
 
 }

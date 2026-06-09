@@ -44,6 +44,7 @@ public class MainView extends Div {
     private final List<Button> menuButtons = new ArrayList<>();
 
     private final transient AuthenticationContext authContext;
+    private final PersonaService personaService;
 
     public MainView(
             UsuarioService usuarioService,
@@ -54,8 +55,8 @@ public class MainView extends Div {
             CitaService citaService,
             MascotaService mascotaService,
             VentaService ventaService,
-            AuthenticationContext authContext
-    ) {
+            AuthenticationContext authContext,
+            PersonaService personaService) {
         this.authContext = authContext;
 
         addClassName("main-view");
@@ -80,6 +81,7 @@ public class MainView extends Div {
                 VaadinIcon.DASHBOARD,
                 createWelcomePanel()
         );
+        this.personaService = personaService;
     }
 
     private VerticalLayout createSidebar(
@@ -180,7 +182,7 @@ public class MainView extends Div {
                 "Panel de Empleados",
                 "Información general del equipo de trabajo y roles",
                 VaadinIcon.GROUP,
-                new EmpleadoView(empleadoService)
+                new EmpleadoView(empleadoService, personaService)
         ));
 
         clientesButton.addClickListener(event -> showModule(
