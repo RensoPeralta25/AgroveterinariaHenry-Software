@@ -204,9 +204,8 @@ public class UsuarioView extends VerticalLayout {
                 Usuario nuevoUsuario = new Usuario();
                 nuevoUsuario.setUsername(usernameField.getValue().trim());
                 nuevoUsuario.setPassword(passwordField.getValue());
-                Usuario usuarioGuardado = usuarioService.save(nuevoUsuario);
-
-                empleadoSeleccionado.setUsuario(usuarioGuardado);
+                
+                empleadoSeleccionado.setUsuario(nuevoUsuario);
                 empleadoService.save(empleadoSeleccionado);
 
                 dialog.close();
