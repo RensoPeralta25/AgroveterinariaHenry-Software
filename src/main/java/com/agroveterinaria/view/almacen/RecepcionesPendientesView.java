@@ -1,6 +1,7 @@
 package com.agroveterinaria.view.almacen;
 
 import com.agroveterinaria.dto.recepcion.GastoOperativoUI;
+import com.agroveterinaria.dto.recepcion.RecepcionItemUI;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Compra;
 import com.agroveterinaria.entity.DetalleCompra;
@@ -51,15 +52,17 @@ public class RecepcionesPendientesView extends VerticalLayout {
     private final VehiculoService vehiculoService;
     private final EmpleadoService empleadoService;
     private final RutaService rutaService;
+    private final RecepcionService recepcionService;
     private final Grid<Compra> gridCompras;
 
-    public RecepcionesPendientesView(CompraService compraService, AlmacenService almacenService, LoteService loteService, VehiculoService vehiculoService, EmpleadoService empleadoService, RutaService rutaService) {
+    public RecepcionesPendientesView(CompraService compraService, AlmacenService almacenService, LoteService loteService, VehiculoService vehiculoService, EmpleadoService empleadoService, RutaService rutaService, RecepcionService recepcionService) {
         this.compraService = compraService;
         this.almacenService = almacenService;
         this.loteService = loteService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
         this.rutaService = rutaService;
+        this.recepcionService = recepcionService;
 
         setSizeFull();
         setPadding(true);
@@ -407,7 +410,25 @@ public class RecepcionesPendientesView extends VerticalLayout {
         Button btnProcesar = new Button("Procesar Recepción", new Icon(VaadinIcon.CHECK_CIRCLE));
         btnProcesar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnProcesar.addClickListener(e -> {
-            Notification.show("Fase de UI lista. Falta la lógica de guardado.", 3000, Notification.Position.MIDDLE);
+            boolean hayProductosARecibir = false;
+            for (RecepcionItemUI item : itemsFisicos) {
+                if (item.getCantidadRecibida() != null && item.getCantidadRecibida().compareTo(BigDecimal.ZERO) > 0) {
+                    hayProductosARecibir = true;
+                    if (item.getAlmacenDestino() == null) {
+                        Notification notif = Notification.show("Error: Asigne un Almacén Destino para " + item.getDetalle().getProducto().getNombre(), 4000, Notification.Position.MIDDLE);
+                        notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        return;
+                    }
+                }
+            }
+            if (!hayProductosARecibir) {
+                Notification.show("No has asignado cantidades a recibir.", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            mostrarDialogoConfirmacion(
+                    compra, itemsFisicos, rbgTipoLogistica.getValue(), txtCostoFlete.getValue(),
+                    cbVehiculo.getValue(), cbConductor.getValue(), cbRuta.getValue(), listaGastos, dialog
+            );
         });
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
@@ -438,20 +459,81 @@ public class RecepcionesPendientesView extends VerticalLayout {
         return itemActual.getCantidadMaximaPermitida().subtract(sumaTotal);
     }
 
-    @Getter
-    @Setter
-    public static class RecepcionItemUI {
-        private DetalleCompra detalle;
-        private Almacen almacenDestino;
-        private String numeroLote;
-        private LocalDate fechaVencimiento;
-        private BigDecimal cantidadRecibida;
-        private BigDecimal cantidadMaximaPermitida;
+    private void mostrarDialogoConfirmacion(
+            Compra compra, List<RecepcionItemUI> itemsFisicos, String tipoLogistica,
+            BigDecimal costoFleteExterno, com.agroveterinaria.entity.Vehiculo vehiculo,
+            com.agroveterinaria.entity.Empleado conductor, com.agroveterinaria.entity.Ruta ruta,
+            List<GastoOperativoUI> gastosInternos, Dialog dialogPrincipal) {
 
-        public RecepcionItemUI(DetalleCompra detalle, BigDecimal cantidadMaximaPermitida) {
-            this.detalle = detalle;
-            this.cantidadMaximaPermitida = cantidadMaximaPermitida;
-            this.cantidadRecibida = cantidadMaximaPermitida;
+        Dialog dialogConfirmacion = new Dialog();
+        dialogConfirmacion.setWidth("450px");
+
+        H3 titulo = new H3("Confirmar Recepción");
+        titulo.getStyle().set("margin-top", "0").set("color", "var(--lumo-primary-color)");
+
+        long cantProductos = itemsFisicos.stream()
+                .filter(i -> i.getCantidadRecibida() != null && i.getCantidadRecibida().compareTo(BigDecimal.ZERO) > 0)
+                .count();
+
+        BigDecimal totalGastosInternos = gastosInternos.stream()
+                .map(g -> g.getMonto() != null ? g.getMonto() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal costoFlete = costoFleteExterno != null ? costoFleteExterno : BigDecimal.ZERO;
+        BigDecimal totalLogistica = totalGastosInternos.add(costoFlete);
+
+        VerticalLayout resumen = new VerticalLayout();
+        resumen.setPadding(false);
+        resumen.setSpacing(false);
+        resumen.add(new Span("¿Estás seguro de procesar esta entrada al inventario?"));
+        resumen.add(new com.vaadin.flow.component.html.Hr());
+
+        Span lblArticulos = new Span("Productos a ingresar: " + cantProductos + " filas.");
+        lblArticulos.getStyle().set("font-weight", "bold");
+        resumen.add(lblArticulos);
+
+        Span lblLogistica = new Span("Modalidad: " + tipoLogistica);
+        resumen.add(lblLogistica);
+
+        if (totalLogistica.compareTo(BigDecimal.ZERO) > 0) {
+            Span lblCostos = new Span(String.format("Costos Logísticos: RD$ %,.2f", totalLogistica));
+            lblCostos.getStyle().set("color", "var(--lumo-error-text-color)").set("font-weight", "bold");
+            resumen.add(lblCostos);
         }
+
+
+        Button btnConfirmar = new Button("Sí, guardar entrada", new Icon(VaadinIcon.CHECK));
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+        btnConfirmar.setDisableOnClick(true);
+        btnConfirmar.addClickListener(e -> {
+            try {
+                recepcionService.procesarRecepcionTransaccional(
+                        compra.getIdCompra(), itemsFisicos, tipoLogistica,
+                        costoFleteExterno, vehiculo, conductor, ruta, gastosInternos
+                );
+
+                Notification successNotif = Notification.show("Recepción consolidada exitosamente.", 4000, Notification.Position.BOTTOM_END);
+                successNotif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                dialogConfirmacion.close();
+                dialogPrincipal.close();
+                actualizarGrid();
+            } catch (Exception ex) {
+                Notification errorNotif = Notification.show("Error al guardar: " + ex.getMessage(), 6000, Notification.Position.MIDDLE);
+                errorNotif.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                dialogConfirmacion.close();
+                btnConfirmar.setEnabled(true);
+            }
+        });
+
+        Button btnCancelar = new Button("Revisar de nuevo", e -> dialogConfirmacion.close());
+        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout botones = new HorizontalLayout(btnCancelar, btnConfirmar);
+        botones.setWidthFull();
+        botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        botones.getStyle().set("margin-top", "20px");
+
+        dialogConfirmacion.add(titulo, resumen, botones);
+        dialogConfirmacion.open();
     }
 }
