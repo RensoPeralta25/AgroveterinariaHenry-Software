@@ -1,9 +1,10 @@
 package com.agroveterinaria.enums;
 
 public enum EstadoRecepcion {
-    PENDIENTE("Pendiente"),
+    BORRADOR("Borrador"),
+    PENDIENTE("Pendiente de Recibir"),
     PARCIAL("Recepción Parcial"),
-    RECIBIDA("Completada");
+    RECIBIDA("Recibida Completamente");
 
     private final String etiqueta;
 
