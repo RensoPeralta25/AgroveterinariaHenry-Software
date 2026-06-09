@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 public enum TipoGasto {
     FIJO("Fijo"),
-    VARIALBE("Variable");
+    VARIABLE("Variable");
 
     private final String etiqueta;
 

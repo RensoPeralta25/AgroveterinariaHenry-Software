@@ -103,7 +103,7 @@ public class CompraService {
     }
 
     public List<Compra> listarComprasPendientes() {
-        return compraRepository.findByEstadoRecepcion(EstadoRecepcion.PENDIENTE);
+        return compraRepository.findByEstadoRecepcionIn(List.of(EstadoRecepcion.PENDIENTE, EstadoRecepcion.PARCIAL));
     }
 
     public List<DetalleCompra> obtenerDetallesPorCompra(Long idCompra) {

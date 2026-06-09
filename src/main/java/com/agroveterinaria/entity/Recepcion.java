@@ -29,14 +29,9 @@ public class Recepcion {
     @Column(name = "fecha_hora_recepcion")
     private LocalDateTime fechaHoraRecepcion;
 
-    // Relación con Transporte (nullable = true, gracias a nuestra migración reciente)
-    // NOTA: Lo he dejado comentado. Si ya tienes tu clase Transporte creada,
-    // simplemente quítale los comentarios a este bloque.
-    /*
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_transporte")
     private Transporte transporte;
-    */
 
     @ManyToMany
     @JoinTable(
