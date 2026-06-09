@@ -22,6 +22,7 @@ public class Persona {
     private Long idPersona;
 
     @NotBlank(message = "El nombre no puede estar vacío")
+    @Pattern(regexp = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]+$", message = "El nombre solo debe contener letras")
     private String nombre;
 
     @NotBlank(message = "La cédula es obligatoria")
