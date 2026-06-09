@@ -115,4 +115,57 @@ public class CompraService {
         return detalleCompra.getCantidad().subtract(yaRecibido);
     }
 
+    public Optional<Compra> obtenerUltimoBorrador() {
+        return compraRepository.findFirstByEstadoRecepcionOrderByIdCompraDesc(EstadoRecepcion.BORRADOR);
+    }
+
+    public boolean tieneRecepcionesAsociadas(Long idCompra) {
+        Compra compra = compraRepository.findById(idCompra).orElse(null);
+        if (compra == null) return false;
+        return compra.getEstadoRecepcion() == EstadoRecepcion.PARCIAL
+                || compra.getEstadoRecepcion() == EstadoRecepcion.RECIBIDA;
+    }
+
+    @Transactional
+    public Compra guardarBorradorSilencioso(Long idBorrador, Proveedor proveedor, List<DetalleCompraDTO> detallesDTO) {
+        Compra borrador;
+        if (idBorrador != null) {
+            borrador = compraRepository.findById(idBorrador).orElse(new Compra());
+            borrador.getDetalles().clear();
+        } else {
+            borrador = new Compra();
+        }
+
+        borrador.setProveedor(proveedor);
+        borrador.setEstadoRecepcion(EstadoRecepcion.BORRADOR);
+        borrador.setFechaHoraCompra(java.time.LocalDateTime.now());
+
+        BigDecimal totalCompra = BigDecimal.ZERO;
+        for (DetalleCompraDTO dto : detallesDTO) {
+            totalCompra = totalCompra.add(dto.getSubtotal());
+
+            DetalleCompra detalleReal = new DetalleCompra();
+            detalleReal.setCompra(borrador);
+            detalleReal.setProducto(dto.getProducto());
+            detalleReal.setCantidad(dto.getCantidad());
+            detalleReal.setPrecioUnitarioCompra(dto.getCostoActual());
+            detalleReal.setImpuesto(BigDecimal.ZERO);
+
+            borrador.addDetalle(detalleReal);
+        }
+        borrador.setTotal(totalCompra);
+
+        return compraRepository.save(borrador);
+    }
+
+    @Transactional
+    public void confirmarBorradorComoPendiente(Long idBorrador) {
+        Compra compra = compraRepository.findById(idBorrador)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el borrador a procesar"));
+
+        compra.setEstadoRecepcion(EstadoRecepcion.PENDIENTE);
+        compra.setFechaHoraCompra(java.time.LocalDateTime.now());
+        compraRepository.save(compra);
+    }
+
 }

@@ -1,6 +1,8 @@
 package com.agroveterinaria.view.compra;
 
 import com.agroveterinaria.dto.detalle_compra.DetalleCompraDTO;
+import com.agroveterinaria.entity.Compra;
+import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.StatusEntidad;
@@ -28,8 +30,7 @@ import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.data.value.ValueChangeMode;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.*;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.math.BigDecimal;
@@ -37,15 +38,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
-@Route("compras/registro")
+@Route("compras/nueva")
 @PageTitle("Registrar Compra")
 @RolesAllowed("ADMINISTRADOR")
-public class RegistroCompraView extends VerticalLayout {
+public class RegistroCompraView extends VerticalLayout implements HasUrlParameter<Long> {
 
     private final ProveedorService proveedorService;
     private final ProductoService productoService;
     private final CompraService compraService;
     private final InventarioService inventarioService;
+
+    private boolean cargandoBorrador = false;
+    private Long idBorradorActual = null;
 
     private ComboBox<Proveedor> cbProveedor;
     private Grid<Producto> gridProductos;
@@ -79,6 +83,43 @@ public class RegistroCompraView extends VerticalLayout {
         add(titulo, splitLayout);
     }
 
+    @Override
+    public void setParameter(BeforeEvent event, @OptionalParameter Long parameterId) {
+        if (parameterId != null) {
+            this.idBorradorActual = parameterId;
+            cargarBorrador(parameterId);
+        } else {
+            this.cargandoBorrador = true;
+
+            this.idBorradorActual = null;
+            this.carrito.clear();
+            if (this.cbProveedor != null) this.cbProveedor.clear();
+            if (this.gridDetalles != null) this.gridDetalles.getDataProvider().refreshAll();
+            actualizarTotal();
+
+            this.cargandoBorrador = false;
+        }
+    }
+
+    private void cargarBorrador(Long id) {
+        cargandoBorrador = true;
+
+        compraService.buscarPorId(id).ifPresent(borrador -> {
+            cbProveedor.setValue(borrador.getProveedor());
+            carrito.clear();
+            for (DetalleCompra dc : borrador.getDetalles()) {
+                DetalleCompraDTO dto = new DetalleCompraDTO(dc.getProducto());
+                dto.setCantidad(dc.getCantidad());
+                dto.setCostoActual(dc.getPrecioUnitarioCompra());
+                carrito.add(dto);
+            }
+            gridDetalles.getDataProvider().refreshAll();
+            actualizarTotal();
+        });
+
+        cargandoBorrador = false;
+    }
+
     private VerticalLayout construirPanelIzquierdo() {
         VerticalLayout layout = new VerticalLayout();
         layout.setPadding(false);
@@ -99,7 +140,10 @@ public class RegistroCompraView extends VerticalLayout {
         cbProveedor.setItems(proveedorService.listarTodos().stream()
                 .filter(p -> p.getStatus() == StatusEntidad.ACTIVO).toList());
         cbProveedor.setItemLabelGenerator(Proveedor::getNombre);
-        cbProveedor.addValueChangeListener(e -> gridProductos.getDataProvider().refreshAll());
+        cbProveedor.addValueChangeListener(e -> {
+            gridProductos.getDataProvider().refreshAll();
+            ejecutarAutoGuardadoSilencioso();
+        });
 
         Button btnNuevoProveedor = new Button("Nuevo proveedor", new Icon(VaadinIcon.PLUS));
         btnNuevoProveedor.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -207,6 +251,7 @@ public class RegistroCompraView extends VerticalLayout {
                 } else {
                     txtCantidad.setValue(BigDecimal.ONE);
                 }
+                ejecutarAutoGuardadoSilencioso();
             });
             return txtCantidad;
         }).setHeader("Cantidad").setWidth("110px").setFlexGrow(0);
@@ -227,6 +272,7 @@ public class RegistroCompraView extends VerticalLayout {
                 } else {
                     txtCosto.setValue(BigDecimal.ZERO);
                 }
+                ejecutarAutoGuardadoSilencioso();
             });
             return txtCosto;
         }).setHeader("Costo actual").setWidth("140px").setFlexGrow(0);
@@ -241,6 +287,7 @@ public class RegistroCompraView extends VerticalLayout {
                 carrito.remove(item);
                 gridDetalles.getDataProvider().refreshAll();
                 actualizarTotal();
+                ejecutarAutoGuardadoSilencioso();
             });
             return btnQuitar;
         }).setWidth("60px").setFlexGrow(0);
@@ -280,6 +327,7 @@ public class RegistroCompraView extends VerticalLayout {
                 item.setCantidad(item.getCantidad().add(BigDecimal.ONE));
                 gridDetalles.getDataProvider().refreshItem(item);
                 actualizarTotal();
+                ejecutarAutoGuardadoSilencioso();
                 return;
             }
         }
@@ -296,6 +344,7 @@ public class RegistroCompraView extends VerticalLayout {
         carrito.add(nuevoItem);
         gridDetalles.getDataProvider().refreshAll();
         actualizarTotal();
+        ejecutarAutoGuardadoSilencioso();
     }
 
     private void actualizarTotal() {
@@ -330,18 +379,20 @@ public class RegistroCompraView extends VerticalLayout {
 
         Button btnConfirmar = new Button("Sí, registrar compra", e -> {
             try {
-                compraService.registrarCompra(cbProveedor.getValue(), carrito);
-
-                Notification notif = Notification.show("Compra registrada exitosamente", 4000, Notification.Position.BOTTOM_END);
+                if (idBorradorActual != null) {
+                    compraService.confirmarBorradorComoPendiente(idBorradorActual);
+                } else {
+                    compraService.registrarCompra(cbProveedor.getValue(), carrito);
+                }
+                Notification notif = Notification.show("Compra registrada y enviada a recepción", 4000, Notification.Position.BOTTOM_END);
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-
                 dialog.close();
-
                 carrito.clear();
+                idBorradorActual = null;
                 gridDetalles.getDataProvider().refreshAll();
                 cbProveedor.clear();
                 actualizarTotal();
-                gridProductos.getDataProvider().refreshAll();
+                getUI().ifPresent(ui -> ui.navigate("compras/historial"));
             } catch (Exception ex) {
                 mostrarError("Ocurrió un error al procesar la compra: " + ex.getMessage());
                 dialog.close();
@@ -453,21 +504,32 @@ public class RegistroCompraView extends VerticalLayout {
                 return;
             }
 
-            if (!txtContacto.isEmpty()) {
+            String contactoFinal;
+            if (txtContacto.isEmpty()) {
+                contactoFinal = txtTelefono.getValue();
+            } else {
                 String contLimpio = txtContacto.getValue().replaceAll("[^0-9]", "");
                 if (contLimpio.length() != 10) {
                     mostrarError("El Número de contacto debe tener exactamente 10 dígitos.");
                     return;
                 }
+                contactoFinal = txtContacto.getValue();
+            }
+
+            String nombreFinal = txtNombre.getValue().trim();
+            if (!nombreFinal.matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]+$")) {
+                mostrarError("El nombre no debe contener números ni puntos (ej. quite S.A. o S.R.L.)");
+                return;
             }
 
             try {
                 Proveedor nuevoProveedor = new Proveedor();
-                nuevoProveedor.setRnc(txtRnc.getValue().trim());
-                nuevoProveedor.setNombre(txtNombre.getValue().trim());
-                nuevoProveedor.setDireccion(txtDireccion.getValue() != null ? txtDireccion.getValue().trim() : "");
+                nuevoProveedor.setRnc(rncLimpio);
+                nuevoProveedor.setNombre(nombreFinal);
+                nuevoProveedor.setDireccion(txtDireccion.getValue() != null ? txtDireccion.getValue().trim() : "Sin dirección");
+
                 nuevoProveedor.setTelefono(txtTelefono.getValue().trim());
-                nuevoProveedor.setNumPersonaContacto(txtContacto.getValue() != null ? txtContacto.getValue().trim() : "");
+                nuevoProveedor.setNumPersonaContacto(contactoFinal.trim());
                 nuevoProveedor.setStatus(cbStatus.getValue());
 
                 Proveedor proveedorGuardado = proveedorService.guardar(nuevoProveedor);
@@ -481,7 +543,7 @@ public class RegistroCompraView extends VerticalLayout {
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             } catch (Exception ex) {
-                mostrarError("Error al guardar: Verifique que el RNC/Cédula no esté duplicado.");
+                mostrarError("Error al guardar: " + ex.getMessage());
             }
         });
         btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -522,6 +584,16 @@ public class RegistroCompraView extends VerticalLayout {
     private void mostrarError(String mensaje) {
         Notification notif = Notification.show(mensaje, 4000, Notification.Position.MIDDLE);
         notif.addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    private void ejecutarAutoGuardadoSilencioso() {
+        if (cargandoBorrador) {
+            return;
+        }
+        if (cbProveedor.getValue() != null && (!carrito.isEmpty() || idBorradorActual != null)) {
+            Compra borradorGuardado = compraService.guardarBorradorSilencioso(idBorradorActual, cbProveedor.getValue(), carrito);
+            idBorradorActual = borradorGuardado.getIdCompra();
+        }
     }
 
 }
