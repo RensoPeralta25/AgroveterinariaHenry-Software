@@ -30,6 +30,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLayout;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ public class MainView extends Div {
     private final List<Button> menuButtons = new ArrayList<>();
 
     private final transient AuthenticationContext authContext;
-    private final PersonaService personaService;
+    private final PasswordEncoder passwordEncoder;
 
     public MainView(
             UsuarioService usuarioService,
@@ -56,13 +57,15 @@ public class MainView extends Div {
             MascotaService mascotaService,
             VentaService ventaService,
             AuthenticationContext authContext,
-            PersonaService personaService) {
+            PersonaService personaService,
+            PasswordEncoder passwordEncoder) {
         this.authContext = authContext;
+        this.passwordEncoder = passwordEncoder;
 
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService, ventaService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService, ventaService, personaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -81,7 +84,6 @@ public class MainView extends Div {
                 VaadinIcon.DASHBOARD,
                 createWelcomePanel()
         );
-        this.personaService = personaService;
     }
 
     private VerticalLayout createSidebar(
@@ -92,6 +94,7 @@ public class MainView extends Div {
             ClienteService clienteService,
             CitaService citaService,
             MascotaService mascotaService,
+            PersonaService personaService
             VentaService ventaService
     ) {
         Div logoMark = new Div();
@@ -173,7 +176,7 @@ public class MainView extends Div {
                 "Panel de Usuarios",
                 "Accesos internos y credenciales del sistema",
                 VaadinIcon.USERS,
-                new UsuarioView(usuarioService, empleadoService)
+                new UsuarioView(usuarioService, empleadoService, passwordEncoder)
         ));
 
         empleadosButton.addClickListener(event -> showModule(

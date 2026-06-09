@@ -19,6 +19,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
@@ -31,10 +32,12 @@ public class UsuarioView extends VerticalLayout {
 
     private final UsuarioService usuarioService;
     private final EmpleadoService empleadoService;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuarioView(UsuarioService usuarioService, EmpleadoService empleadoService) {
+    public UsuarioView(UsuarioService usuarioService, EmpleadoService empleadoService, PasswordEncoder passwordEncoder) {
         this.usuarioService = usuarioService;
         this.empleadoService = empleadoService;
+        this.passwordEncoder = passwordEncoder;
 
         setSizeFull();
         setPadding(true);
@@ -203,8 +206,10 @@ public class UsuarioView extends VerticalLayout {
             try {
                 Usuario nuevoUsuario = new Usuario();
                 nuevoUsuario.setUsername(usernameField.getValue().trim());
-                nuevoUsuario.setPassword(passwordField.getValue());
-                
+
+                String claveEncriptada = passwordEncoder.encode(passwordField.getValue());
+                nuevoUsuario.setPassword(claveEncriptada);
+
                 empleadoSeleccionado.setUsuario(nuevoUsuario);
                 empleadoService.save(empleadoSeleccionado);
 
