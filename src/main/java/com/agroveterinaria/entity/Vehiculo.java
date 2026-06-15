@@ -21,6 +21,9 @@ public class Vehiculo {
     @Column(name = "id_vehiculo")
     private Long idVehiculo;
 
+    @Column(name = "marca", length = 80)
+    private String marca;
+
     @Column(name = "placa", nullable = false, unique = true, length = 20)
     private String placa;
 

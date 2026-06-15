@@ -94,8 +94,8 @@ public class MainView extends Div {
             ClienteService clienteService,
             CitaService citaService,
             MascotaService mascotaService,
+            VentaService ventaService,
             PersonaService personaService
-            VentaService ventaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
