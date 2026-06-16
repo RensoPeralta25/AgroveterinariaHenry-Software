@@ -8,6 +8,7 @@ import com.agroveterinaria.enums.TipoGasto;
 import com.agroveterinaria.repository.*;
 import com.agroveterinaria.dto.recepcion.GastoOperativoUI;
 import com.agroveterinaria.dto.recepcion.RecepcionItemUI;
+import com.agroveterinaria.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,13 +31,16 @@ public class RecepcionService {
     private final ProductoRepository productoRepository;
     private final TransferenciaRepository transferenciaRepository;
     private final DespachoRepository despachoRepository;
+    private final AjusteInventarioRepository ajusteInventarioRepository;
+    private final SecurityService securityService;
     private final java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
     public RecepcionService(RecepcionRepository recepcionRepository, CompraRepository compraRepository,
                             LoteRepository loteRepository, InventarioRepository inventarioRepository,
                             TransporteRepository transporteRepository, GastoOperativoRepository gastoOperativoRepository,
                             ProductoRepository productoRepository, DetalleRecepcionRepository detalleRecepcionRepository,
-                            TransferenciaRepository transferenciaRepository, DespachoRepository despachoRepository) {
+                            TransferenciaRepository transferenciaRepository, DespachoRepository despachoRepository,
+                            AjusteInventarioRepository ajusteInventarioRepository, UsuarioRepository usuarioRepository, EmpleadoRepository empleadoRepository, EmpleadoService empleadoService) {
         this.recepcionRepository = recepcionRepository;
         this.compraRepository = compraRepository;
         this.loteRepository = loteRepository;
@@ -47,6 +51,8 @@ public class RecepcionService {
         this.detalleRecepcionRepository = detalleRecepcionRepository;
         this.transferenciaRepository = transferenciaRepository;
         this.despachoRepository = despachoRepository;
+        this.ajusteInventarioRepository = ajusteInventarioRepository;
+        this.securityService = new SecurityService(usuarioRepository, empleadoService);
     }
 
     @Transactional
@@ -133,11 +139,14 @@ public class RecepcionService {
             dr.setAlmacen(item.getAlmacenDestino());
             dr.setCantidad(item.getCantidadRecibida());
 
+            dr.setCantidadMerma(item.getCantidadMerma() != null ? item.getCantidadMerma() : BigDecimal.ZERO);
+            dr.setJustificacionMerma(item.getJustificacionMerma());
+
             Lote lote;
 
             if (item.getDetalleCompra() != null) {
                 DetalleCompra dc = item.getDetalleCompra();
-                BigDecimal recibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+                BigDecimal recibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleCompra(dc);
                 BigDecimal pendiente = dc.getCantidad().subtract(recibido != null ? recibido : BigDecimal.ZERO);
 
                 if (item.getCantidadRecibida().compareTo(pendiente) > 0) {
@@ -160,7 +169,7 @@ public class RecepcionService {
 
             } else {
                 DetalleTransferencia dt = item.getDetalleTransferencia();
-                BigDecimal recibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+                BigDecimal recibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleTransferencia(dt);
                 BigDecimal pendiente = dt.getCantidad().subtract(recibido != null ? recibido : BigDecimal.ZERO);
 
                 if (item.getCantidadRecibida().compareTo(pendiente) > 0) {
@@ -184,20 +193,37 @@ public class RecepcionService {
             inventarioRepository.save(inventario);
 
             recepcion.addDetalle(dr);
+
+            if (dr.getCantidadMerma().compareTo(BigDecimal.ZERO) > 0) {
+                if (item.getJustificacionMerma() == null || item.getJustificacionMerma().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Debe justificar la merma de " + item.getProducto().getNombre());
+                }
+
+                AjusteInventario ajusteMerma = new AjusteInventario();
+                ajusteMerma.setAlmacen(item.getAlmacenDestino());
+                ajusteMerma.setLote(lote);
+                ajusteMerma.setEmpleado(conductor != null ? conductor : securityService.obtenerEmpleadoAutenticado());
+                ajusteMerma.setTipoAjuste(com.agroveterinaria.enums.TipoAjuste.SALIDA);
+                ajusteMerma.setCantidad(dr.getCantidadMerma());
+                ajusteMerma.setJustificacion("MERMA EN RECEPCIÓN (" + tipoDocumento + " " + idDocumento + "): " + dr.getJustificacionMerma());
+                ajusteMerma.setFechaHora(LocalDateTime.now());
+
+                ajusteInventarioRepository.save(ajusteMerma);
+            }
         }
 
         recepcionRepository.save(recepcion);
 
         if ("Compra".equals(tipoDocumento)) {
             boolean completado = compra.getDetalles().stream().allMatch(dc -> {
-                BigDecimal rec = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+                BigDecimal rec = detalleRecepcionRepository.sumCantidadProcesadaByDetalleCompra(dc);
                 return (rec != null ? rec : BigDecimal.ZERO).compareTo(dc.getCantidad()) >= 0;
             });
             compra.setEstadoRecepcion(completado ? com.agroveterinaria.enums.EstadoRecepcion.RECIBIDA : com.agroveterinaria.enums.EstadoRecepcion.PARCIAL);
             compraRepository.save(compra);
         } else {
             boolean completado = transferencia.getDetalles().stream().allMatch(dt -> {
-                BigDecimal rec = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+                BigDecimal rec = detalleRecepcionRepository.sumCantidadProcesadaByDetalleTransferencia(dt);
                 return (rec != null ? rec : BigDecimal.ZERO).compareTo(dt.getCantidad()) >= 0;
             });
             transferencia.setEstado(completado ? com.agroveterinaria.enums.EstadoTransferencia.COMPLETADA : com.agroveterinaria.enums.EstadoTransferencia.RECIBIDA_PARCIAL);
@@ -261,7 +287,7 @@ public class RecepcionService {
     @Transactional(readOnly = true)
     public BigDecimal calcularCantidadPendiente(DetalleCompra dc) {
         BigDecimal totalSolicitado = dc.getCantidad();
-        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleCompra(dc);
         if (totalRecibido == null) {
             totalRecibido = BigDecimal.ZERO;
         }
@@ -271,7 +297,7 @@ public class RecepcionService {
     @Transactional(readOnly = true)
     public BigDecimal calcularCantidadPendiente(DetalleTransferencia dt) {
         BigDecimal totalSolicitado = dt.getCantidad();
-        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleTransferencia(dt);
         if (totalRecibido == null) {
             totalRecibido = BigDecimal.ZERO;
         }
