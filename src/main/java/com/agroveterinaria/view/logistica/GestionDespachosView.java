@@ -1,0 +1,183 @@
+package com.agroveterinaria.view.logistica;
+
+import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
+import com.agroveterinaria.service.DespachoService;
+import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.VehiculoService;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.data.provider.ListDataProvider;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
+import jakarta.annotation.security.RolesAllowed;
+
+import java.util.List;
+
+@Route("logistica/despachos")
+@PageTitle("Gestión de Despachos")
+@RolesAllowed({"ADMINISTRADOR", "CONDUCTOR", "ASISTENTE"})
+@CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
+public class GestionDespachosView extends VerticalLayout {
+
+    private final DespachoService despachoService;
+    private final VehiculoService vehiculoService;
+    private final EmpleadoService empleadoService;
+    private Grid<DespachoResumenDTO> gridDespachos;
+    private ListDataProvider<DespachoResumenDTO> dataProvider;
+
+    private Span lblTotalDespachosVal;
+    private Span lblVentasVal;
+    private Span lblTransferenciasVal;
+
+    public GestionDespachosView(DespachoService despachoService,
+                                VehiculoService vehiculoService,
+                                EmpleadoService empleadoService) {
+        this.despachoService = despachoService;
+        this.vehiculoService = vehiculoService;
+        this.empleadoService = empleadoService;
+
+        setSizeFull();
+        setPadding(true);
+        setSpacing(true);
+
+        H2 titulo = new H2("Gestión de Despachos (Salidas)");
+        titulo.getStyle().set("margin-top", "0");
+
+        Button btnNuevo = new Button("Nuevo Despacho", new Icon(VaadinIcon.PLUS));
+        btnNuevo.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnNuevo.addClickListener(e -> {
+            NuevoDespachoDialog dialog = new NuevoDespachoDialog(
+                    despachoService,
+                    vehiculoService,
+                    empleadoService,
+                    this::cargarDatos
+            );
+            dialog.open();
+        });
+
+        HorizontalLayout header = new HorizontalLayout(titulo, btnNuevo);
+        header.setWidthFull();
+        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        header.setAlignItems(Alignment.CENTER);
+
+        HorizontalLayout kpis = construirTarjetasKPI();
+
+        HorizontalLayout filtros = construirFiltros();
+        construirGrid();
+
+        add(header, kpis, filtros, gridDespachos);
+
+        cargarDatos();
+    }
+
+    private HorizontalLayout construirTarjetasKPI() {
+        HorizontalLayout kpiLayout = new HorizontalLayout();
+        kpiLayout.setWidthFull();
+
+        lblTotalDespachosVal = new Span("0");
+        lblVentasVal = new Span("0");
+        lblTransferenciasVal = new Span("0");
+
+        kpiLayout.add(crearTarjeta("Total Despachos Listados", lblTotalDespachosVal, VaadinIcon.PACKAGE));
+        kpiLayout.add(crearTarjeta("Ventas", lblVentasVal, VaadinIcon.CART));
+        kpiLayout.add(crearTarjeta("Transferencias", lblTransferenciasVal, VaadinIcon.EXCHANGE));
+
+        return kpiLayout;
+    }
+
+    private VerticalLayout crearTarjeta(String titulo, Span lblValor, VaadinIcon icono) {
+        Span lblTitulo = new Span(titulo);
+        lblTitulo.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "14px");
+
+        lblValor.getStyle().set("font-size", "24px").set("font-weight", "bold").set("color", "var(--lumo-primary-color)");
+
+        Icon icon = new Icon(icono);
+        icon.setSize("20px");
+        icon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        HorizontalLayout top = new HorizontalLayout(icon, lblTitulo);
+        top.setAlignItems(Alignment.CENTER);
+
+        VerticalLayout tarjeta = new VerticalLayout(top, lblValor);
+        tarjeta.setPadding(true);
+        tarjeta.getStyle()
+                .set("border", "1px solid var(--lumo-contrast-20pct)")
+                .set("border-radius", "8px")
+                .set("background-color", "var(--lumo-base-color)");
+
+        return tarjeta;
+    }
+
+    private HorizontalLayout construirFiltros() {
+        Button btnTodos = new Button("Todos", e -> filtrarPorTipo(""));
+        btnTodos.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button btnVentas = new Button("Ventas", e -> filtrarPorTipo("Venta"));
+        Button btnTransferencias = new Button("Transferencias", e -> filtrarPorTipo("Transferencia"));
+
+        return new HorizontalLayout(btnTodos, btnVentas, btnTransferencias);
+    }
+
+    private void construirGrid() {
+        gridDespachos = new Grid<>(DespachoResumenDTO.class, false);
+        gridDespachos.setSizeFull();
+        gridDespachos.addClassName("despacho-grid");
+        gridDespachos.addThemeNames("row-stripes");
+
+        gridDespachos.addColumn(DespachoResumenDTO::getCodigo)
+                .setHeader("ID Despacho").setFlexGrow(0).setWidth("130px");
+
+        gridDespachos.addComponentColumn(dto -> {
+            Span badge = new Span(dto.getTipo());
+            badge.getElement().getThemeList().add("badge " + (dto.getTipo().equals("Venta") ? "success" : "contrast"));
+            return badge;
+        }).setHeader("Tipo").setFlexGrow(0).setWidth("130px");
+
+        gridDespachos.addColumn(DespachoResumenDTO::getDestinatario).setHeader("Destinatario").setFlexGrow(2);
+        gridDespachos.addColumn(DespachoResumenDTO::getDireccionEntrega).setHeader("Destino").setFlexGrow(2);
+
+        gridDespachos.addColumn(DespachoResumenDTO::getFechaProgramadaFormateada)
+                .setComparator((d1, d2) -> d1.getFechaProgramadaRaw().compareTo(d2.getFechaProgramadaRaw()))
+                .setHeader("Fecha Prog.").setFlexGrow(1);
+
+        gridDespachos.addColumn(DespachoResumenDTO::getEstado).setHeader("Estado").setFlexGrow(1);
+
+        gridDespachos.addComponentColumn(dto -> {
+            Button btnVer = new Button(new Icon(VaadinIcon.EYE));
+            btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnVer.addClickListener(e -> {
+                Notification.show("Abrir modal para el despacho " + dto.getCodigo());
+            });
+            return btnVer;
+        }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
+    }
+
+    private void cargarDatos() {
+        List<DespachoResumenDTO> lista = despachoService.obtenerColaDespachos();
+
+        long countVentas = lista.stream().filter(d -> "Venta".equals(d.getTipo())).count();
+        long countTransferencias = lista.stream().filter(d -> "Transferencia".equals(d.getTipo())).count();
+
+        lblTotalDespachosVal.setText(String.valueOf(lista.size()));
+        lblVentasVal.setText(String.valueOf(countVentas));
+        lblTransferenciasVal.setText(String.valueOf(countTransferencias));
+
+        dataProvider = new ListDataProvider<>(lista);
+        gridDespachos.setDataProvider(dataProvider);
+    }
+
+    private void filtrarPorTipo(String tipo) {
+        if (dataProvider != null) {
+            dataProvider.setFilter(dto -> tipo.isEmpty() || dto.getTipo().equals(tipo));
+        }
+    }
+}
