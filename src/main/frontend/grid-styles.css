@@ -5,7 +5,8 @@
 :host(.producto-grid) [part~="header-cell"],
 :host(.compra-grid) [part~="header-cell"],
 :host(.recepciones-pendientes-grid) [part~="header-cell"],
-:host(.transferencia-grid) [part~="header-cell"] {
+:host(.transferencia-grid) [part~="header-cell"],
+:host(.despacho-grid) [part~="header-cell"] {
     background-color: #002899;
     color: #ffffff;
     font-weight: 500;

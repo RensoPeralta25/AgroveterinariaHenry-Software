@@ -40,7 +40,7 @@ public class Transporte {
     private Empleado conductor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_ruta", nullable = false)
+    @JoinColumn(name = "id_ruta")
     private Ruta ruta;
 
     @Enumerated(EnumType.STRING)

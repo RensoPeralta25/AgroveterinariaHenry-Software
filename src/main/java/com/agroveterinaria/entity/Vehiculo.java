@@ -32,4 +32,8 @@ public class Vehiculo {
 
     @Column(name = "capacidad_carga", nullable = false, precision = 12, scale = 2)
     private BigDecimal capacidadCarga;
+
+    public String getModeloYPlaca() {
+        return modelo + " - " + placa;
+    }
 }
