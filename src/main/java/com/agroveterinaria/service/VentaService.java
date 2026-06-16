@@ -62,6 +62,11 @@ public class VentaService {
     }
 
     @Transactional(readOnly = true)
+    public List<Cobro> listarCobros() {
+        return cobroRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
     public Optional<Venta> buscarPorId(Long idVenta) {
         return ventaRepository.findById(idVenta);
     }
