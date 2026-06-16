@@ -8,6 +8,7 @@ import com.agroveterinaria.view.empleado.EmpleadoView;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
+import com.agroveterinaria.view.cobro.CobroView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
@@ -132,8 +133,9 @@ public class MainView extends Div {
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
+        Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
 
-        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton);
+        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton);
         ventasSubmenu.addClassName("sidebar-submenu");
         ventasSubmenu.setPadding(false);
         ventasSubmenu.setSpacing(false);
@@ -145,6 +147,7 @@ public class MainView extends Div {
         ventasButton.setEnabled(esAdmin || esCajero);
         registrarVentaButton.setEnabled(esAdmin || esCajero);
         listaVentasButton.setEnabled(esAdmin || esCajero);
+        cobrosButton.setEnabled(esAdmin || esCajero);
 
         mascotasButton.setEnabled(esAdmin || esVeterinario);
         citasButton.setEnabled(esAdmin || esVeterinario);
@@ -250,6 +253,19 @@ public class MainView extends Div {
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
                     new ListaVentasView(ventaService)
+            );
+            ventasButton.addClassName("menu-button-active");
+        });
+
+        cobrosButton.addClickListener(event -> {
+            ventasSubmenu.setVisible(true);
+            showModule(
+                    cobrosButton,
+                    "Gestión de Cobros",
+                    "Panel de Cobros",
+                    "Cartera pendiente, aplicación de pagos e historial de movimientos",
+                    VaadinIcon.MONEY,
+                    new CobroView(ventaService)
             );
             ventasButton.addClassName("menu-button-active");
         });
