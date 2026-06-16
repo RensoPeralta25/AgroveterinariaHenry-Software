@@ -10,6 +10,7 @@ import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
 import com.agroveterinaria.view.mascota.MascotaView;
+import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.Venta.ListaVentasView;
@@ -60,14 +61,19 @@ public class MainView extends Div {
             VentaService ventaService,
             AuthenticationContext authContext,
             PersonaService personaService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            CorridaNominaService corridaNominaService,
+            DetalleNominaService detalleNominaService,
+            ConfiguracionNominaService configuracionNominaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService, ventaService, personaService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService,
+                clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
+                detalleNominaService, configuracionNominaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -96,8 +102,12 @@ public class MainView extends Div {
             ClienteService clienteService,
             CitaService citaService,
             MascotaService mascotaService,
+            PersonaService personaService,
             VentaService ventaService,
-            PersonaService personaService
+            CorridaNominaService corridaNominaService,
+            DetalleNominaService detalleNominaService,
+            ConfiguracionNominaService configuracionNominaService
+
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -131,6 +141,7 @@ public class MainView extends Div {
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
+        Button nominaButton = createMenuButton(VaadinIcon.INVOICE, "Nómina");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -156,6 +167,7 @@ public class MainView extends Div {
         proveedoresButton.setEnabled(esAdmin);
         usuariosButton.setEnabled(esAdmin);
         empleadosButton.setEnabled(esAdmin);
+        nominaButton.setEnabled(esAdmin);
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -270,6 +282,15 @@ public class MainView extends Div {
             ventasButton.addClassName("menu-button-active");
         });
 
+        nominaButton.addClickListener(event -> showModule(
+                nominaButton,
+                "Gestión de Nómina",
+                "Panel de Nómina",
+                "Generación y control de nóminas del personal",
+                VaadinIcon.INVOICE,
+                new NominaView(corridaNominaService, detalleNominaService, configuracionNominaService)
+        ));
+
         VerticalLayout navigation = new VerticalLayout(
                 inicioButton,
                 productosButton,
@@ -280,6 +301,7 @@ public class MainView extends Div {
                 mascotasButton,
                 citasButton,
                 ventasButton,
+                nominaButton,
                 ventasSubmenu
         );
         navigation.addClassName("sidebar-nav");
