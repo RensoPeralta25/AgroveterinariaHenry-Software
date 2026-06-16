@@ -24,6 +24,9 @@ public class Ruta {
     @Column(name = "id_ruta")
     private Long idRuta;
 
+    @Column(name = "nombre", length = 100)
+    private String nombre;
+
     @Column(name = "distancia_km", nullable = false, precision = 12, scale = 2)
     private BigDecimal distanciaKm;
 

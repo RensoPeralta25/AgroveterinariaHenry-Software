@@ -110,6 +110,48 @@ body {
     color: #1676f3;
 }
 
+.sidebar-submenu {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 0 2px 18px;
+    gap: 6px;
+}
+
+.submenu-button {
+    justify-content: flex-start;
+    height: 42px;
+    border-radius: 8px;
+    color: #475569;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 560;
+    padding-inline: 14px;
+}
+
+.submenu-button vaadin-icon {
+    width: 18px;
+    height: 18px;
+    color: #64748b;
+    margin-right: 10px;
+}
+
+.submenu-button:hover {
+    background: #eef6ff;
+    color: #1676f3;
+}
+
+.submenu-button:hover vaadin-icon,
+.submenu-button.menu-button-active vaadin-icon {
+    color: #1676f3;
+}
+
+.submenu-button.menu-button-active,
+.submenu-button.menu-button-active:hover {
+    background: #e8f3ff;
+    color: #1676f3;
+    font-weight: 700;
+}
+
 .sidebar-footer {
     width: calc(100% - 28px);
     box-sizing: border-box;
@@ -398,6 +440,263 @@ body {
     background: #fff;
     padding: 2px 4px;
     margin-bottom: 14px;
+/* LISTA DE VENTAS */
+
+.venta-list-view {
+    width: 100%;
+    min-height: 620px;
+}
+
+.venta-metrics {
+    gap: 12px;
+}
+
+.venta-metric {
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.venta-metric-value {
+    color: #111827;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.venta-metric-label {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.venta-list-toolbar {
+    box-sizing: border-box;
+    min-height: 64px;
+    padding: 12px;
+    gap: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.venta-list-toolbar vaadin-combo-box {
+    width: 190px;
+}
+
+.venta-list-grid {
+    min-height: 420px;
+}
+
+.venta-persona-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 190px;
+    gap: 3px;
+}
+
+.venta-cell-title {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.venta-cell-subtitle {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.venta-detail-list {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.venta-detail-row {
+    box-sizing: border-box;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 16px;
+}
+
+.venta-detail-row:last-child {
+    border-bottom: none;
+}
+
+.venta-detail-label {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.venta-detail-value {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: right;
+}
+
+/* COBROS */
+
+.cobro-view {
+    width: 100%;
+    min-height: 720px;
+}
+
+.cobro-metrics {
+    gap: 12px;
+}
+
+.cobro-metric {
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.cobro-metric-value {
+    color: #111827;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.cobro-metric-label {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.cobro-workspace {
+    gap: 16px;
+    min-height: 470px;
+}
+
+.cobro-list-panel,
+.cobro-form-panel,
+.cobro-history-panel {
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.cobro-list-panel {
+    min-width: 0;
+}
+
+.cobro-form-panel {
+    flex: 0 0 340px;
+    width: 340px;
+    min-width: 340px;
+    padding: 16px;
+}
+
+.cobro-history-panel {
+    min-height: 310px;
+}
+
+.cobro-panel-title {
+    margin: 0;
+    padding: 16px;
+    color: #111827;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 760;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.cobro-form-panel .cobro-panel-title {
+    padding: 0 0 14px;
+}
+
+.cobro-toolbar {
+    box-sizing: border-box;
+    min-height: 64px;
+    padding: 12px;
+    gap: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.cobro-grid {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.cobro-persona-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 190px;
+    gap: 3px;
+}
+
+.cobro-cell-title {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.cobro-cell-subtitle {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.cobro-summary-list {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.cobro-summary-row {
+    box-sizing: border-box;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    gap: 14px;
+}
+
+.cobro-summary-row:last-child {
+    border-bottom: none;
+}
+
+.cobro-summary-label {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.cobro-summary-value {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: right;
+}
+
+@media (max-width: 960px) {
+    .cobro-metrics,
+    .cobro-workspace {
+        flex-direction: column;
+    }
+
+    .cobro-form-panel {
+        width: 100%;
+        min-width: 0;
+    }
 }
 /* GESTION DE CLIENTES */
 

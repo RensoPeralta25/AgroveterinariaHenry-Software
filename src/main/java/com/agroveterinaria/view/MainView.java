@@ -8,10 +8,12 @@ import com.agroveterinaria.view.empleado.EmpleadoView;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
+import com.agroveterinaria.view.cobro.CobroView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
+import com.agroveterinaria.view.Venta.ListaVentasView;
 import com.agroveterinaria.view.Venta.VentaView;
 import com.agroveterinaria.view.usuario.UsuarioView;
 import com.vaadin.flow.component.Component;
@@ -60,7 +62,6 @@ public class MainView extends Div {
             AuthenticationContext authContext,
             PersonaService personaService,
             PasswordEncoder passwordEncoder,
-            NominaService nominaService,
             CorridaNominaService corridaNominaService,
             DetalleNominaService detalleNominaService,
             ConfiguracionNominaService configuracionNominaService) {
@@ -141,11 +142,23 @@ public class MainView extends Div {
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
         Button nominaButton = createMenuButton(VaadinIcon.INVOICE, "Nómina");
+        Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
+        Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
+        Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
+
+        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton);
+        ventasSubmenu.addClassName("sidebar-submenu");
+        ventasSubmenu.setPadding(false);
+        ventasSubmenu.setSpacing(false);
+        ventasSubmenu.setVisible(false);
 
         inicioButton.setEnabled(true);
 
         clientesButton.setEnabled(esAdmin || esCajero || esVeterinario);
         ventasButton.setEnabled(esAdmin || esCajero);
+        registrarVentaButton.setEnabled(esAdmin || esCajero);
+        listaVentasButton.setEnabled(esAdmin || esCajero);
+        cobrosButton.setEnabled(esAdmin || esCajero);
 
         mascotasButton.setEnabled(esAdmin || esVeterinario);
         citasButton.setEnabled(esAdmin || esVeterinario);
@@ -228,14 +241,46 @@ public class MainView extends Div {
                 new CitaView(citaService, clienteService, empleadoService, productoService)
         ));
 
-        ventasButton.addClickListener(event -> showModule(
-                ventasButton,
-                "Gestión de Ventas",
-                "Panel de Ventas",
-                "Registro de clientes, productos y descuentos de venta",
-                VaadinIcon.CART,
-                new VentaView(ventaService, clienteService, empleadoService, productoService)
-        ));
+        ventasButton.addClickListener(event -> ventasSubmenu.setVisible(!ventasSubmenu.isVisible()));
+
+        registrarVentaButton.addClickListener(event -> {
+            ventasSubmenu.setVisible(true);
+            showModule(
+                    registrarVentaButton,
+                    "Gestión de Ventas",
+                    "Registrar Venta",
+                    "Registro de clientes, productos y descuentos de venta",
+                    VaadinIcon.CART,
+                    new VentaView(ventaService, clienteService, empleadoService, productoService)
+            );
+            ventasButton.addClassName("menu-button-active");
+        });
+
+        listaVentasButton.addClickListener(event -> {
+            ventasSubmenu.setVisible(true);
+            showModule(
+                    listaVentasButton,
+                    "Gestión de Ventas",
+                    "Lista de Ventas",
+                    "Consulta de ventas registradas, cobros y balances pendientes",
+                    VaadinIcon.LIST,
+                    new ListaVentasView(ventaService)
+            );
+            ventasButton.addClassName("menu-button-active");
+        });
+
+        cobrosButton.addClickListener(event -> {
+            ventasSubmenu.setVisible(true);
+            showModule(
+                    cobrosButton,
+                    "Gestión de Cobros",
+                    "Panel de Cobros",
+                    "Cartera pendiente, aplicación de pagos e historial de movimientos",
+                    VaadinIcon.MONEY,
+                    new CobroView(ventaService)
+            );
+            ventasButton.addClassName("menu-button-active");
+        });
 
         nominaButton.addClickListener(event -> showModule(
                 nominaButton,
@@ -256,7 +301,8 @@ public class MainView extends Div {
                 mascotasButton,
                 citasButton,
                 ventasButton,
-                nominaButton
+                nominaButton,
+                ventasSubmenu
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
@@ -313,7 +359,7 @@ public class MainView extends Div {
         mainPanel.setPadding(false);
         mainPanel.setSpacing(false);
         mainPanel.expand(contentArea);
-mainPanel.getStyle().setFlexGrow("1");
+        mainPanel.getStyle().setFlexGrow("1");
 
         return mainPanel;
     }
@@ -321,6 +367,14 @@ mainPanel.getStyle().setFlexGrow("1");
     private Button createMenuButton(VaadinIcon icon, String label) {
         Button button = new Button(label, icon.create());
         button.addClassName("menu-button");
+        button.setWidthFull();
+        menuButtons.add(button);
+        return button;
+    }
+
+    private Button createSubmenuButton(VaadinIcon icon, String label) {
+        Button button = new Button(label, icon.create());
+        button.addClassName("submenu-button");
         button.setWidthFull();
         menuButtons.add(button);
         return button;
