@@ -9,6 +9,7 @@ import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.mascota.MascotaView;
+import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.Venta.VentaView;
@@ -58,14 +59,20 @@ public class MainView extends Div {
             VentaService ventaService,
             AuthenticationContext authContext,
             PersonaService personaService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            NominaService nominaService,
+            CorridaNominaService corridaNominaService,
+            DetalleNominaService detalleNominaService,
+            ConfiguracionNominaService configuracionNominaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
         addClassName("main-view");
         setSizeFull();
 
-        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService, clienteService, citaService, mascotaService, ventaService, personaService);
+        VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService,
+                clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
+                detalleNominaService, configuracionNominaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -94,8 +101,12 @@ public class MainView extends Div {
             ClienteService clienteService,
             CitaService citaService,
             MascotaService mascotaService,
-            PersonaService personaService
-            VentaService ventaService
+            PersonaService personaService,
+            VentaService ventaService,
+            CorridaNominaService corridaNominaService,
+            DetalleNominaService detalleNominaService,
+            ConfiguracionNominaService configuracionNominaService
+
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -129,6 +140,7 @@ public class MainView extends Div {
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
+        Button nominaButton = createMenuButton(VaadinIcon.INVOICE, "Nómina");
 
         inicioButton.setEnabled(true);
 
@@ -142,6 +154,7 @@ public class MainView extends Div {
         proveedoresButton.setEnabled(esAdmin);
         usuariosButton.setEnabled(esAdmin);
         empleadosButton.setEnabled(esAdmin);
+        nominaButton.setEnabled(esAdmin);
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -224,6 +237,15 @@ public class MainView extends Div {
                 new VentaView(ventaService, clienteService, empleadoService, productoService)
         ));
 
+        nominaButton.addClickListener(event -> showModule(
+                nominaButton,
+                "Gestión de Nómina",
+                "Panel de Nómina",
+                "Generación y control de nóminas del personal",
+                VaadinIcon.INVOICE,
+                new NominaView(corridaNominaService, detalleNominaService, configuracionNominaService)
+        ));
+
         VerticalLayout navigation = new VerticalLayout(
                 inicioButton,
                 productosButton,
@@ -233,7 +255,8 @@ public class MainView extends Div {
                 clientesButton,
                 mascotasButton,
                 citasButton,
-                ventasButton
+                ventasButton,
+                nominaButton
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);

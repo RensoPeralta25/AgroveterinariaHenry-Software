@@ -1,8 +1,6 @@
 package com.agroveterinaria.service;
 
-import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Nomina;
-import com.agroveterinaria.enums.PeriodoNomina;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import com.agroveterinaria.repository.NominaRepository;
 import jakarta.annotation.security.RolesAllowed;
@@ -10,7 +8,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,7 +19,7 @@ public class NominaService {
     private final NominaRepository nominaRepository;
     private final EmpleadoRepository empleadoRepository;
 
-    public List<Nomina> findAll() {
+    public List<Nomina> findAllConEmpleadoYDetalles() {
         return nominaRepository.findAllConEmpleadoYDetalles();
     }
 
@@ -35,13 +32,7 @@ public class NominaService {
         nominaRepository.delete(nomina);
     }
 
-    public boolean existeNominaEnPeriodo(Empleado empleado, PeriodoNomina periodo, LocalDate fecha) {
-        LocalDate inicio = fecha.withDayOfMonth(1);
-        LocalDate fin = fecha.withDayOfMonth(fecha.lengthOfMonth());
-        return nominaRepository.existsByEmpleadoAndPeriodoAndFechaEmisionBetween(empleado, periodo, inicio, fin);
-    }
-
-    public Optional<Nomina> buscarPorId(Long id) {
+    public Optional<Nomina> findById(Long id) {
         return nominaRepository.findById(id);
     }
 

@@ -393,6 +393,12 @@ body {
     background: #fff;
     padding: 2px 4px;
 }
+
+.nomina-toolbar {
+    background: #fff;
+    padding: 2px 4px;
+    margin-bottom: 14px;
+}
 /* GESTION DE CLIENTES */
 
 .cliente-view {
@@ -680,4 +686,33 @@ body {
     .cliente-metrics {
         flex-direction: column;
     }
+}
+
+/* NOMINA */
+
+.caja-novedades {
+    padding: 12px;
+    border: 1px solid var(--lumo-contrast-20pct);
+    border-radius: 8px;
+}
+
+.titulo-ingresos {
+    font-weight: bold;
+}
+
+.seccion-deducciones {
+    margin-top: 12px;
+}
+
+.titulo-deducciones {
+    font-weight: bold;
+}
+
+.btn-borde {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+}
+
+.btn-borde:hover {
+    background-color: var(--lumo-contrast-5pct);
 }

@@ -1,15 +1,13 @@
 package com.agroveterinaria.entity;
 
-import com.agroveterinaria.enums.PeriodoNomina;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -26,23 +24,22 @@ public class Nomina {
     @JoinColumn(name = "id_empleado", nullable = false)
     private Empleado empleado;
 
-    private LocalDate fechaEmision;
-
-    @Enumerated(EnumType.STRING)
-    private PeriodoNomina periodo;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_corrida")
+    private CorridaNomina corrida;
 
     private BigDecimal totalDevengado;
     private BigDecimal totalDeducciones;
 
     @OneToMany(mappedBy = "nomina", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<DetalleNomina> detalles = new ArrayList<>();
+    private Set<DetalleNomina> detalles;
 
-    public Nomina(Empleado empleado, LocalDate fechaEmision, PeriodoNomina periodo) {
+    public Nomina(Empleado empleado, CorridaNomina corrida) {
         this.empleado = empleado;
-        this.fechaEmision = fechaEmision;
-        this.periodo = periodo;
+        this.corrida = corrida;
         this.totalDevengado = BigDecimal.ZERO;
         this.totalDeducciones = BigDecimal.ZERO;
+        this.detalles = new LinkedHashSet<>();
     }
 
     public BigDecimal calcularSueldoNeto() {
