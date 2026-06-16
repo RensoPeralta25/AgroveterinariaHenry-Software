@@ -44,8 +44,8 @@ import java.util.List;
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
 @PageTitle("Gestión de Almacenes")
-@RolesAllowed("ADMINISTRADOR")
 @Route("/almacenes")
+@RolesAllowed("ADMINISTRADOR")
 public class AlmacenView extends VerticalLayout {
 
     private final AlmacenService almacenService;

@@ -1,0 +1,1 @@
+ALTER TABLE "public"."transporte" ALTER COLUMN "id_ruta" DROP NOT NULL;
