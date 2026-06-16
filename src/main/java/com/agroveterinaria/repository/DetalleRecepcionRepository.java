@@ -2,6 +2,7 @@ package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.DetalleRecepcion;
+import com.agroveterinaria.entity.DetalleTransferencia;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,4 +16,6 @@ public interface DetalleRecepcionRepository extends JpaRepository<DetalleRecepci
     @Query("SELECT COALESCE(SUM(dr.cantidad), 0) FROM DetalleRecepcion dr WHERE dr.detalleCompra = :detalleCompra")
     BigDecimal sumCantidadRecibidaByDetalleCompra(@Param("detalleCompra") DetalleCompra detalleCompra);
 
+    @Query("SELECT COALESCE(SUM(dr.cantidad), 0) FROM DetalleRecepcion dr WHERE dr.detalleTransferencia = :dt")
+    BigDecimal sumCantidadRecibidaByDetalleTransferencia(@Param("dt") DetalleTransferencia dt);
 }

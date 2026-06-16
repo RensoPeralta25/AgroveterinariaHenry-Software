@@ -21,6 +21,9 @@ public class Vehiculo {
     @Column(name = "id_vehiculo")
     private Long idVehiculo;
 
+    @Column(name = "marca", length = 80)
+    private String marca;
+
     @Column(name = "placa", nullable = false, unique = true, length = 20)
     private String placa;
 
@@ -29,4 +32,8 @@ public class Vehiculo {
 
     @Column(name = "capacidad_carga", nullable = false, precision = 12, scale = 2)
     private BigDecimal capacidadCarga;
+
+    public String getModeloYPlaca() {
+        return modelo + " - " + placa;
+    }
 }

@@ -1,5 +1,6 @@
 package com.agroveterinaria.service;
 
+import com.agroveterinaria.dto.recepcion.RecepcionResumenDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.enums.EstadoTransporte;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,11 +28,15 @@ public class RecepcionService {
     private final GastoOperativoRepository gastoOperativoRepository;
     private final DetalleRecepcionRepository detalleRecepcionRepository;
     private final ProductoRepository productoRepository;
+    private final TransferenciaRepository transferenciaRepository;
+    private final DespachoRepository despachoRepository;
+    private final java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
     public RecepcionService(RecepcionRepository recepcionRepository, CompraRepository compraRepository,
                             LoteRepository loteRepository, InventarioRepository inventarioRepository,
                             TransporteRepository transporteRepository, GastoOperativoRepository gastoOperativoRepository,
-                            ProductoRepository productoRepository, DetalleRecepcionRepository detalleRecepcionRepository) {
+                            ProductoRepository productoRepository, DetalleRecepcionRepository detalleRecepcionRepository,
+                            TransferenciaRepository transferenciaRepository, DespachoRepository despachoRepository) {
         this.recepcionRepository = recepcionRepository;
         this.compraRepository = compraRepository;
         this.loteRepository = loteRepository;
@@ -39,11 +45,13 @@ public class RecepcionService {
         this.gastoOperativoRepository = gastoOperativoRepository;
         this.productoRepository = productoRepository;
         this.detalleRecepcionRepository = detalleRecepcionRepository;
+        this.transferenciaRepository = transferenciaRepository;
+        this.despachoRepository = despachoRepository;
     }
 
     @Transactional
     public void procesarRecepcionTransaccional(
-            Long idCompra,
+            String tipoDocumento, Long idDocumento,
             List<RecepcionItemUI> itemsFisicos,
             String tipoLogistica,
             BigDecimal costoFleteExterno,
@@ -52,102 +60,119 @@ public class RecepcionService {
             Ruta ruta,
             List<GastoOperativoUI> gastosInternos) {
 
-        Compra compra = compraRepository.findById(idCompra)
-                .orElseThrow(() -> new IllegalArgumentException("Compra no encontrada con ID: " + idCompra));
-
         Recepcion recepcion = new Recepcion();
         recepcion.setFechaHoraLlegadaProgramada(LocalDateTime.now());
         recepcion.setFechaHoraRecepcion(LocalDateTime.now());
-        recepcion.getCompras().add(compra);
+
+        Compra compra = null;
+        Transferencia transferencia = null;
+
+        if ("Compra".equals(tipoDocumento)) {
+            compra = compraRepository.findById(idDocumento).orElseThrow();
+            recepcion.getCompras().add(compra);
+        } else {
+            transferencia = transferenciaRepository.findById(idDocumento).orElseThrow();
+            recepcion.setTransferencia(transferencia);
+        }
 
         Transporte transporteGuardado = null;
-
         if ("Transporte Interno (Vehículo propio)".equals(tipoLogistica) || "Mixto (Flete parcial + Transporte propio)".equals(tipoLogistica)) {
-            if (vehiculo == null || conductor == null || ruta == null) {
-                throw new IllegalArgumentException("Para transporte propio o mixto debe especificar Vehículo, Conductor y Ruta.");
-            }
 
-            Transporte transporte = new Transporte();
-            transporte.setVehiculo(vehiculo);
-            transporte.setConductor(conductor);
-            transporte.setRuta(ruta);
-            transporte.setFechaHoraSalida(LocalDateTime.now().minusHours(2));
-            transporte.setFechaHoraLlegada(LocalDateTime.now());
-            transporte.setEstado(EstadoTransporte.COMPLETADO);
+            Transporte transporte;
+
+            if ("Transferencia".equals(tipoDocumento)) {
+                Despacho despachoAsociado = despachoRepository.findFirstByTransferenciaOrderByFechaHoraSalidaProgramadaDesc(transferencia);
+                transporte = despachoAsociado.getTransporte();
+                transporte.setFechaHoraLlegada(LocalDateTime.now());
+                transporte.setEstado(com.agroveterinaria.enums.EstadoTransporte.COMPLETADO);
+            } else {
+                if (vehiculo == null || conductor == null) throw new IllegalArgumentException("Faltan datos de transporte.");
+                transporte = new Transporte();
+                transporte.setVehiculo(vehiculo);
+                transporte.setConductor(conductor);
+                transporte.setRuta(ruta);
+                transporte.setFechaHoraSalida(LocalDateTime.now().minusHours(2));
+                transporte.setFechaHoraLlegada(LocalDateTime.now());
+                transporte.setEstado(com.agroveterinaria.enums.EstadoTransporte.COMPLETADO);
+                transporte.setDescuento(BigDecimal.ZERO);
+            }
 
             for (GastoOperativoUI ui : gastosInternos) {
                 if (ui.getMonto() != null && ui.getMonto().compareTo(BigDecimal.ZERO) > 0) {
                     GastoOperativo go = new GastoOperativo();
-                    go.setTipoGasto(TipoGasto.VARIABLE);
+                    go.setTipoGasto(com.agroveterinaria.enums.TipoGasto.VARIABLE);
                     go.setFecha(LocalDate.now());
                     go.setMonto(ui.getMonto());
-                    go.setNotas(ui.getNotas() != null ? ui.getNotas().trim() : "Gasto de transporte interno");
-                    GastoOperativo goGuardado = gastoOperativoRepository.save(go);
-                    transporte.addGasto(goGuardado);
+                    go.setNotas(ui.getNotas() != null ? ui.getNotas().trim() : "Liquidación de Viaje");
+                    transporte.addGasto(gastoOperativoRepository.save(go));
                 }
-            }
-
-            if ("Mixto (Flete parcial + Transporte propio)".equals(tipoLogistica) && costoFleteExterno != null && costoFleteExterno.compareTo(BigDecimal.ZERO) > 0) {
-                GastoOperativo goFlete = new GastoOperativo();
-                goFlete.setTipoGasto(TipoGasto.VARIABLE);
-                goFlete.setFecha(LocalDate.now());
-                goFlete.setMonto(costoFleteExterno);
-                goFlete.setNotas("Pago de flete externo hasta punto de encuentro");
-                GastoOperativo goFleteGuardado = gastoOperativoRepository.save(goFlete);
-                transporte.addGasto(goFleteGuardado);
             }
 
             transporteGuardado = transporteRepository.save(transporte);
             recepcion.setTransporte(transporteGuardado);
-        }
-        else if ("Flete / Delivery Externo".equals(tipoLogistica)) {
+        } else if ("Flete / Delivery Externo".equals(tipoLogistica)) {
             if (costoFleteExterno != null && costoFleteExterno.compareTo(BigDecimal.ZERO) > 0) {
                 GastoOperativo goFletePuro = new GastoOperativo();
-                goFletePuro.setTipoGasto(TipoGasto.VARIABLE);
+                goFletePuro.setTipoGasto(com.agroveterinaria.enums.TipoGasto.VARIABLE);
                 goFletePuro.setFecha(LocalDate.now());
                 goFletePuro.setMonto(costoFleteExterno);
-                goFletePuro.setNotas("Servicio de Flete / Delivery Externo del Proveedor");
+                goFletePuro.setNotas("Flete Externo");
                 GastoOperativo savedGasto = gastoOperativoRepository.save(goFletePuro);
 
-                compra.setGastoAsociado(savedGasto);
+                if (compra != null) compra.setGastoAsociado(savedGasto);
             }
         }
 
         for (RecepcionItemUI item : itemsFisicos) {
-            if (item.getCantidadRecibida() == null || item.getCantidadRecibida().compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
+            if (item.getCantidadRecibida() == null || item.getCantidadRecibida().compareTo(BigDecimal.ZERO) <= 0) continue;
             if (item.getAlmacenDestino() == null) {
-                throw new IllegalArgumentException("Debe especificar un Almacén Destino para el producto: " + item.getDetalle().getProducto().getNombre());
-            }
-            BigDecimal recibidoAnteriormente = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(item.getDetalle());
-            if (recibidoAnteriormente == null) recibidoAnteriormente = BigDecimal.ZERO;
-            BigDecimal pendienteReal = item.getDetalle().getCantidad().subtract(recibidoAnteriormente);
-            if (item.getCantidadRecibida().compareTo(pendienteReal) > 0) {
-                throw new IllegalArgumentException("Intento de sobre-recepción bloqueado. Solo quedan "
-                        + pendienteReal + " unidades pendientes de " + item.getDetalle().getProducto().getNombre());
+                throw new IllegalArgumentException("Debe especificar un Almacén Destino para: " + item.getProducto().getNombre());
             }
 
-            Lote lote = null;
-            String numLoteStr = item.getNumeroLote() != null ? item.getNumeroLote().trim() : "";
+            DetalleRecepcion dr = new DetalleRecepcion();
+            dr.setAlmacen(item.getAlmacenDestino());
+            dr.setCantidad(item.getCantidadRecibida());
 
-            if (!numLoteStr.isEmpty()) {
-                lote = loteRepository.findByProducto(item.getDetalle().getProducto()).stream()
-                        .filter(l -> numLoteStr.equalsIgnoreCase(l.getNumeroLote()))
-                        .findFirst().orElse(null);
+            Lote lote;
+
+            if (item.getDetalleCompra() != null) {
+                DetalleCompra dc = item.getDetalleCompra();
+                BigDecimal recibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+                BigDecimal pendiente = dc.getCantidad().subtract(recibido != null ? recibido : BigDecimal.ZERO);
+
+                if (item.getCantidadRecibida().compareTo(pendiente) > 0) {
+                    throw new IllegalArgumentException("Sobre-recepción bloqueada para: " + item.getProducto().getNombre());
+                }
+
+                String numLoteStr = item.getNumeroLote() != null ? item.getNumeroLote().trim() : "";
+                lote = numLoteStr.isEmpty() ? null : loteRepository.findByProducto(item.getProducto()).stream()
+                                                     .filter(l -> numLoteStr.equalsIgnoreCase(l.getNumeroLote())).findFirst().orElse(null);
+
+                if (lote == null) {
+                    lote = new Lote();
+                    lote.setProducto(item.getProducto());
+                    lote.setNumeroLote(numLoteStr.isEmpty() ? "GENERICO-" + LocalDate.now() : numLoteStr);
+                    lote.setFechaVencimiento(item.getFechaVencimiento());
+                    lote = loteRepository.save(lote);
+                }
+                dr.setDetalleCompra(dc);
+                dr.setLote(lote);
+
+            } else {
+                DetalleTransferencia dt = item.getDetalleTransferencia();
+                BigDecimal recibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+                BigDecimal pendiente = dt.getCantidad().subtract(recibido != null ? recibido : BigDecimal.ZERO);
+
+                if (item.getCantidadRecibida().compareTo(pendiente) > 0) {
+                    throw new IllegalArgumentException("Sobre-recepción bloqueada para: " + item.getProducto().getNombre());
+                }
+
+                lote = dt.getLote();
+                dr.setDetalleTransferencia(dt);
+                dr.setLote(lote);
             }
 
-            if (lote == null) {
-                lote = new Lote();
-                lote.setProducto(item.getDetalle().getProducto());
-                lote.setNumeroLote(numLoteStr.isEmpty() ? "GENERICO-" + LocalDate.now() : numLoteStr);
-                lote.setFechaVencimiento(item.getFechaVencimiento());
-                lote = loteRepository.save(lote);
-            }
-
-            Inventario inventario = inventarioRepository.findByAlmacenAndLote(item.getAlmacenDestino(), lote)
-                    .orElse(null);
-
+            Inventario inventario = inventarioRepository.findByAlmacenAndLote(item.getAlmacenDestino(), lote).orElse(null);
             if (inventario == null) {
                 inventario = new Inventario();
                 inventario.setAlmacen(item.getAlmacenDestino());
@@ -158,34 +183,137 @@ public class RecepcionService {
             }
             inventarioRepository.save(inventario);
 
-            DetalleRecepcion dr = new DetalleRecepcion();
-            dr.setDetalleCompra(item.getDetalle());
-            dr.setAlmacen(item.getAlmacenDestino());
-            dr.setLote(lote);
-            dr.setCantidad(item.getCantidadRecibida());
             recepcion.addDetalle(dr);
         }
 
         recepcionRepository.save(recepcion);
 
-        boolean todoCompletado = true;
-        List<DetalleCompra> todosLosDetalles = compra.getDetalles();
+        if ("Compra".equals(tipoDocumento)) {
+            boolean completado = compra.getDetalles().stream().allMatch(dc -> {
+                BigDecimal rec = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+                return (rec != null ? rec : BigDecimal.ZERO).compareTo(dc.getCantidad()) >= 0;
+            });
+            compra.setEstadoRecepcion(completado ? com.agroveterinaria.enums.EstadoRecepcion.RECIBIDA : com.agroveterinaria.enums.EstadoRecepcion.PARCIAL);
+            compraRepository.save(compra);
+        } else {
+            boolean completado = transferencia.getDetalles().stream().allMatch(dt -> {
+                BigDecimal rec = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+                return (rec != null ? rec : BigDecimal.ZERO).compareTo(dt.getCantidad()) >= 0;
+            });
+            transferencia.setEstado(completado ? com.agroveterinaria.enums.EstadoTransferencia.COMPLETADA : com.agroveterinaria.enums.EstadoTransferencia.RECIBIDA_PARCIAL);
+            transferenciaRepository.save(transferencia);
+        }
+    }
 
-        for (DetalleCompra dc : todosLosDetalles) {
-            BigDecimal recibidoAnteriormente = dc.getCompra().getDetalles().stream()
-                    .flatMap(d -> recepcionRepository.findAll().stream())
-                    .flatMap(r -> r.getDetalles().stream())
-                    .filter(dr -> dr.getDetalleCompra().getIdDetalleCompra().equals(dc.getIdDetalleCompra()))
-                    .map(DetalleRecepcion::getCantidad)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+    @Transactional(readOnly = true)
+    public List<RecepcionResumenDTO> obtenerColaRecepciones() {
+        List<RecepcionResumenDTO> cola = new ArrayList<>();
 
-            if (recibidoAnteriormente.compareTo(dc.getCantidad()) < 0) {
-                todoCompletado = false;
-                break;
+        List<Compra> compras = compraRepository.findByEstadoRecepcionIn(
+                List.of(EstadoRecepcion.PENDIENTE, EstadoRecepcion.PARCIAL)
+        );
+        for (Compra c : compras) {
+            RecepcionResumenDTO dto = new RecepcionResumenDTO();
+            dto.setCodigo("ORD-" + c.getIdCompra());
+            dto.setTipo("Compra");
+            dto.setOrigen(c.getProveedor().getNombre());
+            dto.setFechaRaw(c.getFechaHoraCompra());
+            dto.setFechaFormateada(c.getFechaHoraCompra().format(formatter));
+            dto.setEstado(c.getEstadoRecepcion().name());
+            dto.setCompraOriginal(c);
+            cola.add(dto);
+        }
+
+        List<Transferencia> transferencias = transferenciaRepository.findByEstadoIn(
+                List.of(com.agroveterinaria.enums.EstadoTransferencia.EN_TRANSITO,
+                        com.agroveterinaria.enums.EstadoTransferencia.RECIBIDA_PARCIAL)
+        );
+
+        for (Transferencia t : transferencias) {
+            RecepcionResumenDTO dto = new RecepcionResumenDTO();
+            dto.setCodigo("TRF-" + t.getIdTransferencia());
+            dto.setTipo("Transferencia");
+            dto.setOrigen("Sucursal: " + t.getAlmacenOrigen().getNombre());
+            dto.setFechaRaw(t.getFechaHoraSalidaProgramada());
+            dto.setFechaFormateada(t.getFechaHoraSalidaProgramada().format(formatter));
+            dto.setEstado(t.getEstado().name());
+            dto.setTransferenciaOriginal(t);
+
+            Despacho ultimoDespacho = despachoRepository.findFirstByTransferenciaOrderByFechaHoraSalidaProgramadaDesc(t);
+
+            if (ultimoDespacho != null && ultimoDespacho.getTransporte() != null) {
+                Transporte transporte = ultimoDespacho.getTransporte();
+
+                if (transporte.getVehiculo() != null) transporte.getVehiculo().getPlaca();
+                if (transporte.getConductor() != null) transporte.getConductor().getPersona().getNombre();
+                if (transporte.getRuta() != null) transporte.getRuta().getNombre();
+
+                dto.setTransporteDespacho(transporte);
+            }
+
+            cola.add(dto);
+        }
+
+        cola.sort((d1, d2) -> d1.getFechaRaw().compareTo(d2.getFechaRaw()));
+        return cola;
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calcularCantidadPendiente(DetalleCompra dc) {
+        BigDecimal totalSolicitado = dc.getCantidad();
+        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(dc);
+        if (totalRecibido == null) {
+            totalRecibido = BigDecimal.ZERO;
+        }
+        return totalSolicitado.subtract(totalRecibido);
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal calcularCantidadPendiente(DetalleTransferencia dt) {
+        BigDecimal totalSolicitado = dt.getCantidad();
+        BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleTransferencia(dt);
+        if (totalRecibido == null) {
+            totalRecibido = BigDecimal.ZERO;
+        }
+        return totalSolicitado.subtract(totalRecibido);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecepcionItemUI> obtenerItemsPendientes(String tipoDocumento, Long idDocumento) {
+        List<RecepcionItemUI> itemsFisicos = new ArrayList<>();
+
+        if ("Compra".equals(tipoDocumento)) {
+            Compra compra = compraRepository.findById(idDocumento)
+                    .orElseThrow(() -> new RuntimeException("Compra no encontrada"));
+
+            for (DetalleCompra dc : compra.getDetalles()) {
+                dc.getProducto().getNombre();
+
+                BigDecimal pendiente = calcularCantidadPendiente(dc);
+                if (pendiente.compareTo(BigDecimal.ZERO) > 0) {
+                    itemsFisicos.add(new RecepcionItemUI(dc, pendiente));
+                }
+            }
+        } else {
+            Transferencia transferencia = transferenciaRepository.findById(idDocumento)
+                    .orElseThrow(() -> new RuntimeException("Transferencia no encontrada"));
+
+            Almacen destinoOriginal = transferencia.getAlmacenDestino();
+            destinoOriginal.getNombre();
+
+            for (DetalleTransferencia dt : transferencia.getDetalles()) {
+                dt.getLote().getNumeroLote();
+                dt.getLote().getProducto().getNombre();
+
+                BigDecimal pendiente = calcularCantidadPendiente(dt);
+                if (pendiente.compareTo(BigDecimal.ZERO) > 0) {
+                    RecepcionItemUI item = new RecepcionItemUI(dt, pendiente);
+                    item.setAlmacenDestino(destinoOriginal);
+                    itemsFisicos.add(item);
+                }
             }
         }
 
-        compra.setEstadoRecepcion(todoCompletado ? EstadoRecepcion.RECIBIDA : EstadoRecepcion.PARCIAL);
-        compraRepository.save(compra);
+        return itemsFisicos;
     }
 }

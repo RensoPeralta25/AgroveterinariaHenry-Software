@@ -44,6 +44,10 @@ public class Recepcion {
     @OneToMany(mappedBy = "recepcion", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DetalleRecepcion> detalles = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_transferencia")
+    private Transferencia transferencia;
+
     public void addDetalle(DetalleRecepcion detalle) {
         detalles.add(detalle);
         detalle.setRecepcion(this);
