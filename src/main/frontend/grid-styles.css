@@ -17,3 +17,13 @@
     padding-top: 5px;
     padding-bottom: 5px;
 }
+
+[part~="lote-expirado"] {
+    background-color: #ffeaea;
+    color: #cc0000;
+}
+
+[part~="lote-peligro"] {
+    background-color: #fff4d5;
+    color: #b38000;
+}
