@@ -3,6 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.dto.recepcion.RecepcionResumenDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoRecepcion;
+import com.agroveterinaria.enums.EstadoTransferencia;
 import com.agroveterinaria.enums.EstadoTransporte;
 import com.agroveterinaria.enums.TipoGasto;
 import com.agroveterinaria.repository.*;
@@ -251,8 +252,9 @@ public class RecepcionService {
         }
 
         List<Transferencia> transferencias = transferenciaRepository.findByEstadoIn(
-                List.of(com.agroveterinaria.enums.EstadoTransferencia.EN_TRANSITO,
-                        com.agroveterinaria.enums.EstadoTransferencia.RECIBIDA_PARCIAL)
+                List.of(EstadoTransferencia.EN_TRANSITO,
+                        EstadoTransferencia.RECIBIDA_PARCIAL,
+                        EstadoTransferencia.DESPACHADA_PARCIAL)
         );
 
         for (Transferencia t : transferencias) {

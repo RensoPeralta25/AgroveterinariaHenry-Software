@@ -181,7 +181,8 @@ public class RecepcionesPendientesView extends VerticalLayout {
                 item.setCantidadMerma(BigDecimal.ZERO);
 
                 BigDecimal sumaOtros = calcularSumaDelMismoProducto(itemsFisicos, item);
-                BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros).subtract(item.getCantidadRecibida());
+
+                BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
 
                 if (nuevaMerma.compareTo(maxPermitido) > 0) {
                     Notification.show("La suma de Recibido + Merma supera lo pendiente.", 3000, Notification.Position.MIDDLE);
@@ -487,7 +488,11 @@ public class RecepcionesPendientesView extends VerticalLayout {
         boolean isCompra = itemActual.getDetalleCompra() != null;
         return items.stream()
                 .filter(i -> isCompra ? i.getDetalleCompra().equals(itemActual.getDetalleCompra()) : i.getDetalleTransferencia().equals(itemActual.getDetalleTransferencia()))
-                .map(RecepcionItemUI::getCantidadRecibida)
+                .map(i -> {
+                    BigDecimal rec = i.getCantidadRecibida() != null ? i.getCantidadRecibida() : BigDecimal.ZERO;
+                    BigDecimal mer = i.getCantidadMerma() != null ? i.getCantidadMerma() : BigDecimal.ZERO;
+                    return rec.add(mer);
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
