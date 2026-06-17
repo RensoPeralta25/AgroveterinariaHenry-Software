@@ -13,9 +13,9 @@ import java.math.BigDecimal;
 @Repository
 public interface DetalleRecepcionRepository extends JpaRepository<DetalleRecepcion, Long> {
 
-    @Query("SELECT COALESCE(SUM(dr.cantidad), 0) FROM DetalleRecepcion dr WHERE dr.detalleCompra = :detalleCompra")
-    BigDecimal sumCantidadRecibidaByDetalleCompra(@Param("detalleCompra") DetalleCompra detalleCompra);
+    @Query("SELECT COALESCE(SUM(dr.cantidad + dr.cantidadMerma), 0) FROM DetalleRecepcion dr WHERE dr.detalleCompra = :dc")
+    BigDecimal sumCantidadProcesadaByDetalleCompra(@Param("dc") DetalleCompra dc);
 
-    @Query("SELECT COALESCE(SUM(dr.cantidad), 0) FROM DetalleRecepcion dr WHERE dr.detalleTransferencia = :dt")
-    BigDecimal sumCantidadRecibidaByDetalleTransferencia(@Param("dt") DetalleTransferencia dt);
+    @Query("SELECT COALESCE(SUM(dr.cantidad + dr.cantidadMerma), 0) FROM DetalleRecepcion dr WHERE dr.detalleTransferencia = :dt")
+    BigDecimal sumCantidadProcesadaByDetalleTransferencia(@Param("dt") DetalleTransferencia dt);
 }

@@ -169,6 +169,47 @@ public class RecepcionesPendientesView extends VerticalLayout {
             return txtCant;
         }).setHeader("Cant. a Recibir").setWidth("120px").setFlexGrow(0);
 
+        gridRecepcion.addComponentColumn(item -> {
+            com.vaadin.flow.component.textfield.BigDecimalField txtMerma = new com.vaadin.flow.component.textfield.BigDecimalField();
+            txtMerma.setWidthFull();
+            txtMerma.setValue(item.getCantidadMerma());
+            txtMerma.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_ALIGN_RIGHT);
+            txtMerma.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.ON_BLUR);
+
+            txtMerma.addValueChangeListener(e -> {
+                BigDecimal nuevaMerma = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
+                item.setCantidadMerma(BigDecimal.ZERO);
+
+                BigDecimal sumaOtros = calcularSumaDelMismoProducto(itemsFisicos, item);
+
+                BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
+
+                if (nuevaMerma.compareTo(maxPermitido) > 0) {
+                    Notification.show("La suma de Recibido + Merma supera lo pendiente.", 3000, Notification.Position.MIDDLE);
+                    txtMerma.setValue(maxPermitido);
+                    item.setCantidadMerma(maxPermitido);
+                } else {
+                    item.setCantidadMerma(nuevaMerma);
+                }
+                gridRecepcion.getDataProvider().refreshAll();
+            });
+            return txtMerma;
+        }).setHeader("Merma/Rotos").setWidth("110px").setFlexGrow(0);
+
+
+        gridRecepcion.addComponentColumn(item -> {
+            TextField txtJustificacion = new TextField();
+            txtJustificacion.setWidthFull();
+            txtJustificacion.setPlaceholder("Obligatorio si hay merma...");
+            txtJustificacion.setValue(item.getJustificacionMerma() != null ? item.getJustificacionMerma() : "");
+
+            boolean tieneMerma = item.getCantidadMerma() != null && item.getCantidadMerma().compareTo(BigDecimal.ZERO) > 0;
+            txtJustificacion.setEnabled(tieneMerma);
+
+            txtJustificacion.addValueChangeListener(e -> item.setJustificacionMerma(e.getValue()));
+            return txtJustificacion;
+        }).setHeader("Justificación de Pérdida").setFlexGrow(2);
+
         gridRecepcion.addColumn(item -> {
             BigDecimal disponible = calcularRestanteTotal(itemsFisicos, item);
             return disponible.compareTo(BigDecimal.ZERO) > 0 ? disponible.toString() : "0.00";
@@ -447,7 +488,11 @@ public class RecepcionesPendientesView extends VerticalLayout {
         boolean isCompra = itemActual.getDetalleCompra() != null;
         return items.stream()
                 .filter(i -> isCompra ? i.getDetalleCompra().equals(itemActual.getDetalleCompra()) : i.getDetalleTransferencia().equals(itemActual.getDetalleTransferencia()))
-                .map(RecepcionItemUI::getCantidadRecibida)
+                .map(i -> {
+                    BigDecimal rec = i.getCantidadRecibida() != null ? i.getCantidadRecibida() : BigDecimal.ZERO;
+                    BigDecimal mer = i.getCantidadMerma() != null ? i.getCantidadMerma() : BigDecimal.ZERO;
+                    return rec.add(mer);
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
