@@ -22,6 +22,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
@@ -33,6 +34,7 @@ import java.util.Base64;
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
 @PageTitle("Gestión de Lotes")
 @RolesAllowed("ADMINISTRADOR")
+@Route("/lotes")
 public class LoteView extends VerticalLayout {
 
     private final LoteService loteService;
