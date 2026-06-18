@@ -111,7 +111,7 @@ public class CompraService {
     }
 
     public BigDecimal calcularCantidadPendiente(DetalleCompra detalleCompra) {
-        BigDecimal yaRecibido = detalleRecepcionRepository.sumCantidadRecibidaByDetalleCompra(detalleCompra);
+        BigDecimal yaRecibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleCompra(detalleCompra);
         return detalleCompra.getCantidad().subtract(yaRecibido);
     }
 

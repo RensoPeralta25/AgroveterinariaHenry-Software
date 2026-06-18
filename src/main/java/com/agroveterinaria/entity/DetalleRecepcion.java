@@ -43,4 +43,10 @@ public class DetalleRecepcion {
 
     @Column(name = "cantidad", nullable = false, precision = 12, scale = 2)
     private BigDecimal cantidad;
+
+    @Column(name = "cantidad_merma")
+    private BigDecimal cantidadMerma = BigDecimal.ZERO;
+
+    @Column(name = "justificacion_merma")
+    private String justificacionMerma;
 }

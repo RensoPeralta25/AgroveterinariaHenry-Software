@@ -22,6 +22,8 @@ public class RecepcionItemUI {
     private Almacen almacenDestino;
     private String numeroLote;
     private LocalDate fechaVencimiento;
+    private BigDecimal cantidadMerma = BigDecimal.ZERO;
+    private String justificacionMerma;
 
     public RecepcionItemUI(DetalleCompra dc, BigDecimal maxPermitido) {
         this.detalleCompra = dc;

@@ -48,4 +48,9 @@ public class ProductoService {
         productoRepository.delete(producto);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Producto> listarTodosActivos() {
+        return productoRepository.findByStatus(com.agroveterinaria.enums.StatusEntidad.ACTIVO);
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.agroveterinaria.service;
 
+import com.agroveterinaria.dto.inventario.InventarioGlobalDTO;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
@@ -59,6 +60,16 @@ public class InventarioService {
             return BigDecimal.ZERO;
         }
         return inventarioRepository.sumarStockPorProducto(producto);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<InventarioGlobalDTO> obtenerInventarioGlobal() {
+        return inventarioRepository.obtenerInventarioGlobalConsolidado();
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Inventario> obtenerDesglosePorProducto(Producto producto) {
+        return inventarioRepository.buscarDesglosePorProducto(producto);
     }
 
 }
