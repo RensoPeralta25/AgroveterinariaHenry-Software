@@ -70,7 +70,7 @@ public class NominaView extends VerticalLayout {
         tabs.setWidthFull();
 
         VerticalLayout contenidoCorridas = crearContenidoCorridas();
-        VerticalLayout contenidoConfiguracion = crearContenidoConfiguracion();
+        VerticalLayout contenidoConfiguracion = new ConfiguracionNominaView(configuracionNominaService);
 
         contenidoConfiguracion.setVisible(false);
 
@@ -122,13 +122,13 @@ public class NominaView extends VerticalLayout {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addClassName("btn-accion-editar");
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> dialogDetalleCorrida(corrida));
+            btnVer.addClickListener(e -> dialogResultadoCorrida(corrida,gridCorridas, false));
 
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEditar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
-            btnEditar.addClickListener(e -> dialogNovedades(corrida, gridCorridas));
+            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, true));
 
             Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK));
             btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -162,39 +162,6 @@ public class NominaView extends VerticalLayout {
 
         refrescarGrid(gridCorridas);
         layout.add(toolbar, gridCorridas);
-        return layout;
-    }
-
-    private VerticalLayout crearContenidoConfiguracion() {
-        VerticalLayout layout = new VerticalLayout();
-        layout.setSizeFull();
-        layout.setPadding(false);
-        layout.setSpacing(true);
-        layout.getStyle().set("margin-top", "12px");
-
-        Grid<ConfiguracionNomina> gridConfig = new Grid<>(ConfiguracionNomina.class, false);
-        gridConfig.addClassName("usuario-grid");
-        gridConfig.addThemeNames("row-stripes");
-
-        gridConfig.addColumn(ConfiguracionNomina::getClave)
-                .setHeader("Clave").setFlexGrow(1);
-
-        gridConfig.addColumn(ConfiguracionNomina::getDescripcion)
-                .setHeader("Descripción").setFlexGrow(2);
-
-        gridConfig.addColumn(this::formatearValorConfiguracion)
-                .setHeader("Valor actual").setWidth("150px").setFlexGrow(0);
-
-        gridConfig.addComponentColumn(config -> {
-            Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
-            btnEditar.addClassName("btn-accion-editar");
-            btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnEditar.addClickListener(e -> dialogEditarConfig(config, gridConfig));
-            return btnEditar;
-        }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
-
-        gridConfig.setItems(configuracionNominaService.findAll());
-        layout.add(gridConfig);
         return layout;
     }
 
@@ -238,7 +205,7 @@ public class NominaView extends VerticalLayout {
             CorridaNomina corrida = corridaNominaService.generarCorrida(periodo, fecha);
             dialog.close();
             refrescarGrid(gridCorridas);
-            dialogNovedades(corrida, gridCorridas);
+            dialogResultadoCorrida(corrida, gridCorridas, true);
         });
 
         dialog.add(contenido);
@@ -246,153 +213,136 @@ public class NominaView extends VerticalLayout {
         dialog.open();
     }
 
-    private void dialogNovedades(CorridaNomina corrida, Grid<CorridaNomina> gridCorridas) {
+    private void dialogFormularioNovedades(Nomina nomina, Grid<Nomina> gridNominas) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Novedades — " + corrida.getPeriodo() + " " + corrida.getFechaEmision());
-        dialog.setWidth("600px");
-
-        List<Nomina> nominasOrdenadas = corrida.getNominas().stream()
-                .sorted(java.util.Comparator.comparing(n -> n.getEmpleado().getPersona().getNombre()))
-                .collect(java.util.stream.Collectors.toList());
-
-        ComboBox<Nomina> cmbNomina = new ComboBox<>("Empleado");
-        cmbNomina.setItems(nominasOrdenadas);
-        cmbNomina.setItemLabelGenerator(n -> n.getEmpleado().getPersona().getNombre());
-        cmbNomina.setWidthFull();
+        dialog.setHeaderTitle("Novedades — " + nomina.getEmpleado().getPersona().getNombre());
+        dialog.setWidth("80vw");
+        dialog.setMaxWidth("900px");
 
         NumberField horasExtras = new NumberField("Horas extras");
         horasExtras.setMin(0);
+        horasExtras.setPlaceholder("0");
         horasExtras.setWidthFull();
+        horasExtras.setValue(obtenerCantidadConcepto(nomina, TipoConcepto.HORAS_EXTRAS));
 
         BigDecimalField comisiones = crearCampoMoneda("Comisiones");
+        comisiones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.COMISIONES));
+
         BigDecimalField bonificaciones = crearCampoMoneda("Bonificaciones");
-        BigDecimalField ausencias = new BigDecimalField("Ausencias no pagadas (días)");
+        bonificaciones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.BONIFICACIONES));
+
+        BigDecimalField dietasYViaticos = crearCampoMoneda("Dietas y viáticos");
+        dietasYViaticos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.DIETAS_Y_VIATICOS));
+
+        BigDecimalField pagoVacaciones = crearCampoMoneda("Pago de vacaciones");
+        pagoVacaciones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.PAGO_VACACIONES));
+
+        NumberField ausencias = new NumberField("Ausencias no pagadas (días)");
+        ausencias.setMin(0);
+        ausencias.setStep(0.5);
+        ausencias.setPlaceholder("0");
         ausencias.setWidthFull();
+        ausencias.setValue(obtenerCantidadConcepto(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS));
+
         BigDecimalField anticipo = crearCampoMoneda("Anticipo de salario");
+        anticipo.setValue(obtenerMontoConcepto(nomina, TipoConcepto.ANTICIPO_SALARIO));
+
         BigDecimalField otrosDescuentos = crearCampoMoneda("Otros descuentos");
+        otrosDescuentos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.OTRAS_DEDUCCIONES));
 
-        Span lblIngresos = new Span("Ingresos Adicionales");
-        lblIngresos.addClassName("titulo-ingresos");
+        FormLayout formIngresos = new FormLayout(horasExtras, comisiones, bonificaciones, dietasYViaticos, pagoVacaciones);
+        formIngresos.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("300px", 2));
 
-        FormLayout formIngresos = new FormLayout(horasExtras, comisiones, bonificaciones);
-        formIngresos.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1),
-                new FormLayout.ResponsiveStep("300px", 2)
-        );
-
-        VerticalLayout seccionIngresos = new VerticalLayout(lblIngresos, formIngresos);
+        VerticalLayout seccionIngresos = new VerticalLayout(new Span("Ingresos Adicionales"), formIngresos);
+        seccionIngresos.addClassNames("caja-novedades", "seccion-ingresos");
         seccionIngresos.setPadding(false);
-        seccionIngresos.addClassNames("caja-novedades");
-
-        Span lblDeducciones = new Span("Deducciones");
-        lblDeducciones.addClassName("titulo-deducciones");
 
         FormLayout formDeducciones = new FormLayout(ausencias, anticipo, otrosDescuentos);
-        formDeducciones.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("300px", 2));
+        formDeducciones.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("300px", 2));
 
-        VerticalLayout seccionDeducciones = new VerticalLayout(lblDeducciones, formDeducciones);
-        seccionDeducciones.setPadding(false);
+        VerticalLayout seccionDeducciones = new VerticalLayout(new Span("Deducciones"), formDeducciones);
         seccionDeducciones.addClassNames("caja-novedades", "seccion-deducciones");
+        seccionDeducciones.getStyle().set("margin-top", "24px");
+        seccionDeducciones.setPadding(false);
 
-        VerticalLayout camposNovedades = new VerticalLayout(seccionIngresos, seccionDeducciones);
-        camposNovedades.setPadding(false);
-        camposNovedades.setSpacing(true);
-        camposNovedades.setVisible(false);
+        VerticalLayout layoutPrincipal = new VerticalLayout(seccionIngresos, seccionDeducciones);
+        layoutPrincipal.setPadding(false);
+        layoutPrincipal.setSpacing(false);
 
-        cmbNomina.addValueChangeListener(e -> {
-            camposNovedades.setVisible(e.getValue() != null);
-            horasExtras.clear();
-            comisiones.clear();
-            bonificaciones.clear();
-            ausencias.clear();
-            anticipo.clear();
-            otrosDescuentos.clear();
-        });
+        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+        Button btnGuardar = new Button("Guardar", new Icon(VaadinIcon.CHECK));
+        btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        Button btnAgregarNovedad = new Button("Agregar novedad", new Icon(VaadinIcon.PLUS));
-        btnAgregarNovedad.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnAgregarNovedad.addClickListener(e -> {
-            Nomina nomina = cmbNomina.getValue();
-            if (nomina == null) {
-                mostrarError("Selecciona un empleado.");
-                return;
-            }
-
+        btnGuardar.addClickListener(e -> {
             if (horasExtras.getValue() != null && horasExtras.getValue() > 0) {
-                BigDecimal montoHoras = configuracionNominaService
-                        .calcularHorasExtras(horasExtras.getValue());
-                agregarOActualizarNovedad(nomina, TipoConcepto.HORAS_EXTRAS, "Horas extras",
-                        montoHoras, horasExtras.getValue());
+                BigDecimal montoHoras = configuracionNominaService.calcularHorasExtras(horasExtras.getValue());
+                agregarOActualizarNovedad(nomina, TipoConcepto.HORAS_EXTRAS, "Horas extras", montoHoras, horasExtras.getValue());
+            } else {
+                nomina.getDetalles().removeIf(d -> d.getTipo() == TipoConcepto.HORAS_EXTRAS);
             }
 
             agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES, "Comisiones", comisiones.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.BONIFICACIONES, "Bonificaciones", bonificaciones.getValue(), 1.0);
+            agregarOActualizarNovedad(nomina, TipoConcepto.DIETAS_Y_VIATICOS, "Dietas y viáticos", dietasYViaticos.getValue(), 1.0);
+            agregarOActualizarNovedad(nomina, TipoConcepto.PAGO_VACACIONES, "Pago de vacaciones", pagoVacaciones.getValue(), 1.0);
+
             agregarOActualizarNovedad(nomina, TipoConcepto.ANTICIPO_SALARIO, "Anticipo de salario", anticipo.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.OTRAS_DEDUCCIONES, "Otros descuentos", otrosDescuentos.getValue(), 1.0);
 
-            if (ausencias.getValue() != null && ausencias.getValue().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal valorDia = nomina.getEmpleado().getSalario()
-                        .divide(BigDecimal.valueOf(30), 2, java.math.RoundingMode.HALF_UP);
-                BigDecimal montoAusencia = valorDia.multiply(ausencias.getValue());
-                agregarOActualizarNovedad(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS, "Ausencias no pagadas",
-                        montoAusencia, ausencias.getValue().doubleValue());
-            }
-
-            mostrarExito("Novedades agregadas para " + nomina.getEmpleado().getPersona().getNombre());
-
-            int indexActual = nominasOrdenadas.indexOf(nomina);
-
-            if (indexActual >= 0 && indexActual < nominasOrdenadas.size() - 1) {
-                cmbNomina.setValue(nominasOrdenadas.get(indexActual + 1));
+            if (ausencias.getValue() != null && ausencias.getValue() > 0) {
+                BigDecimal valorDia = nomina.getEmpleado().getSalario().divide(BigDecimal.valueOf(30), 2, java.math.RoundingMode.HALF_UP);
+                BigDecimal montoAusencia = valorDia.multiply(BigDecimal.valueOf(ausencias.getValue()));
+                agregarOActualizarNovedad(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS, "Ausencias no pagadas", montoAusencia, ausencias.getValue());
             } else {
-                cmbNomina.clear();
-            }
-        });
-
-        VerticalLayout contenido = new VerticalLayout(cmbNomina, camposNovedades, btnAgregarNovedad);
-        contenido.setPadding(false);
-        contenido.setSpacing(true);
-
-        Button btnCerrar = new Button("Cerrar y revisar", e -> {
-            dialog.close();
-            dialogResultadoCorrida(corrida, gridCorridas);
-        });
-        btnCerrar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        dialog.add(contenido);
-        dialog.getFooter().add(btnCerrar);
-        dialog.open();
-    }
-
-    private void dialogResultadoCorrida(CorridaNomina corrida, Grid<CorridaNomina> gridCorridas) {
-        for (Nomina nomina : corrida.getNominas()) {
-            BigDecimal devengado = nomina.getDetalles().stream()
-                    .filter(d -> d.getTipo().esIngreso())
-                    .map(DetalleNomina::getMonto)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            nomina.getDetalles().removeIf(d ->
-                    d.getTipo() == TipoConcepto.FONDO_PENSIONES ||
-                            d.getTipo() == TipoConcepto.SEGURO_FAMILIAR_SALUD ||
-                            d.getTipo() == TipoConcepto.IMPUESTO_RENTA);
-
-            nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.FONDO_PENSIONES,
-                    "AFP (2.87%)", configuracionNominaService.calcularAFP(devengado), 1.0));
-            nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.SEGURO_FAMILIAR_SALUD,
-                    "SFS (3.04%)", configuracionNominaService.calcularSFS(devengado), 1.0));
-
-            BigDecimal isr = configuracionNominaService.calcularISR(devengado, corrida.getPeriodo());
-            if (isr.compareTo(BigDecimal.ZERO) > 0) {
-                nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA,
-                        "ISR", isr, 1.0));
+                nomina.getDetalles().removeIf(d -> d.getTipo() == TipoConcepto.AUSENCIAS_NO_PAGADAS);
             }
 
             nomina.calcularSueldoNeto();
+            gridNominas.getDataProvider().refreshItem(nomina);
+
+            dialog.close();
+            mostrarExito("Novedades actualizadas correctamente.");
+        });
+
+        dialog.add(layoutPrincipal);
+        dialog.getFooter().add(btnGuardar, btnCancelar);
+        dialog.open();
+    }
+
+    private void dialogResultadoCorrida(CorridaNomina corrida, Grid<CorridaNomina> gridCorridas, boolean esModoEdicion) {
+        if(esModoEdicion){
+            for (Nomina nomina : corrida.getNominas()) {
+                BigDecimal devengado = nomina.getDetalles().stream()
+                        .filter(d -> d.getTipo().esIngreso())
+                        .map(DetalleNomina::getMonto)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                nomina.getDetalles().removeIf(d ->
+                        d.getTipo() == TipoConcepto.FONDO_PENSIONES ||
+                                d.getTipo() == TipoConcepto.SEGURO_FAMILIAR_SALUD ||
+                                d.getTipo() == TipoConcepto.IMPUESTO_RENTA);
+
+                nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.FONDO_PENSIONES,
+                        "AFP (2.87%)", configuracionNominaService.calcularAFP(devengado), 1.0));
+                nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.SEGURO_FAMILIAR_SALUD,
+                        "SFS (3.04%)", configuracionNominaService.calcularSFS(devengado), 1.0));
+
+                BigDecimal isr = configuracionNominaService.calcularISR(devengado, corrida.getPeriodo());
+                if (isr.compareTo(BigDecimal.ZERO) > 0) {
+                    nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA,
+                            "ISR", isr, 1.0));
+                }
+
+                nomina.calcularSueldoNeto();
+            }
         }
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Resultado — " + corrida.getPeriodo() + " " + corrida.getFechaEmision());
-        dialog.setWidth("650px");
+        dialog.setWidth("85vw");
+        dialog.setMaxWidth("850px");
 
         Grid<Nomina> gridNominas = new Grid<>(Nomina.class, false);
         gridNominas.addColumn(n -> n.getEmpleado().getPersona().getNombre())
@@ -404,91 +354,69 @@ public class NominaView extends VerticalLayout {
         gridNominas.addColumn(n -> "RD$ " + formatearMonto(n.getTotalDevengado()
                         .subtract(n.getTotalDeducciones())))
                 .setHeader("Neto").setWidth("150px").setFlexGrow(0);
+
         gridNominas.addComponentColumn(nomina -> {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnVer.addClickListener(e -> dialogDetalleNomina(nomina));
-            return btnVer;
-        }).setWidth("70px").setFlexGrow(0);
+
+            HorizontalLayout acciones = new HorizontalLayout(btnVer);
+
+            if (esModoEdicion) {
+                Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
+                btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                btnEditar.addClickListener(e -> dialogFormularioNovedades(nomina, gridNominas));
+                acciones.add(btnEditar);
+            }
+
+            acciones.setSpacing(false);
+            acciones.setPadding(false);
+            return acciones;
+        }).setWidth(esModoEdicion ? "110px" : "90px").setFlexGrow(0).setHeader("Acciones");
 
         gridNominas.setItems(corrida.getNominas());
         gridNominas.setHeight("300px");
 
         Span totalGeneral = new Span("Total general: RD$ " + formatearMonto(corrida.getTotalGeneral()));
-        totalGeneral.getStyle().set("font-weight", "bold").set("color", "#1a56db");
+        totalGeneral.getStyle().set("font-weight", "bold").set("color", "#1a56db")
+                .set("align-self", "flex-end")
+                .set("margin-top", "10px");;
 
         VerticalLayout contenido = new VerticalLayout(gridNominas, totalGeneral);
         contenido.setPadding(false);
-
-        Button btnAtras = new Button("Ajustar novedades", e -> {
-            dialog.close();
-            dialogNovedades(corrida, gridCorridas);
-        });
-        btnAtras.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnAtras.addClassName("btn-borde");
-
-        Button btnDejarPendiente = new Button("Dejar pendiente", e -> {
-            dialog.close();
-            refrescarGrid(gridCorridas);
-            mostrarExito("La corrida se ha mantenido como pendiente.");
-        });
-        btnDejarPendiente.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-
-        Button btnAprobar = new Button("Aprobar corrida", new Icon(VaadinIcon.CHECK));
-        btnAprobar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
-        btnAprobar.addClickListener(e -> {
-            corridaNominaService.aprobarCorrida(corrida);
-            dialog.close();
-            refrescarGrid(gridCorridas);
-            mostrarExito("Corrida aprobada correctamente.");
-        });
-
         dialog.add(contenido);
-        dialog.getFooter().add(btnAprobar, btnDejarPendiente, btnAtras);
-        dialog.open();
-    }
 
-    private void dialogDetalleCorrida(CorridaNomina corrida) {
-        Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Detalle — " + corrida.getPeriodo() + " " + corrida.getFechaEmision());
-        dialog.setWidth("650px");
+        if (esModoEdicion) {
+            Button btnDejarPendiente = new Button("Dejar pendiente", e -> {
+                dialog.close();
+                refrescarGrid(gridCorridas);
+                mostrarExito("La corrida se ha mantenido como pendiente.");
+            });
+            btnDejarPendiente.addClassName("btn-borde");
 
-        Grid<Nomina> gridNominas = new Grid<>(Nomina.class, false);
-        gridNominas.addColumn(n -> n.getEmpleado().getPersona().getNombre())
-                .setHeader("Empleado").setFlexGrow(1);
-        gridNominas.addColumn(n -> "RD$ " + formatearMonto(n.getTotalDevengado()))
-                .setHeader("Devengado").setWidth("150px").setFlexGrow(0);
-        gridNominas.addColumn(n -> "RD$ " + formatearMonto(n.getTotalDeducciones()))
-                .setHeader("Deducciones").setWidth("150px").setFlexGrow(0);
-        gridNominas.addColumn(n -> "RD$ " + formatearMonto(n.getTotalDevengado()
-                        .subtract(n.getTotalDeducciones())))
-                .setHeader("Neto").setWidth("150px").setFlexGrow(0);
-        gridNominas.addComponentColumn(nomina -> {
-            Button btnVer = new Button(new Icon(VaadinIcon.EYE));
-            btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> dialogDetalleNomina(nomina));
-            return btnVer;
-        }).setWidth("70px").setFlexGrow(0);
+            Button btnAprobar = new Button("Aprobar corrida", new Icon(VaadinIcon.CHECK));
+            btnAprobar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
+            btnAprobar.addClickListener(e -> {
+                corridaNominaService.aprobarCorrida(corrida);
+                dialog.close();
+                refrescarGrid(gridCorridas);
+                mostrarExito("Corrida aprobada correctamente.");
+            });
+            dialog.getFooter().add(btnAprobar, btnDejarPendiente);
+        } else {
+            Button btnCerrar = new Button("Cerrar", e -> dialog.close());
+            btnCerrar.addClassName("btn-borde");
+            dialog.getFooter().add(btnCerrar);
+        }
 
-        gridNominas.setItems(corrida.getNominas());
-        gridNominas.setHeight("300px");
-
-        Span totalGeneral = new Span("Total general: RD$ " + formatearMonto(corrida.getTotalGeneral()));
-        totalGeneral.getStyle().set("font-weight", "bold").set("color", "#1a56db");
-
-        Button btnCerrar = new Button("Cerrar", e -> dialog.close());
-        btnCerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnCerrar.addClassName("btn-borde");
-
-        dialog.add(new VerticalLayout(gridNominas, totalGeneral));
-        dialog.getFooter().add(btnCerrar);
         dialog.open();
     }
 
     private void dialogDetalleNomina(Nomina nomina) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Detalle — " + nomina.getEmpleado().getPersona().getNombre());
-        dialog.setWidth("500px");
+        dialog.setWidth("75vw");
+        dialog.setMaxWidth("600px");
 
         Grid<DetalleNomina> gridDetalle = new Grid<>(DetalleNomina.class, false);
         gridDetalle.addColumn(DetalleNomina::getDescripcion).setHeader("Concepto").setFlexGrow(1);
@@ -501,10 +429,11 @@ public class NominaView extends VerticalLayout {
 
         Span sueldoNeto = new Span("Sueldo neto: RD$ " +
                 formatearMonto(nomina.getTotalDevengado().subtract(nomina.getTotalDeducciones())));
-        sueldoNeto.getStyle().set("font-weight", "bold").set("color", "#1a56db");
+        sueldoNeto.getStyle().set("font-weight", "bold").set("color", "#1a56db")
+                .set("align-self", "flex-end")
+                .set("margin-top", "10px");;
 
         Button btnCerrar = new Button("Cerrar", e -> dialog.close());
-        btnCerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnCerrar.addClassName("btn-borde");
 
         dialog.add(new VerticalLayout(gridDetalle, sueldoNeto));
@@ -527,45 +456,11 @@ public class NominaView extends VerticalLayout {
         btnSi.addThemeVariants(ButtonVariant.LUMO_ERROR);
 
         Button btnNo = new Button("Cancelar", e -> confirm.close());
-        btnNo.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         btnNo.addClassName("btn-borde");
 
         confirm.add(new VerticalLayout(mensaje));
         confirm.getFooter().add(btnSi,btnNo);
         confirm.open();
-    }
-
-    private void dialogEditarConfig(ConfiguracionNomina config,
-                                         Grid<ConfiguracionNomina> gridConfig) {
-        Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Editar — " + config.getDescripcion());
-        dialog.setWidth("400px");
-
-        BigDecimalField valorField = new BigDecimalField("Valor");
-        valorField.setValue(config.getValor());
-        valorField.setWidthFull();
-
-        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
-        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnCancelar.addClassName("btn-borde");
-
-        Button btnGuardar = new Button("Guardar", new Icon(VaadinIcon.CHECK));
-        btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        btnGuardar.addClickListener(e -> {
-            if (valorField.isEmpty()) {
-                mostrarError("El valor no puede estar vacío.");
-                return;
-            }
-            config.setValor(valorField.getValue());
-            configuracionNominaService.actualizar(config);
-            gridConfig.setItems(configuracionNominaService.findAll());
-            dialog.close();
-            mostrarExito("Configuración actualizada.");
-        });
-
-        dialog.add(new VerticalLayout(valorField));
-        dialog.getFooter().add(btnGuardar, btnCancelar);
-        dialog.open();
     }
 
     private DetalleNomina crearDetalle(Nomina nomina, TipoConcepto tipo, String descripcion, BigDecimal monto, Double cantidad) {
@@ -602,18 +497,18 @@ public class NominaView extends VerticalLayout {
         return formato.format(monto);
     }
 
-    private String formatearValorConfiguracion(ConfiguracionNomina config) {
-        if (config.getValor() == null) return "0.00";
+    private Double obtenerCantidadConcepto(Nomina nomina, TipoConcepto tipo) {
+        return nomina.getDetalles().stream()
+                .filter(d -> d.getTipo() == tipo)
+                .map(d -> d.getCantidad().doubleValue())
+                .findFirst().orElse(null);
+    }
 
-        String clave = config.getClave().toUpperCase();
-
-        if (clave.contains("PORCENTAJE")) {
-            BigDecimal valorPorcentual = config.getValor().multiply(new BigDecimal("100"));
-            return valorPorcentual.setScale(2, java.math.RoundingMode.HALF_UP) + "%";
-
-        } else {
-            return "RD$ " + formatearMonto(config.getValor());
-        }
+    private BigDecimal obtenerMontoConcepto(Nomina nomina, TipoConcepto tipo) {
+        return nomina.getDetalles().stream()
+                .filter(d -> d.getTipo() == tipo)
+                .map(DetalleNomina::getMonto)
+                .findFirst().orElse(null);
     }
 
     private void refrescarGrid(Grid<CorridaNomina> gridCorridas) {
