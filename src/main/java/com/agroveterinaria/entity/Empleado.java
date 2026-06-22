@@ -28,6 +28,7 @@ public class Empleado {
     @Column(name = "id_empleado")
     private Long IdEmpleado;
 
+    @NotNull
     @Valid
     @OneToOne
     @JoinColumn(name = "id_persona")

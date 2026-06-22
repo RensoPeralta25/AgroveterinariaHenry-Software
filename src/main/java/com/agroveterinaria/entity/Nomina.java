@@ -1,6 +1,8 @@
 package com.agroveterinaria.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,15 +22,22 @@ public class Nomina {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idNomina;
 
+    @NotNull(message = "El empleado es obligatorio")
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_empleado", nullable = false)
     private Empleado empleado;
 
+    @NotNull(message = "La corrida de nómina es obligatoria")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_corrida")
     private CorridaNomina corrida;
 
+    @NotNull(message = "El total devengado es obligatorio")
+    @PositiveOrZero(message = "El total devengado no puede ser negativo")
     private BigDecimal totalDevengado;
+
+    @NotNull(message = "El total de deducciones es obligatorio")
+    @PositiveOrZero(message = "El total de deducciones no puede ser negativo")
     private BigDecimal totalDeducciones;
 
     @OneToMany(mappedBy = "nomina", cascade = CascadeType.ALL, orphanRemoval = true)

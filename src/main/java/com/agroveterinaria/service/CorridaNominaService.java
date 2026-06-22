@@ -1,10 +1,8 @@
 package com.agroveterinaria.service;
 
-import com.agroveterinaria.entity.CorridaNomina;
-import com.agroveterinaria.entity.DetalleNomina;
-import com.agroveterinaria.entity.Empleado;
-import com.agroveterinaria.entity.Nomina;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoCorrida;
+import com.agroveterinaria.enums.EstadoPrestamo;
 import com.agroveterinaria.enums.PeriodoNomina;
 import com.agroveterinaria.enums.TipoConcepto;
 import com.agroveterinaria.repository.CorridaNominaRepository;
@@ -26,6 +24,8 @@ import java.util.Set;
 public class CorridaNominaService {
     private final CorridaNominaRepository corridaRepository;
     private final EmpleadoService empleadoService;
+    private final PrestamoEmpleadoService prestamoEmpleadoService;
+    private final EmbargoSalarialService embargoSalarialService;
     private final ConfiguracionNominaService configuracionNominaService;
 
     public List<CorridaNomina> findAllConNominas() {
@@ -44,11 +44,26 @@ public class CorridaNominaService {
         Set<Nomina> nominas = new LinkedHashSet<>();
 
         for (Empleado empleado : empleados) {
+            prestamoEmpleadoService.validarIntegridadPrestamos(empleado);
             Nomina nomina = new Nomina(empleado, corrida);
             Set<DetalleNomina> detalles = new LinkedHashSet<>();
 
             BigDecimal salarioBase = empleado.getSalario();
             detalles.add(crearDetalle(nomina, TipoConcepto.SALARIO_BASE, "Salario base", salarioBase, 1.0));
+
+            List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(empleado);
+            for (PrestamoEmpleado prestamo : prestamos) {
+                BigDecimal montoACobrar = prestamo.getCuotaPeriodica().min(prestamo.getBalancePendiente());
+
+                nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
+                        "Cuota Préstamo: " + prestamo.getConcepto(), montoACobrar, 1.0));
+            }
+
+            List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndActivoTrue(empleado);
+            for (EmbargoSalarial embargo : embargos) {
+                nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
+                        "Embargo: " + embargo.getEntidadDemandante(), embargo.getMontoDescuento(), 1.0));
+            }
 
             BigDecimal totalDevengado = salarioBase;
 
@@ -75,6 +90,32 @@ public class CorridaNominaService {
     public CorridaNomina aprobarCorrida(CorridaNomina corrida) {
         validarEstadoPendiente(corrida);
         corrida.setEstado(EstadoCorrida.APROBADA);
+
+        for (Nomina nomina : corrida.getNominas()) {
+            BigDecimal totalDescontado = nomina.getDetalles().stream()
+                    .filter(d -> d.getTipo() == TipoConcepto.PRESTAMO_EMPRESA)
+                    .map(DetalleNomina::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (totalDescontado.compareTo(BigDecimal.ZERO) > 0) {
+                List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(nomina.getEmpleado());
+                BigDecimal remanenteCobrado = totalDescontado;
+
+                for (PrestamoEmpleado prestamo : prestamos) {
+                    if (remanenteCobrado.compareTo(BigDecimal.ZERO) <= 0) break;
+
+                    BigDecimal abonoAlPrestamo = remanenteCobrado.min(prestamo.getBalancePendiente());
+                    prestamo.setBalancePendiente(prestamo.getBalancePendiente().subtract(abonoAlPrestamo));
+                    remanenteCobrado = remanenteCobrado.subtract(abonoAlPrestamo);
+
+                    if (prestamo.getBalancePendiente().compareTo(BigDecimal.ZERO) == 0) {
+                        prestamo.setEstado(EstadoPrestamo.SALDADO);
+                    }
+                    prestamoEmpleadoService.save(prestamo);
+                }
+            }
+        }
+
         return corridaRepository.save(corrida);
     }
 
