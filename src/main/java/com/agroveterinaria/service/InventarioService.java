@@ -3,6 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.dto.inventario.InventarioGlobalDTO;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Inventario;
+import com.agroveterinaria.entity.Lote;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.repository.AlmacenRepository;
 import com.agroveterinaria.repository.InventarioRepository;
@@ -70,6 +71,11 @@ public class InventarioService {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Inventario> obtenerDesglosePorProducto(Producto producto) {
         return inventarioRepository.buscarDesglosePorProducto(producto);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Lote> obtenerLotesConStock(Almacen almacen, Producto producto) {
+        return inventarioRepository.findLotesConStock(almacen, producto);
     }
 
 }
