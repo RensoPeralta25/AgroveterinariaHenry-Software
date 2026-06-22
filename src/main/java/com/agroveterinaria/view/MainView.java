@@ -64,7 +64,8 @@ public class MainView extends Div {
             PasswordEncoder passwordEncoder,
             CorridaNominaService corridaNominaService,
             DetalleNominaService detalleNominaService,
-            ConfiguracionNominaService configuracionNominaService) {
+            ConfiguracionNominaService configuracionNominaService,
+            FacturaVentaPdfService facturaVentaPdfService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -73,7 +74,7 @@ public class MainView extends Div {
 
         VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService,
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
-                detalleNominaService, configuracionNominaService);
+                detalleNominaService, configuracionNominaService, facturaVentaPdfService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -106,7 +107,8 @@ public class MainView extends Div {
             VentaService ventaService,
             CorridaNominaService corridaNominaService,
             DetalleNominaService detalleNominaService,
-            ConfiguracionNominaService configuracionNominaService
+            ConfiguracionNominaService configuracionNominaService,
+            FacturaVentaPdfService facturaVentaPdfService
 
     ) {
         Div logoMark = new Div();
@@ -264,7 +266,7 @@ public class MainView extends Div {
                     "Lista de Ventas",
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
-                    new ListaVentasView(ventaService)
+                    new ListaVentasView(ventaService, facturaVentaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
