@@ -10,6 +10,7 @@ import com.agroveterinaria.service.CompraService;
 import com.agroveterinaria.service.InventarioService;
 import com.agroveterinaria.service.ProductoService;
 import com.agroveterinaria.service.ProveedorService;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -38,10 +39,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
-@Route("compras/nueva")
 @PageTitle("Registrar Compra")
 @RolesAllowed("ADMINISTRADOR")
-public class RegistroCompraView extends VerticalLayout implements HasUrlParameter<Long> {
+public class RegistroCompraView extends VerticalLayout {
 
     private final ProveedorService proveedorService;
     private final ProductoService productoService;
@@ -58,6 +58,8 @@ public class RegistroCompraView extends VerticalLayout implements HasUrlParamete
 
     private final List<DetalleCompraDTO> carrito = new ArrayList<>();
 
+    private Runnable accionVolver;
+
     public RegistroCompraView(ProveedorService proveedorService, ProductoService productoService,
                               CompraService compraService, InventarioService inventarioService) {
         this.proveedorService = proveedorService;
@@ -72,31 +74,33 @@ public class RegistroCompraView extends VerticalLayout implements HasUrlParamete
         H2 titulo = new H2("Registro de Compra a Proveedor");
         titulo.getStyle().set("margin-top", "0");
 
-        VerticalLayout panelIzquierdo = construirPanelIzquierdo();
+        Button btnVolver = new Button("Volver a Compras", new Icon(VaadinIcon.ARROW_LEFT));
+        btnVolver.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnVolver.addClickListener(e -> {
+            if (accionVolver != null) accionVolver.run();
+        });
 
+        VerticalLayout panelIzquierdo = construirPanelIzquierdo();
         VerticalLayout panelDerecho = construirPanelDerecho();
 
         SplitLayout splitLayout = new SplitLayout(panelIzquierdo, panelDerecho);
         splitLayout.setSplitterPosition(55);
         splitLayout.setSizeFull();
 
-        add(titulo, splitLayout);
+        add(btnVolver, titulo, splitLayout);
     }
 
-    @Override
-    public void setParameter(BeforeEvent event, @OptionalParameter Long parameterId) {
-        if (parameterId != null) {
-            this.idBorradorActual = parameterId;
-            cargarBorrador(parameterId);
+    public void configurarVista(Long idBorrador, Runnable accionVolver) {
+        this.idBorradorActual = idBorrador;
+        this.accionVolver = accionVolver;
+
+        if (idBorrador != null) {
+            cargarBorrador(idBorrador);
         } else {
             this.cargandoBorrador = true;
-
-            this.idBorradorActual = null;
             this.carrito.clear();
-            if (this.cbProveedor != null) this.cbProveedor.clear();
-            if (this.gridDetalles != null) this.gridDetalles.getDataProvider().refreshAll();
             actualizarTotal();
-
+            if (this.gridDetalles != null) this.gridDetalles.getDataProvider().refreshAll();
             this.cargandoBorrador = false;
         }
     }
@@ -392,7 +396,7 @@ public class RegistroCompraView extends VerticalLayout implements HasUrlParamete
                 gridDetalles.getDataProvider().refreshAll();
                 cbProveedor.clear();
                 actualizarTotal();
-                getUI().ifPresent(ui -> ui.navigate("compras/historial"));
+                accionVolver.run();
             } catch (Exception ex) {
                 mostrarError("Ocurrió un error al procesar la compra: " + ex.getMessage());
                 dialog.close();

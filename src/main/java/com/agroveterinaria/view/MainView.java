@@ -1,14 +1,22 @@
 package com.agroveterinaria.view;
 
+import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.ProductoService;
 import com.agroveterinaria.service.ProveedorService;
 import com.agroveterinaria.service.UsuarioService;
+import com.agroveterinaria.view.almacen.AjustesInventarioView;
+import com.agroveterinaria.view.almacen.AlmacenView;
+import com.agroveterinaria.view.almacen.InventarioGlobalView;
+import com.agroveterinaria.view.almacen.RecepcionesPendientesView;
+import com.agroveterinaria.view.compra.ComprasView;
+import com.agroveterinaria.view.compra.RegistroCompraView;
 import com.agroveterinaria.view.empleado.EmpleadoView;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
+import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
@@ -64,7 +72,18 @@ public class MainView extends Div {
             PasswordEncoder passwordEncoder,
             CorridaNominaService corridaNominaService,
             DetalleNominaService detalleNominaService,
-            ConfiguracionNominaService configuracionNominaService) {
+            ConfiguracionNominaService configuracionNominaService,
+            AlmacenService almacenService,
+            InventarioService inventarioService,
+            AjusteInventarioService ajusteInventarioService,
+            LoteService loteService,
+            SecurityService securityService,
+            CompraService compraService,
+            RecepcionService recepcionService,
+            DespachoService despachoService,
+            TransferenciaService transferenciaService,
+            VehiculoService vehiculoService,
+            RutaService rutaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -73,7 +92,9 @@ public class MainView extends Div {
 
         VerticalLayout sidebar = createSidebar(usuarioService, productoService, proveedorService, empleadoService,
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
-                detalleNominaService, configuracionNominaService);
+                detalleNominaService, configuracionNominaService, almacenService, inventarioService,
+                ajusteInventarioService, loteService, securityService, compraService, recepcionService,
+                despachoService, transferenciaService, vehiculoService, rutaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -106,8 +127,18 @@ public class MainView extends Div {
             VentaService ventaService,
             CorridaNominaService corridaNominaService,
             DetalleNominaService detalleNominaService,
-            ConfiguracionNominaService configuracionNominaService
-
+            ConfiguracionNominaService configuracionNominaService,
+            AlmacenService almacenService,
+            InventarioService inventarioService,
+            AjusteInventarioService ajusteInventarioService,
+            LoteService loteService,
+            SecurityService securityService,
+            CompraService compraService,
+            RecepcionService recepcionService,
+            DespachoService despachoService,
+            TransferenciaService transferenciaService,
+            VehiculoService vehiculoService,
+            RutaService rutaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -131,6 +162,7 @@ public class MainView extends Div {
         boolean esCajero = authContext.hasRole("CAJERO");
         boolean esVeterinario = authContext.hasRole("VETERINARIO");
         boolean esConductor = authContext.hasRole("CONDUCTOR");
+        boolean esAsistente = authContext.hasRole("ASISTENTE");
 
         Button inicioButton = createMenuButton(VaadinIcon.HOME, "Inicio");
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
@@ -145,6 +177,27 @@ public class MainView extends Div {
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
+        Button almacenButton = createMenuButton(VaadinIcon.STOCK, "Almacén e Inventario");
+        Button logisticaButton = createMenuButton(VaadinIcon.ROAD, "Logística");
+        Button inventarioGlobalBtn = createSubmenuButton(VaadinIcon.GLOBE, "Inventario Global");
+        Button gestionAlmacenesBtn = createSubmenuButton(VaadinIcon.BUILDING, "Gestión de Almacenes");
+        Button controlLotesBtn = createSubmenuButton(VaadinIcon.BARCODE, "Control de Lotes");
+        Button ajustesAuditoriaBtn = createSubmenuButton(VaadinIcon.ADJUST, "Ajustes / Auditoría");
+        VerticalLayout almacenSubmenu = new VerticalLayout(inventarioGlobalBtn, gestionAlmacenesBtn, controlLotesBtn, ajustesAuditoriaBtn);
+        almacenSubmenu.addClassName("sidebar-submenu");
+        almacenSubmenu.setPadding(false);
+        almacenSubmenu.setSpacing(false);
+        almacenSubmenu.setVisible(false);
+        Button historialComprasBtn = createSubmenuButton(VaadinIcon.SHOP, "Gestión de Compras");
+        Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Recepciones Pendientes");
+        Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
+        Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Registrar Transferencia");
+
+        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn);
+        logisticaSubmenu.addClassName("sidebar-submenu");
+        logisticaSubmenu.setPadding(false);
+        logisticaSubmenu.setSpacing(false);
+        logisticaSubmenu.setVisible(false);
 
         VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton);
         ventasSubmenu.addClassName("sidebar-submenu");
@@ -168,6 +221,21 @@ public class MainView extends Div {
         usuariosButton.setEnabled(esAdmin);
         empleadosButton.setEnabled(esAdmin);
         nominaButton.setEnabled(esAdmin);
+
+        boolean accesoAlmacen = esAdmin || esAsistente;
+
+        almacenButton.setEnabled(accesoAlmacen);
+        inventarioGlobalBtn.setEnabled(accesoAlmacen);
+        gestionAlmacenesBtn.setEnabled(esAdmin);
+        controlLotesBtn.setEnabled(accesoAlmacen);
+        ajustesAuditoriaBtn.setEnabled(accesoAlmacen);
+
+        logisticaButton.setEnabled(accesoAlmacen || esConductor);
+        historialComprasBtn.setEnabled(accesoAlmacen);
+        regTransferenciaBtn.setEnabled(accesoAlmacen);
+        recepcionesBtn.setEnabled(accesoAlmacen || esConductor);
+        despachosBtn.setEnabled(accesoAlmacen || esConductor);
+
 
         inicioButton.addClickListener(event -> showModule(
                 inicioButton,
@@ -243,6 +311,80 @@ public class MainView extends Div {
 
         ventasButton.addClickListener(event -> ventasSubmenu.setVisible(!ventasSubmenu.isVisible()));
 
+        almacenButton.addClickListener(e -> almacenSubmenu.setVisible(!almacenSubmenu.isVisible()));
+        logisticaButton.addClickListener(e -> logisticaSubmenu.setVisible(!logisticaSubmenu.isVisible()));
+
+        inventarioGlobalBtn.addClickListener(e -> {
+            almacenSubmenu.setVisible(true);
+            showModule(inventarioGlobalBtn, "Almacén e Inventario", "Inventario Global", "Consulta consolidada de existencias globales y por almacén.", VaadinIcon.GLOBE, new InventarioGlobalView(inventarioService));
+            almacenButton.addClassName("menu-button-active");
+        });
+        gestionAlmacenesBtn.addClickListener(e -> {
+            almacenSubmenu.setVisible(true);
+            showModule(gestionAlmacenesBtn, "Almacén e Inventario", "Gestión de Almacenes", "Administración de ubicaciones físicas y sucursales.", VaadinIcon.BUILDING, new AlmacenView(almacenService, inventarioService));
+            almacenButton.addClassName("menu-button-active");
+        });
+        controlLotesBtn.addClickListener(e -> {
+            almacenSubmenu.setVisible(true);
+            showModule(
+                    controlLotesBtn,
+                    "Almacén e Inventario",
+                    "Control de Lotes",
+                    "Seguimiento de trazabilidad y fechas de caducidad.",
+                    VaadinIcon.BARCODE,
+                    new LoteView(loteService, productoService)
+            );
+            almacenButton.addClassName("menu-button-active");
+        });
+        ajustesAuditoriaBtn.addClickListener(e -> {
+            almacenSubmenu.setVisible(true);
+            showModule(ajustesAuditoriaBtn, "Almacén e Inventario", "Ajustes de Inventario", "Auditoría, registro de mermas y sobrantes físicos.", VaadinIcon.ADJUST, new AjustesInventarioView(ajusteInventarioService, almacenService, productoService, loteService, empleadoService, securityService, inventarioService));
+            almacenButton.addClassName("menu-button-active");
+        });
+
+        class NavegadorCompras {
+            void mostrarHistorial() {
+                ComprasView vista = new ComprasView(compraService);
+                vista.setAccionNavegarRegistro(this::mostrarRegistro);
+
+                showModule(historialComprasBtn, "Logística", "Gestión de Compras",
+                        "Consulta y registro de órdenes de abastecimiento.", VaadinIcon.SHOP,
+                        vista);
+            }
+
+            void mostrarRegistro(Long idBorrador) {
+                RegistroCompraView vista = new RegistroCompraView(proveedorService, productoService, compraService, inventarioService);
+                vista.configurarVista(idBorrador, this::mostrarHistorial);
+
+                String sub = idBorrador == null ? "Crear nueva orden" : "Continuar borrador";
+                showModule(historialComprasBtn, "Logística", "Registrar Compra",
+                        sub, VaadinIcon.CART,
+                        vista);
+            }
+        }
+        NavegadorCompras navCompras = new NavegadorCompras();
+        historialComprasBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            navCompras.mostrarHistorial();
+            logisticaButton.addClassName("menu-button-active");
+        });
+
+        recepcionesBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(recepcionesBtn, "Logística", "Recepciones Pendientes", "Entrada física de mercancía.", VaadinIcon.INBOX, new RecepcionesPendientesView(almacenService, loteService, vehiculoService, empleadoService, rutaService, recepcionService));
+            logisticaButton.addClassName("menu-button-active");
+        });
+        despachosBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(despachosBtn, "Logística", "Gestión de Despachos", "Control de salida de mercancía.", VaadinIcon.OUTBOX, new Div(new H3("Vista de Despachos (En construcción)")));
+            logisticaButton.addClassName("menu-button-active");
+        });
+        regTransferenciaBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(regTransferenciaBtn, "Logística", "Registrar Transferencia", "Movimiento interno de mercancía.", VaadinIcon.EXCHANGE, new Div(new H3("Vista de Transferencias (En construcción)")));
+            logisticaButton.addClassName("menu-button-active");
+        });
+
         registrarVentaButton.addClickListener(event -> {
             ventasSubmenu.setVisible(true);
             showModule(
@@ -293,6 +435,10 @@ public class MainView extends Div {
 
         VerticalLayout navigation = new VerticalLayout(
                 inicioButton,
+                almacenButton,
+                almacenSubmenu,
+                logisticaButton,
+                logisticaSubmenu,
                 productosButton,
                 proveedoresButton,
                 usuariosButton,
