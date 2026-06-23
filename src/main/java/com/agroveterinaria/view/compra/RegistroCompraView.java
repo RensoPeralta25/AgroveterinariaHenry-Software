@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.Compra;
 import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
+import com.agroveterinaria.exception.ProveedorOperacionException;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.CompraService;
 import com.agroveterinaria.service.InventarioService;
@@ -546,8 +547,10 @@ public class RegistroCompraView extends VerticalLayout {
                 Notification notif = Notification.show("Proveedor registrado exitosamente", 3500, Notification.Position.BOTTOM_END);
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
+            } catch (ProveedorOperacionException ex) {
+                mostrarError(ex.getMessage());
             } catch (Exception ex) {
-                mostrarError("Error al guardar: " + ex.getMessage());
+                mostrarError("No se pudo registrar el proveedor. Intenta nuevamente.");
             }
         });
         btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
