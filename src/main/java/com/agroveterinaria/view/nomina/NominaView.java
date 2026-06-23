@@ -8,6 +8,7 @@ import com.agroveterinaria.entity.Nomina;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.PeriodoNomina;
 import com.agroveterinaria.enums.TipoConcepto;
+import com.agroveterinaria.enums.TipoCorrida;
 import com.agroveterinaria.service.ConfiguracionNominaService;
 import com.agroveterinaria.service.CorridaNominaService;
 import com.agroveterinaria.service.DetalleNominaService;
@@ -202,7 +203,7 @@ public class NominaView extends VerticalLayout {
                 return;
             }
 
-            CorridaNomina corrida = corridaNominaService.generarCorrida(periodo, fecha);
+            CorridaNomina corrida = corridaNominaService.generarCorrida(periodo, fecha, TipoCorrida.ORDINARIA); // TODO: Esto va a cambiar en el futuro
             dialog.close();
             refrescarGrid(gridCorridas);
             dialogResultadoCorrida(corrida, gridCorridas, true);
@@ -225,8 +226,11 @@ public class NominaView extends VerticalLayout {
         horasExtras.setWidthFull();
         horasExtras.setValue(obtenerCantidadConcepto(nomina, TipoConcepto.HORAS_EXTRAS));
 
-        BigDecimalField comisiones = crearCampoMoneda("Comisiones");
-        comisiones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.COMISIONES));
+        BigDecimalField comisionesRegulares = crearCampoMoneda("Comisiones Regulares");
+        comisionesRegulares.setValue(obtenerMontoConcepto(nomina, TipoConcepto.COMISIONES_REGULARES));
+
+        BigDecimalField comisionesExtraordinarias = crearCampoMoneda("Comisiones Extraordinarias / Bonos");
+        comisionesExtraordinarias.setValue(obtenerMontoConcepto(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS));
 
         BigDecimalField bonificaciones = crearCampoMoneda("Bonificaciones");
         bonificaciones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.BONIFICACIONES));
@@ -250,7 +254,7 @@ public class NominaView extends VerticalLayout {
         BigDecimalField otrosDescuentos = crearCampoMoneda("Otros descuentos");
         otrosDescuentos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.OTRAS_DEDUCCIONES));
 
-        FormLayout formIngresos = new FormLayout(horasExtras, comisiones, bonificaciones, dietasYViaticos, pagoVacaciones);
+        FormLayout formIngresos = new FormLayout(horasExtras, comisionesRegulares, comisionesExtraordinarias, bonificaciones, dietasYViaticos, pagoVacaciones);
         formIngresos.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("300px", 2));
 
@@ -283,7 +287,8 @@ public class NominaView extends VerticalLayout {
                 nomina.getDetalles().removeIf(d -> d.getTipo() == TipoConcepto.HORAS_EXTRAS);
             }
 
-            agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES, "Comisiones", comisiones.getValue(), 1.0);
+            agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_REGULARES, "Comisiones Regulares", comisionesRegulares.getValue(), 1.0);
+            agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS, "Comisiones Extraordinarias", comisionesExtraordinarias.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.BONIFICACIONES, "Bonificaciones", bonificaciones.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.DIETAS_Y_VIATICOS, "Dietas y viáticos", dietasYViaticos.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.PAGO_VACACIONES, "Pago de vacaciones", pagoVacaciones.getValue(), 1.0);
@@ -325,9 +330,9 @@ public class NominaView extends VerticalLayout {
                                 d.getTipo() == TipoConcepto.IMPUESTO_RENTA);
 
                 nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.FONDO_PENSIONES,
-                        "AFP (2.87%)", configuracionNominaService.calcularAFP(devengado), 1.0));
+                        "AFP", configuracionNominaService.calcularAFP(devengado), 1.0));
                 nomina.getDetalles().add(crearDetalle(nomina, TipoConcepto.SEGURO_FAMILIAR_SALUD,
-                        "SFS (3.04%)", configuracionNominaService.calcularSFS(devengado), 1.0));
+                        "SFS", configuracionNominaService.calcularSFS(devengado), 1.0));
 
                 BigDecimal isr = configuracionNominaService.calcularISR(devengado, corrida.getPeriodo());
                 if (isr.compareTo(BigDecimal.ZERO) > 0) {

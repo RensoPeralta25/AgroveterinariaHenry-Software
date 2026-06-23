@@ -85,4 +85,12 @@ public class ConfiguracionNominaService {
         return valorFijo.multiply(BigDecimal.valueOf(cantidadHoras))
                 .setScale(2, RoundingMode.HALF_UP);
     }
+
+    public BigDecimal getDivisorMensualDiario() {
+        return configuracionRepository.findByClave("DIVISOR_MENSUAL_DIARIO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Error Crítico: No se encontró la configuración 'DIVISOR_MENSUAL_DIARIO' en la base de datos. " +
+                                "Este valor es indispensable para el cálculo de nómina y vacaciones."));
+    }
 }

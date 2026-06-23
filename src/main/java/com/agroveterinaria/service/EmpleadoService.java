@@ -161,4 +161,8 @@ public class EmpleadoService {
                 .toList();
     }
 
+    public List<Empleado> findByActivoTrue(){
+        return empleadoRepository.findByActivoTrue();
+    }
+
 }

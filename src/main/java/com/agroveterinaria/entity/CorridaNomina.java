@@ -2,7 +2,9 @@ package com.agroveterinaria.entity;
 
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.PeriodoNomina;
+import com.agroveterinaria.enums.TipoCorrida;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -34,6 +36,10 @@ public class CorridaNomina {
 
     @OneToMany(mappedBy = "corrida", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Nomina> nominas;
+
+    @NotNull(message = "El tipo de corrida es obligatorio")
+    @Enumerated(EnumType.STRING)
+    private TipoCorrida tipo = TipoCorrida.ORDINARIA;
 
     public CorridaNomina(PeriodoNomina periodo, LocalDate fechaEmision) {
         this.periodo = periodo;
