@@ -31,7 +31,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Route("transferencias/nueva")
 @PageTitle("Registrar Transferencia")
 @RolesAllowed("ADMINISTRADOR")
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
@@ -40,6 +39,7 @@ public class RegistroTransferenciaView extends VerticalLayout {
     private final AlmacenService almacenService;
     private final TransferenciaService transferenciaService;
     private final InventarioService inventarioService;
+    private final Runnable accionVolver;
 
     private ComboBox<Almacen> cbAlmacenOrigen;
     private ComboBox<Almacen> cbAlmacenDestino;
@@ -51,14 +51,20 @@ public class RegistroTransferenciaView extends VerticalLayout {
 
     public RegistroTransferenciaView(AlmacenService almacenService,
                                      TransferenciaService transferenciaService,
-                                     InventarioService inventarioService) {
+                                     InventarioService inventarioService,
+                                     Runnable accionVolver) {
         this.almacenService = almacenService;
         this.transferenciaService = transferenciaService;
         this.inventarioService = inventarioService;
+        this.accionVolver = accionVolver;
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
+
+        Button btnVolver = new Button("Volver a Transferencias", new Icon(VaadinIcon.ARROW_LEFT));
+        btnVolver.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnVolver.addClickListener(e -> accionVolver.run());
 
         H2 titulo = new H2("Registro de Transferencia entre Almacenes");
         titulo.getStyle().set("margin-top", "0");
@@ -70,7 +76,7 @@ public class RegistroTransferenciaView extends VerticalLayout {
         splitLayout.setSplitterPosition(50);
         splitLayout.setSizeFull();
 
-        add(titulo, splitLayout);
+        add(btnVolver, titulo, splitLayout);
     }
 
     private VerticalLayout construirPanelIzquierdo() {
@@ -274,6 +280,8 @@ public class RegistroTransferenciaView extends VerticalLayout {
             carrito.clear();
             gridDetalles.setItems(carrito);
             gridInventario.setItems(new ArrayList<>());
+
+            accionVolver.run();
         } catch (Exception ex) {
             Notification.show("Error: " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
