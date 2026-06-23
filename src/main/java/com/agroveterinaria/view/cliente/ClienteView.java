@@ -79,15 +79,13 @@ public class ClienteView extends VerticalLayout {
         panelDetalle.setPadding(false);
         panelDetalle.setSpacing(false);
 
-        HorizontalLayout workspace = new HorizontalLayout(listado, panelDetalle);
+        VerticalLayout workspace = new VerticalLayout(listado, panelDetalle);
         workspace.addClassName("cliente-workspace");
-        workspace.setSizeFull();
+        workspace.setWidthFull();
         workspace.setPadding(false);
         workspace.setSpacing(false);
-        workspace.expand(listado);
 
         add(workspace);
-        expand(workspace);
 
         refrescarGrid();
     }
