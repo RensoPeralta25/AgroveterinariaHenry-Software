@@ -41,6 +41,10 @@ public class CorridaNomina {
     @Enumerated(EnumType.STRING)
     private TipoCorrida tipo = TipoCorrida.ORDINARIA;
 
+    @ManyToOne
+    @JoinColumn(name = "periodo_fiscal_id")
+    private PeriodoFiscal periodoFiscal;
+
     public CorridaNomina(PeriodoNomina periodo, LocalDate fechaEmision) {
         this.periodo = periodo;
         this.fechaEmision = fechaEmision;

@@ -15,22 +15,22 @@ import java.util.List;
 @Transactional
 @RolesAllowed("ADMINISTRADOR")
 public class ConfiguracionNominaService {
-    private final ConfiguracionNominaRepository configuracionRepository;
+    private final ConfiguracionNominaRepository configuracionNominaRepository;
 
-    public ConfiguracionNominaService(ConfiguracionNominaRepository configuracionRepository) {
-        this.configuracionRepository = configuracionRepository;
+    public ConfiguracionNominaService(ConfiguracionNominaRepository configuracionNominaRepository) {
+        this.configuracionNominaRepository = configuracionNominaRepository;
     }
 
     public List<ConfiguracionNomina> findAll() {
-        return configuracionRepository.findAll();
+        return configuracionNominaRepository.findAll();
     }
 
     public ConfiguracionNomina actualizar(ConfiguracionNomina configuracion) {
-        return configuracionRepository.save(configuracion);
+        return configuracionNominaRepository.save(configuracion);
     }
 
     public BigDecimal obtenerValor(String clave) {
-        return configuracionRepository.findByClave(clave).map(ConfiguracionNomina::getValor)
+        return configuracionNominaRepository.findByClave(clave).map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new RuntimeException("Configuración no encontrada: " + clave));
     }
 
@@ -87,10 +87,30 @@ public class ConfiguracionNominaService {
     }
 
     public BigDecimal getDivisorMensualDiario() {
-        return configuracionRepository.findByClave("DIVISOR_MENSUAL_DIARIO")
+        return configuracionNominaRepository.findByClave("DIVISOR_MENSUAL_DIARIO")
                 .map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new IllegalStateException(
                         "Error Crítico: No se encontró la configuración 'DIVISOR_MENSUAL_DIARIO' en la base de datos. " +
                                 "Este valor es indispensable para el cálculo de nómina y vacaciones."));
+    }
+
+    public BigDecimal getPorcentajeMaximoPrestamo() {
+        return configuracionNominaRepository.findByClave("PORCENTAJE_MAXIMO_PRESTAMO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Error Crítico: No se encontró la configuración 'PORCENTAJE_MAXIMO_PRESTAMO' en la base de datos. " +
+                                "Es indispensable para validar la creación de nuevos préstamos."));
+    }
+
+    public BigDecimal getDiasBonificacionBase() {
+        return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_BASE")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_BASE'."));
+    }
+
+    public BigDecimal getDiasBonificacionTope() {
+        return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_TOPE")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_TOPE'."));
     }
 }

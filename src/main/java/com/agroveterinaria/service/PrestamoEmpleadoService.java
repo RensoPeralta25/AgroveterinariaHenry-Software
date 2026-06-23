@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @AllArgsConstructor
@@ -20,8 +21,27 @@ import java.util.List;
 public class PrestamoEmpleadoService {
     private final PrestamoEmpleadoRepository prestamoEmpleadoRepository;
     private final DetalleNominaRepository detalleNominaRepository;
+    private final ConfiguracionNominaService configuracionNominaService;
+
 
     public PrestamoEmpleado save(PrestamoEmpleado prestamo) {
+        if (prestamo.getIdPrestamo() == null) {
+
+            BigDecimal porcentajeMaximo = configuracionNominaService.getPorcentajeMaximoPrestamo();
+
+            BigDecimal limiteLegal = prestamo.getEmpleado().getSalario().multiply(porcentajeMaximo);
+
+            if (prestamo.getCuotaPeriodica().compareTo(limiteLegal) > 0) {
+                BigDecimal porcentajeVisual = porcentajeMaximo.multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP);
+
+                throw new IllegalArgumentException(
+                        "Error: La cuota de RD$ " + prestamo.getCuotaPeriodica() + " supera el límite legal del " +
+                                porcentajeVisual + "% del salario del empleado (Máximo permitido: RD$ " +
+                                limiteLegal.setScale(2, RoundingMode.HALF_UP) + ")."
+                );
+            }
+        }
+
         return prestamoEmpleadoRepository.save(prestamo);
     }
 

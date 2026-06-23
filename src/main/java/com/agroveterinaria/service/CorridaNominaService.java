@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -62,7 +63,10 @@ public class CorridaNominaService {
                     procesarRegaliaPascual(empleado, nomina, detalles, corrida.getFechaEmision());
                     break;
                 case BONIFICACION:
-                    procesarBonificacion(empleado, nomina, detalles);
+                    if (corrida.getPeriodoFiscal() == null) {
+                        throw new IllegalStateException("Para generar bonificaciones, debe seleccionar un Período Fiscal.");
+                    }
+                    procesarBonificacion(empleado, nomina, detalles, corrida.getPeriodoFiscal());
                     break;
                 case VACACIONES_ANTICIPADAS:
                     procesarVacacionesAnticipadas(empleado, nomina, detalles);
@@ -214,8 +218,8 @@ public class CorridaNominaService {
             totalDevengado = totalDevengado.add(montoSalarioRestante);
         }
 
-        cobrarPrestamosActivos(empleado, nomina, detalles);
         cobrarEmbargosActivos(empleado, nomina, detalles);
+        cobrarPrestamosActivos(empleado, nomina, detalles);
 
         if (totalDevengado.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal afp = configuracionNominaService.calcularAFP(totalDevengado);
@@ -236,11 +240,57 @@ public class CorridaNominaService {
         detalles.add(crearDetalle(nomina, TipoConcepto.SUELDO_13, "Sueldo 13 (Regalía Pascual)", promedioAnual, 1.0));
     }
 
-    private void procesarBonificacion(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        BigDecimal bonificacion = BigDecimal.ZERO;
+    private void procesarBonificacion(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles,PeriodoFiscal periodoFiscal) {
+        if (empleado.getFechaIngreso() == null) {
+            throw new IllegalStateException("Error Crítico: El empleado " + empleado.getPersona().getNombre() +
+                    " no tiene fecha de ingreso registrada, imposible calcular antigüedad.");
+        }
+
+        BigDecimal bonificacion = calcularMontoBonificacion(empleado, periodoFiscal);
+
+        if (bonificacion.compareTo(BigDecimal.ZERO) == 0) return;
+
         detalles.add(crearDetalle(nomina, TipoConcepto.BONIFICACIONES, "Bonificación Anual", bonificacion, 1.0));
 
-        cobrarPrestamosActivos(empleado, nomina, detalles);
+        BigDecimal isr = configuracionNominaService.calcularISR(bonificacion, PeriodoNomina.MES);
+        if (isr.compareTo(BigDecimal.ZERO) > 0) {
+            detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR Bonificación", isr, 1.0));
+        }
+    }
+
+    private BigDecimal calcularMontoBonificacion(Empleado empleado, PeriodoFiscal periodoFiscal) {
+        LocalDate fechaIngreso = empleado.getFechaIngreso();
+        LocalDate fechaCierreFiscal = periodoFiscal.getFechaCierre();
+
+        if (fechaIngreso.isAfter(fechaCierreFiscal)) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+        BigDecimal diasTope = configuracionNominaService.getDiasBonificacionTope();
+        BigDecimal diasBase = configuracionNominaService.getDiasBonificacionBase();
+
+        int diasDelAnio = fechaCierreFiscal.lengthOfYear();
+
+        Period tiempoLaborando = Period.between(fechaIngreso, fechaCierreFiscal);
+        int anios = tiempoLaborando.getYears();
+
+        if (anios >= 3) {
+            return salarioDiario.multiply(diasTope).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        } else if (anios >= 1) {
+            return salarioDiario.multiply(diasBase).setScale(2, java.math.RoundingMode.HALF_UP);
+
+        } else {
+            long diasTrabajados = ChronoUnit.DAYS.between(fechaIngreso, fechaCierreFiscal);
+
+            BigDecimal factorProporcional = new BigDecimal(diasTrabajados)
+                    .divide(new BigDecimal(diasDelAnio), 4, java.math.RoundingMode.HALF_UP);
+
+            BigDecimal diasGanados = diasBase.multiply(factorProporcional);
+
+            return salarioDiario.multiply(diasGanados).setScale(2, java.math.RoundingMode.HALF_UP);
+        }
     }
 
     private BigDecimal calcularSueldo13(Empleado empleado, LocalDate fechaCorrida) {
