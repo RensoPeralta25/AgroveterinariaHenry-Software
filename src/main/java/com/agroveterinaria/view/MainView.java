@@ -84,7 +84,8 @@ public class MainView extends Div {
             DespachoService despachoService,
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
-            RutaService rutaService) {
+            RutaService rutaService,
+            FacturaVentaPdfService facturaVentaPdfService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -95,7 +96,7 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService);
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -139,7 +140,8 @@ public class MainView extends Div {
             DespachoService despachoService,
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
-            RutaService rutaService
+            RutaService rutaService,
+            FacturaVentaPdfService facturaVentaPdfService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -414,7 +416,7 @@ public class MainView extends Div {
                     "Lista de Ventas",
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
-                    new ListaVentasView(ventaService)
+                    new ListaVentasView(ventaService, facturaVentaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -455,8 +457,8 @@ public class MainView extends Div {
                 mascotasButton,
                 citasButton,
                 ventasButton,
-                nominaButton,
-                ventasSubmenu
+                ventasSubmenu,
+                nominaButton
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
