@@ -24,6 +24,8 @@ import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.Venta.ListaVentasView;
 import com.agroveterinaria.view.Venta.VentaView;
+import com.agroveterinaria.view.transferencia.RegistroTransferenciaView;
+import com.agroveterinaria.view.transferencia.TransferenciasView;
 import com.agroveterinaria.view.usuario.UsuarioView;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
@@ -195,7 +197,7 @@ public class MainView extends Div {
         Button historialComprasBtn = createSubmenuButton(VaadinIcon.SHOP, "Gestión de Compras");
         Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Gestión de Recepciones");
         Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
-        Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Registrar Transferencia");
+        Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Transferencias");
 
         VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn);
         logisticaSubmenu.addClassName("sidebar-submenu");
@@ -403,9 +405,24 @@ public class MainView extends Div {
             );
             logisticaButton.addClassName("menu-button-active");
         });
+
+        class NavegadorTransferencias {
+            void mostrarHistorial() {
+                showModule(regTransferenciaBtn, "Logística", "Gestión de Transferencias",
+                        "Auditoría y seguimiento de movimientos de mercancía entre almacenes.", VaadinIcon.EXCHANGE,
+                        new TransferenciasView(transferenciaService, this::mostrarRegistro));
+            }
+
+            void mostrarRegistro() {
+                showModule(regTransferenciaBtn, "Logística", "Transferencias",
+                        "Crear una nueva orden de movimiento interno.", VaadinIcon.EXCHANGE,
+                        new RegistroTransferenciaView(almacenService, transferenciaService, inventarioService, this::mostrarHistorial));
+            }
+        }
+        NavegadorTransferencias navTransferencias = new NavegadorTransferencias();
         regTransferenciaBtn.addClickListener(e -> {
             logisticaSubmenu.setVisible(true);
-            showModule(regTransferenciaBtn, "Logística", "Registrar Transferencia", "Movimiento interno de mercancía.", VaadinIcon.EXCHANGE, new Div(new H3("Vista de Transferencias (En construcción)")));
+            navTransferencias.mostrarHistorial();
             logisticaButton.addClassName("menu-button-active");
         });
 
