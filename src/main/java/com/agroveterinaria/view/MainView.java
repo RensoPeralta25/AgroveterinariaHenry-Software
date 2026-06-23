@@ -171,12 +171,13 @@ public class MainView extends Div {
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
-        Button empleadosButton = createMenuButton(VaadinIcon.GROUP, "Empleados");
+        Button empleadosButton = createSubmenuButton(VaadinIcon.GROUP, "Empleados");
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
         Button citasButton = createMenuButton(VaadinIcon.CALENDAR, "Citas");
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
-        Button nominaButton = createMenuButton(VaadinIcon.INVOICE, "Nómina");
+        Button recursosHumanosButton = createMenuButton(VaadinIcon.INVOICE, "Recursos Humanos");
+        Button nominaButton = createSubmenuButton(VaadinIcon.INVOICE, "Nómina");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -208,6 +209,12 @@ public class MainView extends Div {
         ventasSubmenu.setSpacing(false);
         ventasSubmenu.setVisible(false);
 
+        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton);
+        recursosHumanosSubMenu.addClassName("sidebar-submenu");
+        recursosHumanosSubMenu.setPadding(false);
+        recursosHumanosSubMenu.setSpacing(false);
+        recursosHumanosSubMenu.setVisible(false);
+
         inicioButton.setEnabled(true);
 
         clientesButton.setEnabled(esAdmin || esCajero || esVeterinario);
@@ -222,6 +229,7 @@ public class MainView extends Div {
         productosButton.setEnabled(esAdmin);
         proveedoresButton.setEnabled(esAdmin);
         usuariosButton.setEnabled(esAdmin);
+        recursosHumanosButton.setEnabled(esAdmin);
         empleadosButton.setEnabled(esAdmin);
         nominaButton.setEnabled(esAdmin);
 
@@ -276,14 +284,18 @@ public class MainView extends Div {
                 new UsuarioView(usuarioService, empleadoService, passwordEncoder)
         ));
 
-        empleadosButton.addClickListener(event -> showModule(
-                empleadosButton,
-                "Gestión de Empleados",
-                "Panel de Empleados",
-                "Información general del equipo de trabajo y roles",
-                VaadinIcon.GROUP,
-                new EmpleadoView(empleadoService, personaService)
-        ));
+        empleadosButton.addClickListener(event -> {
+            recursosHumanosSubMenu.setVisible(true);
+            showModule(
+                    empleadosButton,
+                    "Gestión de Empleados",
+                    "Panel de Empleados",
+                    "Información general del equipo de trabajo y roles",
+                    VaadinIcon.GROUP,
+                    new EmpleadoView(empleadoService, personaService)
+            );
+            recursosHumanosButton.addClassName("menu-button-active");
+        });
 
         clientesButton.addClickListener(event -> showModule(
                 clientesButton,
@@ -313,6 +325,8 @@ public class MainView extends Div {
         ));
 
         ventasButton.addClickListener(event -> ventasSubmenu.setVisible(!ventasSubmenu.isVisible()));
+        recursosHumanosButton.addClickListener(event ->
+                recursosHumanosSubMenu.setVisible(!recursosHumanosSubMenu.isVisible()));
 
         almacenButton.addClickListener(e -> almacenSubmenu.setVisible(!almacenSubmenu.isVisible()));
         logisticaButton.addClickListener(e -> logisticaSubmenu.setVisible(!logisticaSubmenu.isVisible()));
@@ -434,14 +448,18 @@ public class MainView extends Div {
             ventasButton.addClassName("menu-button-active");
         });
 
-        nominaButton.addClickListener(event -> showModule(
+        nominaButton.addClickListener(event -> {
+            recursosHumanosSubMenu.setVisible(true);
+            showModule(
                 nominaButton,
                 "Gestión de Nómina",
                 "Panel de Nómina",
                 "Generación y control de nóminas del personal",
                 VaadinIcon.INVOICE,
                 new NominaView(corridaNominaService, detalleNominaService, configuracionNominaService)
-        ));
+            );
+            recursosHumanosButton.addClassName("menu-button-active");
+        });
 
         VerticalLayout navigation = new VerticalLayout(
                 inicioButton,
@@ -452,13 +470,13 @@ public class MainView extends Div {
                 productosButton,
                 proveedoresButton,
                 usuariosButton,
-                empleadosButton,
+                recursosHumanosButton,
+                recursosHumanosSubMenu,
                 clientesButton,
                 mascotasButton,
                 citasButton,
                 ventasButton,
-                ventasSubmenu,
-                nominaButton
+                ventasSubmenu
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
