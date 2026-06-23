@@ -303,8 +303,8 @@ public class MainView extends Div {
                 mascotasButton,
                 citasButton,
                 ventasButton,
-                nominaButton,
-                ventasSubmenu
+                ventasSubmenu,
+                nominaButton
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
