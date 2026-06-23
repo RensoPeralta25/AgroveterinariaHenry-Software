@@ -77,7 +77,7 @@ public class NuevoDespachoDialog extends Dialog {
         cbTransferencia.setItemLabelGenerator(t -> "TRF-" + t.getIdTransferencia() + " -> " + t.getAlmacenDestino().getNombre());
 
         cbTransferencia.addValueChangeListener(e -> {
-            if(e.getValue() != null) {
+            if (e.getValue() != null) {
                 lineasActuales = despachoService.obtenerLineasPendientesTransferencia(e.getValue());
                 gridLineas.setItems(lineasActuales);
             } else {
@@ -112,10 +112,10 @@ public class NuevoDespachoDialog extends Dialog {
             field.setValue(dto.getCantidadADespacharActual());
             field.setValueChangeMode(ValueChangeMode.ON_BLUR);
             field.addValueChangeListener(e -> {
-                if(e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                if (e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) < 0) {
                     field.setValue(BigDecimal.ZERO);
                     dto.setCantidadADespacharActual(BigDecimal.ZERO);
-                } else if(e.getValue().compareTo(dto.getCantidadPendiente()) > 0) {
+                } else if (e.getValue().compareTo(dto.getCantidadPendiente()) > 0) {
                     field.setValue(dto.getCantidadPendiente());
                     dto.setCantidadADespacharActual(dto.getCantidadPendiente());
                     Notification.show("No puede despachar más de lo pendiente").addThemeVariants(NotificationVariant.LUMO_WARNING);
@@ -134,7 +134,7 @@ public class NuevoDespachoDialog extends Dialog {
         }
 
         boolean hayMercancia = lineasActuales.stream().anyMatch(l -> l.getCantidadADespacharActual().compareTo(BigDecimal.ZERO) > 0);
-        if(!hayMercancia) {
+        if (!hayMercancia) {
             Notification.show("Debe cargar al menos un artículo al camión").addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }

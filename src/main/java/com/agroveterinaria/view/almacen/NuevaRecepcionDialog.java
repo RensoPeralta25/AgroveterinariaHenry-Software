@@ -11,10 +11,8 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
-import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
@@ -22,23 +20,16 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.data.provider.ListDataProvider;
-import com.vaadin.flow.router.PageTitle;
-import com.vaadin.flow.router.Route;
-import jakarta.annotation.security.RolesAllowed;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-@CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
-@Route("almacen/recepciones-pendientes")
-@PageTitle("Recepciones Pendientes")
-@RolesAllowed({"ADMINISTRADOR", "ASISTENTE"})
-public class RecepcionesPendientesView extends VerticalLayout {
+public class NuevaRecepcionDialog extends Dialog {
 
     private final AlmacenService almacenService;
     private final LoteService loteService;
@@ -46,101 +37,111 @@ public class RecepcionesPendientesView extends VerticalLayout {
     private final EmpleadoService empleadoService;
     private final RutaService rutaService;
     private final RecepcionService recepcionService;
+    private final Runnable alGuardarExitosamente;
 
-    private Grid<RecepcionResumenDTO> gridRecepciones;
-    private ListDataProvider<RecepcionResumenDTO> dataProvider;
+    private ComboBox<RecepcionResumenDTO> cbDocumentoPendiente;
+    private Grid<RecepcionItemUI> gridRecepcion;
+    private List<RecepcionItemUI> itemsFisicos = new ArrayList<>();
 
-    public RecepcionesPendientesView(AlmacenService almacenService, LoteService loteService,
-                                     VehiculoService vehiculoService, EmpleadoService empleadoService,
-                                     RutaService rutaService, RecepcionService recepcionService) {
+    private VerticalLayout seccionLogistica;
+    private com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> rbgTipoLogistica;
+    private com.vaadin.flow.component.textfield.BigDecimalField txtCostoFlete;
+    private HorizontalLayout formCamionYChofer;
+    private ComboBox<Vehiculo> cbVehiculo;
+    private ComboBox<Empleado> cbConductor;
+    private ComboBox<Ruta> cbRuta;
+    private VerticalLayout layoutTablaGastos;
+    private List<GastoOperativoUI> listaGastos = new ArrayList<>();
+    private Grid<GastoOperativoUI> gridGastos;
+
+    public NuevaRecepcionDialog(AlmacenService almacenService, LoteService loteService,
+                                VehiculoService vehiculoService, EmpleadoService empleadoService,
+                                RutaService rutaService, RecepcionService recepcionService,
+                                Runnable alGuardarExitosamente) {
         this.almacenService = almacenService;
         this.loteService = loteService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
         this.rutaService = rutaService;
         this.recepcionService = recepcionService;
+        this.alGuardarExitosamente = alGuardarExitosamente;
 
-        setSizeFull();
-        setPadding(true);
-        setSpacing(true);
+        setWidth("1050px");
+        setCloseOnOutsideClick(false);
 
-        H2 titulo = new H2("Recepciones Pendientes");
+        H3 titulo = new H3("Procesar Nueva Recepción (Entrada)");
         titulo.getStyle().set("margin-top", "0");
 
-        HorizontalLayout filtros = construirFiltros();
-        construirGrid();
-        actualizarGrid();
+        construirComboBuscador();
+        construirGridRecepcion();
+        construirSeccionLogistica();
 
-        add(titulo, filtros, gridRecepciones);
+        Button btnProcesar = new Button("Confirmar Recepción", new Icon(VaadinIcon.CHECK_CIRCLE));
+        btnProcesar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        btnProcesar.addClickListener(e -> procesarRecepcion());
+
+        Button btnCancelar = new Button("Cancelar", e -> close());
+        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout botones = new HorizontalLayout(btnCancelar, btnProcesar);
+        botones.setWidthFull();
+        botones.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        botones.getStyle().set("margin-top", "20px");
+
+        VerticalLayout contenido = new VerticalLayout(titulo, cbDocumentoPendiente, gridRecepcion, seccionLogistica, botones);
+        contenido.setPadding(false);
+        add(contenido);
     }
 
-    private HorizontalLayout construirFiltros() {
-        Button btnTodos = new Button("Todas", e -> filtrarPorTipo(""));
-        btnTodos.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button btnCompras = new Button("Compras", e -> filtrarPorTipo("Compra"));
-        Button btnTransferencias = new Button("Transferencias", e -> filtrarPorTipo("Transferencia"));
+    private void construirComboBuscador() {
+        cbDocumentoPendiente = new ComboBox<>("Documento Pendiente (Compra o Transferencia)");
+        cbDocumentoPendiente.setWidthFull();
+        cbDocumentoPendiente.setItems(recepcionService.obtenerColaRecepciones());
+        cbDocumentoPendiente.setItemLabelGenerator(dto -> dto.getCodigo() + " - Origen: " + dto.getOrigen());
 
-        return new HorizontalLayout(btnTodos, btnCompras, btnTransferencias);
+        cbDocumentoPendiente.addValueChangeListener(e -> {
+            RecepcionResumenDTO dto = e.getValue();
+            if (dto != null) {
+                Long idDoc = "Compra".equals(dto.getTipo()) ? dto.getCompraOriginal().getIdCompra() : dto.getTransferenciaOriginal().getIdTransferencia();
+                itemsFisicos = recepcionService.obtenerItemsPendientes(dto.getTipo(), idDoc);
+                gridRecepcion.setItems(itemsFisicos);
+
+                if ("Transferencia".equals(dto.getTipo())) {
+                    seccionLogistica.setVisible(true);
+                    rbgTipoLogistica.setValue("Transporte Interno (Vehículo propio)");
+                    rbgTipoLogistica.setReadOnly(true);
+                    formCamionYChofer.setVisible(true);
+                    layoutTablaGastos.setVisible(true);
+                    txtCostoFlete.setVisible(false);
+
+                    if (dto.getTransporteDespacho() != null) {
+                        cbVehiculo.setValue(dto.getTransporteDespacho().getVehiculo());
+                        cbVehiculo.setReadOnly(true);
+                        cbConductor.setValue(dto.getTransporteDespacho().getConductor());
+                        cbConductor.setReadOnly(true);
+                        if(dto.getTransporteDespacho().getRuta() != null) {
+                            cbRuta.setValue(dto.getTransporteDespacho().getRuta());
+                            cbRuta.setReadOnly(true);
+                        }
+                    }
+                } else {
+                    seccionLogistica.setVisible(true);
+                    rbgTipoLogistica.setReadOnly(false);
+                    cbVehiculo.setReadOnly(false);
+                    cbConductor.setReadOnly(false);
+                    cbRuta.setReadOnly(false);
+                    cbVehiculo.clear(); cbConductor.clear(); cbRuta.clear();
+                }
+            } else {
+                itemsFisicos.clear();
+                gridRecepcion.setItems(itemsFisicos);
+                seccionLogistica.setVisible(false);
+            }
+        });
     }
 
-    private void construirGrid() {
-        gridRecepciones = new Grid<>(RecepcionResumenDTO.class, false);
-        gridRecepciones.setSizeFull();
-        gridRecepciones.addThemeNames("row-stripes");
-        gridRecepciones.addClassName("transferencia-grid");
-
-        gridRecepciones.addColumn(RecepcionResumenDTO::getCodigo).setHeader("Documento").setWidth("120px").setFlexGrow(0);
-
-        gridRecepciones.addComponentColumn(dto -> {
-            Span badge = new Span(dto.getTipo());
-            badge.getElement().getThemeList().add("badge " + (dto.getTipo().equals("Compra") ? "success" : "contrast"));
-            return badge;
-        }).setHeader("Tipo").setFlexGrow(0).setWidth("130px");
-
-        gridRecepciones.addColumn(RecepcionResumenDTO::getOrigen).setHeader("Origen").setFlexGrow(2);
-
-        gridRecepciones.addColumn(RecepcionResumenDTO::getFechaFormateada)
-                .setComparator((d1, d2) -> d1.getFechaRaw().compareTo(d2.getFechaRaw()))
-                .setHeader("Fecha de Emisión").setFlexGrow(1);
-
-        gridRecepciones.addColumn(RecepcionResumenDTO::getEstado).setHeader("Estado").setFlexGrow(1);
-
-        gridRecepciones.addComponentColumn(dto -> {
-            Button btnRecibir = new Button("Recibir Mercancía", new Icon(VaadinIcon.TRUCK));
-            btnRecibir.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            btnRecibir.addClickListener(e -> abrirDialogoRecepcion(dto));
-            return btnRecibir;
-        }).setHeader("Acción").setWidth("220px").setFlexGrow(0);
-    }
-
-    private void actualizarGrid() {
-        List<RecepcionResumenDTO> lista = recepcionService.obtenerColaRecepciones();
-        dataProvider = new ListDataProvider<>(lista);
-        gridRecepciones.setDataProvider(dataProvider);
-    }
-
-    private void filtrarPorTipo(String tipo) {
-        if (dataProvider != null) {
-            dataProvider.setFilter(dto -> tipo.isEmpty() || dto.getTipo().equals(tipo));
-        }
-    }
-
-    private void abrirDialogoRecepcion(RecepcionResumenDTO dto) {
-        Dialog dialog = new Dialog();
-        dialog.setWidth("1050px");
-        dialog.setCloseOnOutsideClick(false);
-
-        H3 titulo = new H3("Recepción de Mercancía - " + dto.getCodigo());
-        titulo.getStyle().set("margin-top", "0");
-
-        Long idDocumento = "Compra".equals(dto.getTipo()) ?
-                dto.getCompraOriginal().getIdCompra() :
-                dto.getTransferenciaOriginal().getIdTransferencia();
-
-        List<RecepcionItemUI> itemsFisicos = recepcionService.obtenerItemsPendientes(dto.getTipo(), idDocumento);
-
-        Grid<RecepcionItemUI> gridRecepcion = new Grid<>(RecepcionItemUI.class, false);
-        gridRecepcion.setItems(itemsFisicos);
+    private void construirGridRecepcion() {
+        gridRecepcion = new Grid<>(RecepcionItemUI.class, false);
         gridRecepcion.addThemeNames("row-stripes");
         gridRecepcion.setHeight("350px");
 
@@ -158,7 +159,7 @@ public class RecepcionesPendientesView extends VerticalLayout {
                 BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
 
                 if (nuevaCant.compareTo(maxPermitido) > 0) {
-                    Notification.show("No puedes recibir más de " + maxPermitido + " en esta fila.", 3000, Notification.Position.MIDDLE);
+                    Notification.show("Máximo permitido: " + maxPermitido, 3000, Notification.Position.MIDDLE);
                     txtCant.setValue(maxPermitido);
                     item.setCantidadRecibida(maxPermitido);
                 } else {
@@ -175,17 +176,12 @@ public class RecepcionesPendientesView extends VerticalLayout {
             txtMerma.setValue(item.getCantidadMerma());
             txtMerma.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_ALIGN_RIGHT);
             txtMerma.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.ON_BLUR);
-
             txtMerma.addValueChangeListener(e -> {
                 BigDecimal nuevaMerma = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
                 item.setCantidadMerma(BigDecimal.ZERO);
-
                 BigDecimal sumaOtros = calcularSumaDelMismoProducto(itemsFisicos, item);
-
                 BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
-
                 if (nuevaMerma.compareTo(maxPermitido) > 0) {
-                    Notification.show("La suma de Recibido + Merma supera lo pendiente.", 3000, Notification.Position.MIDDLE);
                     txtMerma.setValue(maxPermitido);
                     item.setCantidadMerma(maxPermitido);
                 } else {
@@ -196,19 +192,15 @@ public class RecepcionesPendientesView extends VerticalLayout {
             return txtMerma;
         }).setHeader("Merma/Rotos").setWidth("110px").setFlexGrow(0);
 
-
         gridRecepcion.addComponentColumn(item -> {
             TextField txtJustificacion = new TextField();
             txtJustificacion.setWidthFull();
-            txtJustificacion.setPlaceholder("Obligatorio si hay merma...");
             txtJustificacion.setValue(item.getJustificacionMerma() != null ? item.getJustificacionMerma() : "");
-
             boolean tieneMerma = item.getCantidadMerma() != null && item.getCantidadMerma().compareTo(BigDecimal.ZERO) > 0;
             txtJustificacion.setEnabled(tieneMerma);
-
             txtJustificacion.addValueChangeListener(e -> item.setJustificacionMerma(e.getValue()));
             return txtJustificacion;
-        }).setHeader("Justificación de Pérdida").setFlexGrow(2);
+        }).setHeader("Justificación").setFlexGrow(2);
 
         gridRecepcion.addColumn(item -> {
             BigDecimal disponible = calcularRestanteTotal(itemsFisicos, item);
@@ -221,22 +213,18 @@ public class RecepcionesPendientesView extends VerticalLayout {
             cbAlmacen.setItemLabelGenerator(Almacen::getNombre);
             cbAlmacen.setWidthFull();
             cbAlmacen.setValue(item.getAlmacenDestino());
-            if (item.getDetalleTransferencia() != null) {
-                cbAlmacen.setReadOnly(true);
-            } else {
-                cbAlmacen.addValueChangeListener(e -> item.setAlmacenDestino(e.getValue()));
-            }
+            if (item.getDetalleTransferencia() != null) cbAlmacen.setReadOnly(true);
+            else cbAlmacen.addValueChangeListener(e -> item.setAlmacenDestino(e.getValue()));
             return cbAlmacen;
         }).setHeader("Almacén Destino").setFlexGrow(2);
 
         gridRecepcion.addComponentColumn(item -> {
             ComboBox<Lote> cbLote = new ComboBox<>();
-            cbLote.setPlaceholder("Seleccione o escriba...");
+            cbLote.setPlaceholder("Escriba...");
             cbLote.setWidthFull();
-
             List<Lote> lotesExistentes = loteService.buscarPorProducto(item.getProducto());
             cbLote.setItems(lotesExistentes);
-            cbLote.setItemLabelGenerator(lote -> lote.getNumeroLote() != null ? lote.getNumeroLote() : "Sin número");
+            cbLote.setItemLabelGenerator(l -> l.getNumeroLote() != null ? l.getNumeroLote() : "S/N");
 
             if (item.getDetalleTransferencia() != null) {
                 cbLote.setValue(item.getDetalleTransferencia().getLote());
@@ -286,18 +274,8 @@ public class RecepcionesPendientesView extends VerticalLayout {
         }).setHeader("Vencimiento").setFlexGrow(1);
 
         gridRecepcion.addComponentColumn(item -> {
-
-            if (item.getDetalleTransferencia() != null) {
-                Span textoBloqueado = new Span("-");
-                textoBloqueado.getStyle()
-                        .set("color", "var(--lumo-disabled-text-color)")
-                        .set("text-align", "center")
-                        .set("display", "block");
-                return textoBloqueado;
-            }
-
+            if (item.getDetalleTransferencia() != null) return new Span("-");
             HorizontalLayout acciones = new HorizontalLayout();
-
             Button btnAdd = new Button(new Icon(VaadinIcon.PLUS));
             btnAdd.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
             btnAdd.addClickListener(e -> {
@@ -309,7 +287,6 @@ public class RecepcionesPendientesView extends VerticalLayout {
                     gridRecepcion.getDataProvider().refreshAll();
                 }
             });
-
             Button btnRemove = new Button(new Icon(VaadinIcon.MINUS));
             btnRemove.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             btnRemove.addClickListener(e -> {
@@ -319,59 +296,55 @@ public class RecepcionesPendientesView extends VerticalLayout {
                     gridRecepcion.getDataProvider().refreshAll();
                 }
             });
-
             acciones.add(btnAdd, btnRemove);
             return acciones;
-
         }).setHeader("Dividir").setWidth("110px").setFlexGrow(0);
+    }
 
-
-        VerticalLayout seccionLogistica = new VerticalLayout();
+    private void construirSeccionLogistica() {
+        seccionLogistica = new VerticalLayout();
         seccionLogistica.setPadding(false);
         seccionLogistica.getStyle().set("border", "1px solid #e0e0e0").set("border-radius", "8px").set("padding", "15px").set("margin-top", "15px");
+        seccionLogistica.setVisible(false);
 
         H4 tituloLogistica = new H4("Logística de Abastecimiento");
         tituloLogistica.getStyle().set("margin", "0");
 
-        com.vaadin.flow.component.radiobutton.RadioButtonGroup<String> rbgTipoLogistica = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
-        rbgTipoLogistica.setLabel("Seleccione la modalidad de traslado:");
+        rbgTipoLogistica = new com.vaadin.flow.component.radiobutton.RadioButtonGroup<>();
+        rbgTipoLogistica.setLabel("Modalidad de traslado:");
         rbgTipoLogistica.setItems("Entrega Regular (Sin costos)", "Transporte Interno (Vehículo propio)", "Flete / Delivery Externo", "Mixto (Flete parcial + Transporte propio)");
         rbgTipoLogistica.setValue("Entrega Regular (Sin costos)");
 
-        com.vaadin.flow.component.textfield.BigDecimalField txtCostoFlete = new com.vaadin.flow.component.textfield.BigDecimalField("Costo de Flete / Delivery Externo");
+        txtCostoFlete = new com.vaadin.flow.component.textfield.BigDecimalField("Costo de Flete Externo");
         txtCostoFlete.setWidthFull();
         txtCostoFlete.setVisible(false);
 
-        HorizontalLayout formCamionYChofer = new HorizontalLayout();
+        formCamionYChofer = new HorizontalLayout();
         formCamionYChofer.setWidthFull();
         formCamionYChofer.setVisible(false);
 
-        ComboBox<com.agroveterinaria.entity.Vehiculo> cbVehiculo = new ComboBox<>("Vehículo");
+        cbVehiculo = new ComboBox<>("Vehículo");
         cbVehiculo.setItems(vehiculoService.listarTodos());
         cbVehiculo.setItemLabelGenerator(v -> v.getPlaca() + " - " + v.getModelo());
         cbVehiculo.setWidthFull();
 
-        ComboBox<com.agroveterinaria.entity.Empleado> cbConductor = new ComboBox<>("Conductor");
+        cbConductor = new ComboBox<>("Conductor");
         cbConductor.setItems(empleadoService.findByCargo(RolEmpleado.CONDUCTOR));
         cbConductor.setItemLabelGenerator(e -> e.getPersona().getNombre());
         cbConductor.setWidthFull();
 
-        ComboBox<com.agroveterinaria.entity.Ruta> cbRuta = new ComboBox<>("Ruta");
+        cbRuta = new ComboBox<>("Ruta");
         cbRuta.setItems(rutaService.listarTodos());
         cbRuta.setItemLabelGenerator(r -> r.getDistanciaKm() + " km");
         cbRuta.setWidthFull();
 
         formCamionYChofer.add(cbVehiculo, cbConductor, cbRuta);
 
-        VerticalLayout layoutTablaGastos = new VerticalLayout();
+        layoutTablaGastos = new VerticalLayout();
         layoutTablaGastos.setPadding(false);
         layoutTablaGastos.setVisible(false);
 
-        H4 tituloGastos = new H4("Gastos Operativos (Liquidación de Viaje)");
-        tituloGastos.getStyle().set("margin-top", "10px").set("margin-bottom", "5px");
-
-        List<GastoOperativoUI> listaGastos = new ArrayList<>();
-        Grid<GastoOperativoUI> gridGastos = new Grid<>(GastoOperativoUI.class, false);
+        gridGastos = new Grid<>(GastoOperativoUI.class, false);
         gridGastos.setItems(listaGastos);
         gridGastos.addThemeNames("row-stripes");
         gridGastos.setHeight("160px");
@@ -379,16 +352,14 @@ public class RecepcionesPendientesView extends VerticalLayout {
         gridGastos.addComponentColumn(gasto -> {
             TextField txtNota = new TextField();
             txtNota.setWidthFull();
-            txtNota.setPlaceholder("Ej. Combustible, Peaje...");
             txtNota.setValue(gasto.getNotas() != null ? gasto.getNotas() : "");
             txtNota.addValueChangeListener(ev -> gasto.setNotas(ev.getValue()));
             return txtNota;
-        }).setHeader("Concepto / Descripción").setFlexGrow(2);
+        }).setHeader("Concepto").setFlexGrow(2);
 
         gridGastos.addComponentColumn(gasto -> {
             com.vaadin.flow.component.textfield.BigDecimalField txtMonto = new com.vaadin.flow.component.textfield.BigDecimalField();
             txtMonto.setWidthFull();
-            txtMonto.setPrefixComponent(new Span("RD$"));
             txtMonto.setValue(gasto.getMonto());
             txtMonto.addValueChangeListener(ev -> gasto.setMonto(ev.getValue()));
             return txtMonto;
@@ -404,14 +375,12 @@ public class RecepcionesPendientesView extends VerticalLayout {
             return btnQuitarGasto;
         }).setWidth("80px").setFlexGrow(0);
 
-        Button btnAgregarGasto = new Button("Añadir Concepto de Gasto", new Icon(VaadinIcon.PLUS));
-        btnAgregarGasto.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        btnAgregarGasto.addClickListener(ev -> {
+        Button btnAgregarGasto = new Button("Añadir Gasto", e -> {
             listaGastos.add(new GastoOperativoUI());
             gridGastos.getDataProvider().refreshAll();
         });
 
-        layoutTablaGastos.add(tituloGastos, gridGastos, btnAgregarGasto);
+        layoutTablaGastos.add(gridGastos, btnAgregarGasto);
 
         rbgTipoLogistica.addValueChangeListener(e -> {
             String sel = e.getValue();
@@ -421,67 +390,29 @@ public class RecepcionesPendientesView extends VerticalLayout {
         });
 
         seccionLogistica.add(tituloLogistica, rbgTipoLogistica, txtCostoFlete, formCamionYChofer, layoutTablaGastos);
+    }
 
-        if ("Transferencia".equals(dto.getTipo())) {
-            seccionLogistica.setVisible(true);
-
-            rbgTipoLogistica.setValue("Transporte Interno (Vehículo propio)");
-            rbgTipoLogistica.setReadOnly(true);
-
-            formCamionYChofer.setVisible(true);
-            layoutTablaGastos.setVisible(true);
-            txtCostoFlete.setVisible(false);
-
-            if (dto.getTransporteDespacho() != null) {
-                cbVehiculo.setValue(dto.getTransporteDespacho().getVehiculo());
-                cbVehiculo.setReadOnly(true);
-
-                cbConductor.setValue(dto.getTransporteDespacho().getConductor());
-                cbConductor.setReadOnly(true);
-
-                if(dto.getTransporteDespacho().getRuta() != null) {
-                    cbRuta.setValue(dto.getTransporteDespacho().getRuta());
-                    cbRuta.setReadOnly(true);
-                }
-            }
-        } else {
-            seccionLogistica.setVisible(true);
-            rbgTipoLogistica.setReadOnly(false);
-            cbVehiculo.setReadOnly(false);
-            cbConductor.setReadOnly(false);
-            cbRuta.setReadOnly(false);
+    private void procesarRecepcion() {
+        if (cbDocumentoPendiente.isEmpty()) {
+            Notification.show("Debes seleccionar un documento pendiente.").addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
         }
 
-        Button btnProcesar = new Button("Procesar Recepción", new Icon(VaadinIcon.CHECK_CIRCLE));
-        btnProcesar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        btnProcesar.addClickListener(e -> {
-            Long idDoc = "Compra".equals(dto.getTipo()) ? dto.getCompraOriginal().getIdCompra() : dto.getTransferenciaOriginal().getIdTransferencia();
-            try {
-                recepcionService.procesarRecepcionTransaccional(
-                        dto.getTipo(), idDoc, itemsFisicos, rbgTipoLogistica.getValue(),
-                        txtCostoFlete.getValue(), cbVehiculo.getValue(), cbConductor.getValue(),
-                        cbRuta.getValue(), listaGastos
-                );
-                Notification.show("Recepción consolidada exitosamente.").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                dialog.close();
-                actualizarGrid();
-            } catch (Exception ex) {
-                Notification.show("Error: " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
-            }
-        });
+        RecepcionResumenDTO dto = cbDocumentoPendiente.getValue();
+        Long idDoc = "Compra".equals(dto.getTipo()) ? dto.getCompraOriginal().getIdCompra() : dto.getTransferenciaOriginal().getIdTransferencia();
 
-        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
-        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
-        HorizontalLayout botones = new HorizontalLayout(btnCancelar, btnProcesar);
-        botones.setWidthFull();
-        botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        botones.getStyle().set("margin-top", "20px");
-
-        VerticalLayout contenido = new VerticalLayout(titulo, gridRecepcion, seccionLogistica, botones);
-        contenido.setPadding(true);
-        dialog.add(contenido);
-        dialog.open();
+        try {
+            recepcionService.procesarRecepcionTransaccional(
+                    dto.getTipo(), idDoc, itemsFisicos, rbgTipoLogistica.getValue(),
+                    txtCostoFlete.getValue(), cbVehiculo.getValue(), cbConductor.getValue(),
+                    cbRuta.getValue(), listaGastos
+            );
+            Notification.show("Recepción consolidada exitosamente.").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            alGuardarExitosamente.run();
+            close();
+        } catch (Exception ex) {
+            Notification.show("Error: " + ex.getMessage()).addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
     }
 
     private BigDecimal calcularSumaDelMismoProducto(List<RecepcionItemUI> items, RecepcionItemUI itemActual) {

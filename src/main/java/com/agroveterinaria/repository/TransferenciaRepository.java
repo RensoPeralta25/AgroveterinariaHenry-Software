@@ -13,4 +13,8 @@ import java.util.List;
 public interface TransferenciaRepository extends JpaRepository<Transferencia, Long> {
     @EntityGraph(attributePaths = {"almacenOrigen", "almacenDestino"})
     List<Transferencia> findByEstadoIn(Collection<EstadoTransferencia> estados);
+
+    List<Transferencia> Estado(EstadoTransferencia estado);
+
+    List<Transferencia> findByEstado(EstadoTransferencia estado);
 }

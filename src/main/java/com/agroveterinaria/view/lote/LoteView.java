@@ -33,7 +33,7 @@ import java.util.Base64;
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
 @PageTitle("Gestión de Lotes")
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "ASISTENTE", "AUDITOR"})
 @Route("/lotes")
 public class LoteView extends VerticalLayout {
 
@@ -50,14 +50,14 @@ public class LoteView extends VerticalLayout {
 
         GridCrud<Lote> crudLote = new GridCrud<>(Lote.class, new WindowBasedCrudLayout());
         crudLote.addClassName("lote-crud");
-        crudLote.getGrid().addClassName("lote-grid");
+        crudLote.getGrid().addClassName("almacen-grid");
 
         crudLote.getGrid().removeAllColumns();
 
-        crudLote.getGrid().addColumn(Lote::getIdLote)
+        crudLote.getGrid().addColumn(lote -> lote.getNumeroLote() != null ? lote.getNumeroLote() : "S/N")
                 .setHeader("N° de Lote")
-                .setKey("idLote")
-                .setWidth("120px").setFlexGrow(0).setComparator(Lote::getIdLote);
+                .setKey("numeroLote")
+                .setWidth("160px").setFlexGrow(0).setSortable(true);
 
         crudLote.getGrid().addComponentColumn(lote -> {
             HorizontalLayout layout = new HorizontalLayout();
@@ -87,18 +87,16 @@ public class LoteView extends VerticalLayout {
         }).setHeader("Producto").setKey("producto").setFlexGrow(1).setComparator(lote -> lote.getProducto().getNombre());
 
         crudLote.getGrid().addColumn(lote ->
-                lote.getFechaVencimiento() != null ? lote.getFechaVencimiento().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "N/A"
-        ).setHeader("Fecha de Vencimiento").setKey("fechaVencimiento").setWidth("180px").setFlexGrow(0).setComparator(Lote::getFechaVencimiento);
+                lote.getFechaVencimiento() != null ? lote.getFechaVencimiento().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "No caduca"
+        ).setHeader("Vencimiento").setKey("fechaVencimiento").setWidth("150px").setFlexGrow(0).setComparator(Lote::getFechaVencimiento);
 
         crudLote.getGrid().addComponentColumn(lote -> {
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
-            btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEditar.addClickListener(e -> dialogLote(lote, crudLote, false));
 
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
-            btnEliminar.addClassName("btn-accion-eliminar");
-            btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
             btnEliminar.addClickListener(e -> {
                 crudLote.getGrid().select(lote);
                 crudLote.getDeleteButton().click();
@@ -119,19 +117,18 @@ public class LoteView extends VerticalLayout {
 
         Button btnNuevo = new Button("Nuevo Lote", new Icon(VaadinIcon.PLUS));
         btnNuevo.addClassName("btn-nuevo");
-        btnNuevo.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnNuevo.addClickListener(e -> dialogLote(new Lote(), crudLote, true));
 
         TextField buscarLote = new TextField();
         buscarLote.setWidthFull();
-        buscarLote.setPlaceholder("Buscar por ID o producto...");
+        buscarLote.setPlaceholder("Buscar por N° lote o producto...");
         buscarLote.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscarLote.setValueChangeMode(ValueChangeMode.LAZY);
         buscarLote.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
             crudLote.setFindAllOperation(() ->
                     loteService.listarTodos().stream()
-                            .filter(l -> (l.getIdLote() != null && String.valueOf(l.getIdLote()).contains(filtro)) ||
+                            .filter(l -> (l.getNumeroLote() != null && l.getNumeroLote().toLowerCase().contains(filtro)) ||
                                     (l.getProducto() != null && l.getProducto().getNombre().toLowerCase().contains(filtro)))
                             .toList()
             );
@@ -141,7 +138,7 @@ public class LoteView extends VerticalLayout {
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarLote);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
-        toolbar.addClassName("lote-toolbar");
+        toolbar.addClassName("almacen-toolbar");
         toolbar.expand(buscarLote);
 
         crudLote.setFindAllOperation(loteService::listarTodos);
@@ -161,9 +158,13 @@ public class LoteView extends VerticalLayout {
         H3 titulo = new H3(esNuevo ? "Registrar Nuevo Lote" : "Editar Lote");
         titulo.getStyle().set("margin", "0 0 16px 0");
 
+        TextField txtNumeroLote = new TextField("Número de Lote (Impreso en el empaque)");
+        txtNumeroLote.setWidthFull();
+        txtNumeroLote.setValue(lote.getNumeroLote() != null ? lote.getNumeroLote() : "");
+
         ComboBox<Producto> cbProducto = new ComboBox<>("Producto");
         cbProducto.setWidthFull();
-        cbProducto.setItems(productoService.listarTodos());
+        cbProducto.setItems(productoService.listarTodosActivos());
         cbProducto.setItemLabelGenerator(Producto::getNombre);
         cbProducto.setValue(lote.getProducto());
 
@@ -176,8 +177,13 @@ public class LoteView extends VerticalLayout {
                 mostrarError("Debes seleccionar un producto.");
                 return;
             }
+            if (txtNumeroLote.getValue().trim().isEmpty()) {
+                mostrarError("El número de lote es obligatorio.");
+                return;
+            }
 
             try {
+                lote.setNumeroLote(txtNumeroLote.getValue().trim());
                 lote.setProducto(cbProducto.getValue());
                 lote.setFechaVencimiento(dtVencimiento.getValue());
 
@@ -196,7 +202,6 @@ public class LoteView extends VerticalLayout {
             }
         });
         btnGuardar.addClassName("btn-nuevo");
-        btnGuardar.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
         btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -206,7 +211,7 @@ public class LoteView extends VerticalLayout {
         botones.setJustifyContentMode(JustifyContentMode.BETWEEN);
         botones.getStyle().set("margin-top", "16px");
 
-        VerticalLayout contenido = new VerticalLayout(titulo, cbProducto, dtVencimiento, botones);
+        VerticalLayout contenido = new VerticalLayout(titulo, txtNumeroLote, cbProducto, dtVencimiento, botones);
         contenido.setPadding(true);
         contenido.setSpacing(true);
 
