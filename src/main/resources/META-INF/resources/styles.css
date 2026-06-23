@@ -440,6 +440,8 @@ body {
     background: #fff;
     padding: 2px 4px;
     margin-bottom: 14px;
+}
+
 /* LISTA DE VENTAS */
 
 .venta-list-view {
@@ -707,8 +709,8 @@ body {
 }
 
 .cliente-workspace {
+    flex-direction: column;
     gap: 18px;
-    min-height: 620px;
 }
 
 .cliente-list-panel,
@@ -722,13 +724,17 @@ body {
 }
 
 .cliente-list-panel {
+    width: 100%;
     min-width: 0;
+    height: 520px;
+    min-height: 520px;
+    flex: 0 0 520px;
 }
 
 .cliente-detail-panel {
-    flex: 0 0 390px;
-    width: 390px;
-    min-width: 390px;
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
 }
 
 .cliente-toolbar {
@@ -957,19 +963,13 @@ body {
     margin-top: 8px;
 }
 
-@media (max-width: 1080px) {
-    .cliente-workspace {
-        flex-direction: column;
-    }
-
-    .cliente-detail-panel {
-        width: 100%;
-        min-width: 0;
-        flex: 0 0 auto;
-    }
-}
-
 @media (max-width: 760px) {
+    .cliente-list-panel {
+        height: 460px;
+        min-height: 460px;
+        flex-basis: 460px;
+    }
+
     .cliente-toolbar {
         flex-direction: column;
         align-items: stretch;
