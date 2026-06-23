@@ -7,8 +7,8 @@ import com.agroveterinaria.service.ProveedorService;
 import com.agroveterinaria.service.UsuarioService;
 import com.agroveterinaria.view.almacen.AjustesInventarioView;
 import com.agroveterinaria.view.almacen.AlmacenView;
+import com.agroveterinaria.view.almacen.GestionRecepcionesView;
 import com.agroveterinaria.view.almacen.InventarioGlobalView;
-import com.agroveterinaria.view.almacen.RecepcionesPendientesView;
 import com.agroveterinaria.view.compra.ComprasView;
 import com.agroveterinaria.view.compra.RegistroCompraView;
 import com.agroveterinaria.view.empleado.EmpleadoView;
@@ -16,6 +16,7 @@ import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
+import com.agroveterinaria.view.logistica.GestionDespachosView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
@@ -189,7 +190,7 @@ public class MainView extends Div {
         almacenSubmenu.setSpacing(false);
         almacenSubmenu.setVisible(false);
         Button historialComprasBtn = createSubmenuButton(VaadinIcon.SHOP, "Gestión de Compras");
-        Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Recepciones Pendientes");
+        Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Gestión de Recepciones");
         Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
         Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Registrar Transferencia");
 
@@ -371,12 +372,19 @@ public class MainView extends Div {
 
         recepcionesBtn.addClickListener(e -> {
             logisticaSubmenu.setVisible(true);
-            showModule(recepcionesBtn, "Logística", "Recepciones Pendientes", "Entrada física de mercancía.", VaadinIcon.INBOX, new RecepcionesPendientesView(almacenService, loteService, vehiculoService, empleadoService, rutaService, recepcionService));
+            showModule(recepcionesBtn, "Logística", "Gestión de Recepciones", "Entrada física de mercancía.", VaadinIcon.INBOX, new GestionRecepcionesView(almacenService, loteService, vehiculoService, empleadoService, rutaService, recepcionService));
             logisticaButton.addClassName("menu-button-active");
         });
         despachosBtn.addClickListener(e -> {
             logisticaSubmenu.setVisible(true);
-            showModule(despachosBtn, "Logística", "Gestión de Despachos", "Control de salida de mercancía.", VaadinIcon.OUTBOX, new Div(new H3("Vista de Despachos (En construcción)")));
+            showModule(
+                    despachosBtn,
+                    "Logística",
+                    "Gestión de Despachos",
+                    "Control de salida de mercancía en vehículos de la empresa.",
+                    VaadinIcon.OUTBOX,
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService)
+            );
             logisticaButton.addClassName("menu-button-active");
         });
         regTransferenciaBtn.addClickListener(e -> {

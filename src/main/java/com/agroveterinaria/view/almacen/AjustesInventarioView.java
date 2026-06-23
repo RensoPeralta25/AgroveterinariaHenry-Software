@@ -66,14 +66,11 @@ public class AjustesInventarioView extends VerticalLayout {
         setSizeFull();
         setSpacing(true);
 
-        H2 titulo = new H2("Historial de Ajustes y Auditoría");
-        titulo.getStyle().set("margin-top", "0");
-
         Button btnNuevo = new Button("Registrar Nuevo Ajuste", new Icon(VaadinIcon.PLUS));
         btnNuevo.addClassName("btn-nuevo");
         btnNuevo.addClickListener(e -> abrirModalNuevoAjuste());
 
-        HorizontalLayout toolbar = new HorizontalLayout(titulo, btnNuevo);
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo);
         toolbar.setWidthFull();
         toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
         toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
