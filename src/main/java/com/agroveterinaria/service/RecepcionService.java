@@ -344,4 +344,46 @@ public class RecepcionService {
 
         return itemsFisicos;
     }
+
+    @Transactional(readOnly = true)
+    public List<RecepcionResumenDTO> obtenerHistorialRecepciones() {
+        List<RecepcionResumenDTO> historial = new ArrayList<>();
+
+        List<Compra> comprasRecibidas = compraRepository.findByEstadoRecepcionIn(
+                List.of(EstadoRecepcion.RECIBIDA)
+        );
+
+        for (Compra c : comprasRecibidas) {
+            RecepcionResumenDTO dto = new RecepcionResumenDTO();
+            dto.setCodigo("COMP-" + c.getIdCompra());
+            dto.setTipo("Compra");
+            dto.setOrigen(c.getProveedor().getNombre());
+            dto.setFechaRaw(c.getFechaHoraCompra());
+            dto.setEstado(c.getEstadoRecepcion().name());
+            dto.setCompraOriginal(c);
+            historial.add(dto);
+        }
+
+        List<Transferencia> transferenciasCompletadas = transferenciaRepository.findByEstado(EstadoTransferencia.COMPLETADA);
+
+        for (Transferencia t : transferenciasCompletadas) {
+            RecepcionResumenDTO dto = new RecepcionResumenDTO();
+            dto.setCodigo("TRF-" + t.getIdTransferencia());
+            dto.setTipo("Transferencia");
+            dto.setOrigen(t.getAlmacenOrigen().getNombre());
+            dto.setFechaRaw(t.getFechaHoraLlegadaProgramada());
+            dto.setEstado(t.getEstado().getEtiqueta());
+            dto.setTransferenciaOriginal(t);
+            historial.add(dto);
+        }
+
+        historial.sort((d1, d2) -> {
+            if (d1.getFechaRaw() == null && d2.getFechaRaw() == null) return 0;
+            if (d1.getFechaRaw() == null) return 1;
+            if (d2.getFechaRaw() == null) return -1;
+            return d2.getFechaRaw().compareTo(d1.getFechaRaw());
+        });
+
+        return historial;
+    }
 }

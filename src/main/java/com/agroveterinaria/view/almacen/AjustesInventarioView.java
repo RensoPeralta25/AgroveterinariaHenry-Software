@@ -8,11 +8,7 @@ import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.TipoAjuste;
 import com.agroveterinaria.security.SecurityService;
-import com.agroveterinaria.service.AjusteInventarioService;
-import com.agroveterinaria.service.AlmacenService;
-import com.agroveterinaria.service.EmpleadoService;
-import com.agroveterinaria.service.LoteService;
-import com.agroveterinaria.service.ProductoService;
+import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -51,30 +47,30 @@ public class AjustesInventarioView extends VerticalLayout {
     private final LoteService loteService;
     private final EmpleadoService empleadoService;
     private final SecurityService securityService;
+    private final InventarioService inventarioService;
 
     private Grid<AjusteInventario> gridAuditoria;
 
     public AjustesInventarioView(AjusteInventarioService ajusteService, AlmacenService almacenService,
                                  ProductoService productoService, LoteService loteService,
-                                 EmpleadoService empleadoService, SecurityService securityService) {
+                                 EmpleadoService empleadoService, SecurityService securityService,
+                                 InventarioService inventarioService) {
         this.ajusteService = ajusteService;
         this.almacenService = almacenService;
         this.productoService = productoService;
         this.loteService = loteService;
         this.empleadoService = empleadoService;
         this.securityService = securityService;
+        this.inventarioService = inventarioService;
 
         setSizeFull();
         setSpacing(true);
-
-        H2 titulo = new H2("Historial de Ajustes y Auditoría");
-        titulo.getStyle().set("margin-top", "0");
 
         Button btnNuevo = new Button("Registrar Nuevo Ajuste", new Icon(VaadinIcon.PLUS));
         btnNuevo.addClassName("btn-nuevo");
         btnNuevo.addClickListener(e -> abrirModalNuevoAjuste());
 
-        HorizontalLayout toolbar = new HorizontalLayout(titulo, btnNuevo);
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo);
         toolbar.setWidthFull();
         toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
         toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
@@ -136,19 +132,33 @@ public class AjustesInventarioView extends VerticalLayout {
         cbProducto.setWidthFull();
 
         ComboBox<Lote> cbLote = new ComboBox<>("Lote Específico");
-        cbLote.setItemLabelGenerator(Lote::getNumeroLote);
+        cbLote.setItemLabelGenerator(lote ->
+                lote.getNumeroLote() != null ? lote.getNumeroLote() : "Sin número (ID: " + lote.getIdLote() + ")"
+        );
         cbLote.setWidthFull();
         cbLote.setEnabled(false);
 
-        cbProducto.addValueChangeListener(e -> {
-            if (e.getValue() != null) {
+        Runnable actualizarLotes = () -> {
+            Producto prod = cbProducto.getValue();
+            Almacen alm = cbAlmacen.getValue();
+            TipoAjuste tipo = rbgTipo.getValue();
+
+            if (prod != null && alm != null) {
                 cbLote.setEnabled(true);
-                cbLote.setItems(loteService.buscarPorProducto(e.getValue()));
+                if (tipo == TipoAjuste.SALIDA) {
+                    cbLote.setItems(inventarioService.obtenerLotesConStock(alm, prod));
+                } else {
+                    cbLote.setItems(loteService.buscarPorProducto(prod));
+                }
             } else {
                 cbLote.setEnabled(false);
                 cbLote.clear();
             }
-        });
+        };
+
+        rbgTipo.addValueChangeListener(e -> actualizarLotes.run());
+        cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
+        cbProducto.addValueChangeListener(e -> actualizarLotes.run());
 
         com.vaadin.flow.component.textfield.BigDecimalField txtCantidad = new com.vaadin.flow.component.textfield.BigDecimalField("Cantidad");
         txtCantidad.setWidthFull();

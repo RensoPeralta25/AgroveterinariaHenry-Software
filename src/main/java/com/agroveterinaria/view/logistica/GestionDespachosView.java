@@ -22,7 +22,6 @@ import jakarta.annotation.security.RolesAllowed;
 
 import java.util.List;
 
-@Route("logistica/despachos")
 @PageTitle("Gestión de Despachos")
 @RolesAllowed({"ADMINISTRADOR", "CONDUCTOR", "ASISTENTE"})
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
@@ -49,9 +48,6 @@ public class GestionDespachosView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        H2 titulo = new H2("Gestión de Despachos (Salidas)");
-        titulo.getStyle().set("margin-top", "0");
-
         Button btnNuevo = new Button("Nuevo Despacho", new Icon(VaadinIcon.PLUS));
         btnNuevo.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnNuevo.addClickListener(e -> {
@@ -64,7 +60,7 @@ public class GestionDespachosView extends VerticalLayout {
             dialog.open();
         });
 
-        HorizontalLayout header = new HorizontalLayout(titulo, btnNuevo);
+        HorizontalLayout header = new HorizontalLayout(btnNuevo);
         header.setWidthFull();
         header.setJustifyContentMode(JustifyContentMode.BETWEEN);
         header.setAlignItems(Alignment.CENTER);
@@ -130,26 +126,39 @@ public class GestionDespachosView extends VerticalLayout {
     private void construirGrid() {
         gridDespachos = new Grid<>(DespachoResumenDTO.class, false);
         gridDespachos.setSizeFull();
-        gridDespachos.addClassName("despacho-grid");
+        gridDespachos.addClassName("almacen-grid");
         gridDespachos.addThemeNames("row-stripes");
 
-        gridDespachos.addColumn(DespachoResumenDTO::getCodigo)
+        gridDespachos.addColumn(dto -> dto.getCodigo() != null ? dto.getCodigo() : "-")
                 .setHeader("ID Despacho").setFlexGrow(0).setWidth("130px");
 
         gridDespachos.addComponentColumn(dto -> {
-            Span badge = new Span(dto.getTipo());
-            badge.getElement().getThemeList().add("badge " + (dto.getTipo().equals("Venta") ? "success" : "contrast"));
+            String tipo = dto.getTipo() != null ? dto.getTipo() : "Desc.";
+            Span badge = new Span(tipo);
+
+            badge.getElement().getThemeList().add("badge");
+            badge.getElement().getThemeList().add(tipo.equals("Venta") ? "success" : "contrast");
+
             return badge;
         }).setHeader("Tipo").setFlexGrow(0).setWidth("130px");
 
-        gridDespachos.addColumn(DespachoResumenDTO::getDestinatario).setHeader("Destinatario").setFlexGrow(2);
-        gridDespachos.addColumn(DespachoResumenDTO::getDireccionEntrega).setHeader("Destino").setFlexGrow(2);
+        gridDespachos.addColumn(dto -> dto.getDestinatario() != null ? dto.getDestinatario() : "-")
+                .setHeader("Destinatario").setFlexGrow(2);
 
-        gridDespachos.addColumn(DespachoResumenDTO::getFechaProgramadaFormateada)
-                .setComparator((d1, d2) -> d1.getFechaProgramadaRaw().compareTo(d2.getFechaProgramadaRaw()))
+        gridDespachos.addColumn(dto -> dto.getDireccionEntrega() != null ? dto.getDireccionEntrega() : "-")
+                .setHeader("Destino").setFlexGrow(2);
+
+        gridDespachos.addColumn(dto -> dto.getFechaProgramadaFormateada() != null ? dto.getFechaProgramadaFormateada() : "-")
+                .setComparator((d1, d2) -> {
+                    if (d1.getFechaProgramadaRaw() == null && d2.getFechaProgramadaRaw() == null) return 0;
+                    if (d1.getFechaProgramadaRaw() == null) return -1;
+                    if (d2.getFechaProgramadaRaw() == null) return 1;
+                    return d1.getFechaProgramadaRaw().compareTo(d2.getFechaProgramadaRaw());
+                })
                 .setHeader("Fecha Prog.").setFlexGrow(1);
 
-        gridDespachos.addColumn(DespachoResumenDTO::getEstado).setHeader("Estado").setFlexGrow(1);
+        gridDespachos.addColumn(dto -> dto.getEstado() != null ? dto.getEstado() : "-")
+                .setHeader("Estado").setFlexGrow(1);
 
         gridDespachos.addComponentColumn(dto -> {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));

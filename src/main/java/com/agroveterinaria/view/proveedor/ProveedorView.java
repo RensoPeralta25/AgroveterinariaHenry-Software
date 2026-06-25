@@ -2,6 +2,7 @@ package com.agroveterinaria.view.proveedor;
 
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.exception.ProveedorOperacionException;
 import com.agroveterinaria.service.ProveedorService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -225,14 +226,7 @@ public class ProveedorView extends VerticalLayout {
         });
 
         formFactory.setErrorListener(error -> {
-            Throwable causa = error;
-            while (causa.getCause() != null) {
-                causa = causa.getCause();
-            }
-
-            String mensaje = causa.getMessage() != null && !causa.getMessage().isBlank()
-                    ? causa.getMessage()
-                    : "No se pudo guardar el proveedor.";
+            String mensaje = obtenerMensajeAmigable(error);
 
             Notification notification = Notification.show(mensaje, 5000, Notification.Position.MIDDLE);
             notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -259,5 +253,17 @@ public class ProveedorView extends VerticalLayout {
 
     private String valor(String valor) {
         return valor != null ? valor : "";
+    }
+
+    private String obtenerMensajeAmigable(Throwable error) {
+        Throwable causa = error;
+        while (causa != null) {
+            if (causa instanceof ProveedorOperacionException) {
+                return causa.getMessage();
+            }
+            causa = causa.getCause();
+        }
+
+        return "No se pudo completar la operación del proveedor. Intenta nuevamente.";
     }
 }

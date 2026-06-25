@@ -5,12 +5,14 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.EstadoVenta;
+import com.agroveterinaria.service.FacturaVentaPdfService;
 import com.agroveterinaria.service.VentaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
@@ -23,7 +25,9 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.server.StreamResource;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
@@ -39,6 +43,7 @@ public class ListaVentasView extends VerticalLayout {
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
     private final VentaService ventaService;
+    private final FacturaVentaPdfService facturaVentaPdfService;
     private final TextField buscar = new TextField();
     private final ComboBox<EstadoVenta> estadoFiltro = new ComboBox<>();
     private final Grid<VentaFila> gridVentas = new Grid<>(VentaFila.class, false);
@@ -48,8 +53,9 @@ public class ListaVentasView extends VerticalLayout {
     private final Span montoCobrado = new Span();
     private final Span balancePendiente = new Span();
 
-    public ListaVentasView(VentaService ventaService) {
+    public ListaVentasView(VentaService ventaService, FacturaVentaPdfService facturaVentaPdfService) {
         this.ventaService = ventaService;
+        this.facturaVentaPdfService = facturaVentaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -180,8 +186,36 @@ public class ListaVentasView extends VerticalLayout {
             detalle.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             detalle.setAriaLabel("Ver detalle de venta");
             detalle.setTooltipText("Ver detalle");
-            return detalle;
-        }).setHeader("Opciones").setWidth("105px").setFlexGrow(0);
+
+            HorizontalLayout acciones = new HorizontalLayout(detalle, crearDescargaPdf(fila));
+            acciones.setPadding(false);
+            acciones.setSpacing(false);
+            acciones.setAlignItems(FlexComponent.Alignment.CENTER);
+            return acciones;
+        }).setHeader("Opciones").setWidth("135px").setFlexGrow(0);
+    }
+
+    private Anchor crearDescargaPdf(VentaFila fila) {
+        Venta venta = fila.venta();
+        StreamResource resource = new StreamResource(nombreArchivoFactura(venta), () ->
+                new ByteArrayInputStream(facturaVentaPdfService.generarFacturaVentaPdf(venta.getIdVenta())));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        Button descargar = new Button(new Icon(VaadinIcon.DOWNLOAD_ALT));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setAriaLabel("Descargar factura PDF");
+        descargar.setTooltipText("Descargar factura PDF");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.add(descargar);
+        return anchor;
+    }
+
+    private String nombreArchivoFactura(Venta venta) {
+        Long idVenta = venta != null ? venta.getIdVenta() : null;
+        return "factura-venta-" + (idVenta != null ? idVenta : "sin-id") + ".pdf";
     }
 
     private Div crearPersonaCell(String nombre, String detalle) {

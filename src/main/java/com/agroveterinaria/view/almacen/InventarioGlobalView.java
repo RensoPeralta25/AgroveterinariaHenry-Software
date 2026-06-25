@@ -44,9 +44,6 @@ public class InventarioGlobalView extends VerticalLayout {
         setSizeFull();
         setSpacing(true);
 
-        H2 titulo = new H2("Inventario Global Consolidado");
-        titulo.getStyle().set("margin-top", "0");
-
         TextField txtBuscar = new TextField();
         txtBuscar.setPlaceholder("Buscar por nombre o categoría...");
         txtBuscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
@@ -54,7 +51,7 @@ public class InventarioGlobalView extends VerticalLayout {
         txtBuscar.setWidth("350px");
         txtBuscar.addValueChangeListener(e -> filtrarGrid(e.getValue()));
 
-        HorizontalLayout toolbar = new HorizontalLayout(titulo, txtBuscar);
+        HorizontalLayout toolbar = new HorizontalLayout(txtBuscar);
         toolbar.setWidthFull();
         toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
         toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);

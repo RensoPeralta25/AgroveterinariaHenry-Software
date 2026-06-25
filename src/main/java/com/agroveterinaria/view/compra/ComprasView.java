@@ -1,7 +1,6 @@
 package com.agroveterinaria.view.compra;
 
 import com.agroveterinaria.entity.Compra;
-import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.service.CompraService;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
@@ -15,39 +14,39 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
+import lombok.Setter;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
-@Route("compras/historial")
-@PageTitle("Historial de Compras")
-@RolesAllowed({"ADMINISTRADOR"})
-public class HistorialComprasView extends VerticalLayout {
+@PageTitle("Gestión de Compras")
+@RolesAllowed({"ADMINISTRADOR", "ASISTENTE", "AUDITOR"})
+public class ComprasView extends VerticalLayout {
 
     private final CompraService compraService;
     private final Grid<Compra> gridHistorial;
-
     private final HorizontalLayout toolbar;
 
-    public HistorialComprasView(CompraService compraService) {
+    @Setter
+    private Consumer<Long> accionNavegarRegistro;
+
+    public ComprasView(CompraService compraService) {
         this.compraService = compraService;
 
         setSizeFull();
         setPadding(true);
         setSpacing(true);
 
-        H2 titulo = new H2("Historial de Órdenes de Abastecimiento");
-        titulo.getStyle().set("margin-top", "0");
-
         toolbar = new HorizontalLayout();
         toolbar.setWidthFull();
+        toolbar.addClassName("almacen-toolbar");
 
         gridHistorial = new Grid<>(Compra.class, false);
         gridHistorial.setSizeFull();
@@ -58,7 +57,7 @@ public class HistorialComprasView extends VerticalLayout {
         configurarGrid();
         actualizarVista();
 
-        add(titulo, toolbar, gridHistorial);
+        add(toolbar, gridHistorial);
     }
 
     private void configurarToolbar() {
@@ -69,9 +68,7 @@ public class HistorialComprasView extends VerticalLayout {
         if (borradorOpt.isPresent()) {
             Button btnVolverBorrador = new Button("Volver al último borrador", new Icon(VaadinIcon.ARROW_CIRCLE_UP));
             btnVolverBorrador.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            btnVolverBorrador.addClickListener(e -> {
-                UI.getCurrent().navigate("compras/nueva/" + borradorOpt.get().getIdCompra());
-            });
+            btnVolverBorrador.addClickListener(e -> accionNavegarRegistro.accept(borradorOpt.get().getIdCompra()));
 
             Button btnEliminarBorrador = new Button("Eliminar último borrador", new Icon(VaadinIcon.TRASH));
             btnEliminarBorrador.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
@@ -81,7 +78,7 @@ public class HistorialComprasView extends VerticalLayout {
         } else {
             Button btnNuevaCompra = new Button("Nueva Compra", new Icon(VaadinIcon.PLUS));
             btnNuevaCompra.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            btnNuevaCompra.addClickListener(e -> UI.getCurrent().navigate("compras/nueva"));
+            btnNuevaCompra.addClickListener(e -> accionNavegarRegistro.accept(null));
             toolbar.add(btnNuevaCompra);
         }
     }
@@ -126,7 +123,7 @@ public class HistorialComprasView extends VerticalLayout {
                 btnEditar.setTooltipText("No se puede editar: mercancía ya recibida parcial o totalmente.");
                 btnEliminar.setTooltipText("No se puede eliminar: existen movimientos de inventario vinculados.");
             } else {
-                btnEditar.addClickListener(e -> UI.getCurrent().navigate("compras/nueva/" + compra.getIdCompra()));
+                btnEditar.addClickListener(e -> accionNavegarRegistro.accept(compra.getIdCompra()));
                 btnEliminar.addClickListener(e -> ejecutarEliminacionCompra(compra));
             }
 
@@ -142,7 +139,7 @@ public class HistorialComprasView extends VerticalLayout {
         H3 deatlleTitulo = new H3("Revisión de Borrador a Eliminar");
 
         VerticalLayout infoBorrador = new VerticalLayout(
-                new Span("Proveedor: " + borrador.getProveedor().getNombre()),
+                new Span("Proveedor: " + (borrador.getProveedor() != null ? borrador.getProveedor().getNombre() : "No seleccionado")),
                 new Span(String.format("Total acumulado: RD$ %,.2f", borrador.getTotal())),
                 new Span("¿Está completamente seguro de descartar este borrador? Esta acción destruirá los cambios no guardados.")
         );
