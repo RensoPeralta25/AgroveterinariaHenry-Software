@@ -54,5 +54,6 @@ public class Empleado {
     private LocalDate fechaIngreso;
     
     private boolean activo = true;
+    private boolean prorratearEmbargos = true;
 
 }

@@ -1,0 +1,1 @@
+ALTER TABLE empleado ADD COLUMN prorratear_embargos BOOLEAN DEFAULT TRUE NOT NULL;

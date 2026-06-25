@@ -1,5 +1,6 @@
 package com.agroveterinaria.entity;
 
+import com.agroveterinaria.enums.TipoEmbargo;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -45,4 +46,8 @@ public class EmbargoSalarial {
 
     @Version
     private Long version;
+
+    @NotNull(message = "El tipo de embargo es obligatorio")
+    @Enumerated(EnumType.STRING)
+    private TipoEmbargo tipo;
 }

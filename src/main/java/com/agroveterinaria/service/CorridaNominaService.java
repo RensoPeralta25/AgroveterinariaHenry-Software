@@ -157,9 +157,42 @@ public class CorridaNominaService {
 
     private void cobrarEmbargosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
         List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndActivoTrue(empleado);
+
+        if (embargos.isEmpty()) return;
+
+        BigDecimal divisorEmbargo = configuracionNominaService.getDivisorLimiteEmbargo();
+        BigDecimal limiteLegal = empleado.getSalario().divide(divisorEmbargo, 2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal totalDemandado = embargos.stream()
+                .map(EmbargoSalarial::getMontoDescuento)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        boolean excedeLimite = totalDemandado.compareTo(limiteLegal) > 0;
+
+        boolean usarProrrateo = empleado.isProrratearEmbargos();
+
+        BigDecimal totalEmbargado = BigDecimal.ZERO;
+
         for (EmbargoSalarial embargo : embargos) {
-            detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
-                    "Embargo: " + embargo.getEntidadDemandante(), embargo.getMontoDescuento(), 1.0));
+            BigDecimal montoADescontar = embargo.getMontoDescuento();
+
+            if (excedeLimite) {
+                if (usarProrrateo) {
+                    BigDecimal proporcion = montoADescontar.divide(totalDemandado, 6, java.math.RoundingMode.HALF_UP);
+                    montoADescontar = limiteLegal.multiply(proporcion).setScale(2, java.math.RoundingMode.HALF_UP);
+                } else {
+                    if (totalEmbargado.add(montoADescontar).compareTo(limiteLegal) > 0) {
+                        montoADescontar = limiteLegal.subtract(totalEmbargado);
+                    }
+                }
+            }
+            
+            if (montoADescontar.compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
+                        embargo.getTipo().getDescripcion() + ": " + embargo.getEntidadDemandante(), montoADescontar, 1.0));
+
+                totalEmbargado = totalEmbargado.add(montoADescontar);
+            }
         }
     }
 
@@ -218,9 +251,6 @@ public class CorridaNominaService {
             totalDevengado = totalDevengado.add(montoSalarioRestante);
         }
 
-        cobrarEmbargosActivos(empleado, nomina, detalles);
-        cobrarPrestamosActivos(empleado, nomina, detalles);
-
         if (totalDevengado.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal afp = configuracionNominaService.calcularAFP(totalDevengado);
             detalles.add(crearDetalle(nomina, TipoConcepto.FONDO_PENSIONES, "AFP", afp, 1.0));
@@ -233,6 +263,9 @@ public class CorridaNominaService {
                 detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR", isr, 1.0));
             }
         }
+
+        cobrarEmbargosActivos(empleado, nomina, detalles);
+        cobrarPrestamosActivos(empleado, nomina, detalles);
     }
 
     private void procesarRegaliaPascual(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, LocalDate fechaCorrida) {
@@ -334,6 +367,8 @@ public class CorridaNominaService {
             if (isr.compareTo(BigDecimal.ZERO) > 0) {
                 detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR", isr, 1.0));
             }
+
+            cobrarEmbargosActivos(empleado, nomina, detalles);
         }
     }
 }

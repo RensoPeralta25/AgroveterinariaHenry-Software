@@ -113,4 +113,10 @@ public class ConfiguracionNominaService {
                 .map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_TOPE'."));
     }
+
+    public BigDecimal getDivisorLimiteEmbargo() {
+        return configuracionNominaRepository.findByClave("DIVISOR_LIMITE_EMBARGO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIVISOR_LIMITE_EMBARGO'."));
+    }
 }

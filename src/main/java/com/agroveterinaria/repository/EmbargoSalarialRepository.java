@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface EmbargoSalarialRepository extends JpaRepository<EmbargoSalarial, Long> {
     List<EmbargoSalarial> findByEmpleadoAndActivoTrue(Empleado empleado);
+
+    List<EmbargoSalarial> findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(Empleado empleado);
 }
