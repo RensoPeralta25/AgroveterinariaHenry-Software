@@ -24,7 +24,7 @@ public class Nomina {
 
     @NotNull(message = "El empleado es obligatorio")
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "id_empleado", nullable = false)
+    @JoinColumn(name = "id_empleado")
     private Empleado empleado;
 
     @NotNull(message = "La corrida de nómina es obligatoria")

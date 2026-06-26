@@ -4,7 +4,6 @@ import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.*;
 import com.agroveterinaria.repository.CorridaNominaRepository;
 import com.agroveterinaria.repository.DetalleNominaRepository;
-import com.agroveterinaria.repository.VacacionEmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +24,7 @@ import java.util.Set;
 public class CorridaNominaService {
     private final CorridaNominaRepository corridaRepository;
     private final DetalleNominaRepository detalleNominaRepository;
-    private final VacacionEmpleadoRepository vacacionEmpleadoRepository;
+    private final VacacionEmpleadoService vacacionEmpleadoService;
     private final EmpleadoService empleadoService;
     private final PrestamoEmpleadoService prestamoEmpleadoService;
     private final EmbargoSalarialService embargoSalarialService;
@@ -113,10 +112,10 @@ public class CorridaNominaService {
 
         if (corrida.getTipo() == TipoCorrida.VACACIONES_ANTICIPADAS) {
             for (Nomina nomina : corrida.getNominas()) {
-                List<VacacionEmpleado> vacaciones = vacacionEmpleadoRepository.findByEmpleadoAndPagadoPorAdelantadoFalse(nomina.getEmpleado());
+                List<VacacionEmpleado> vacaciones = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(nomina.getEmpleado());
                 for (VacacionEmpleado vacacion : vacaciones) {
                     vacacion.setPagadoPorAdelantado(true);
-                    vacacionEmpleadoRepository.save(vacacion);
+                    vacacionEmpleadoService.save(vacacion);
                 }
             }
         }
@@ -156,7 +155,7 @@ public class CorridaNominaService {
     }
 
     private void cobrarEmbargosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndActivoTrue(empleado);
+        List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(empleado);
 
         if (embargos.isEmpty()) return;
 
@@ -222,7 +221,7 @@ public class CorridaNominaService {
             salarioDelPeriodo = salarioDelPeriodo.divide(new BigDecimal("2"), 2, java.math.RoundingMode.HALF_UP);
         }
 
-        List<VacacionEmpleado> vacaciones = vacacionEmpleadoRepository.encontrarVacacionesEnPeriodo(empleado, inicioPeriodo, finPeriodo);
+        List<VacacionEmpleado> vacaciones = vacacionEmpleadoService.encontrarVacacionesEnPeriodo(empleado, inicioPeriodo, finPeriodo);
         BigDecimal montoTotalVacaciones = BigDecimal.ZERO;
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
@@ -343,7 +342,7 @@ public class CorridaNominaService {
     }
 
     private void procesarVacacionesAnticipadas(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoRepository.findByEmpleadoAndPagadoPorAdelantadoFalse(empleado);
+        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(empleado);
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
         for (VacacionEmpleado vacacion : vacacionesPendientes) {

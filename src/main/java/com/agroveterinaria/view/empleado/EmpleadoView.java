@@ -4,10 +4,13 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.NominaService;
 import com.agroveterinaria.service.PersonaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -19,6 +22,7 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
@@ -26,16 +30,18 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class EmpleadoView extends VerticalLayout {
     private static final String CEDULA_PATTERN = "\\d{3}-\\d{7}-\\d{1}";
 
-    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService) {
+    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService, NominaService nominaService) {
         setSizeFull();
         setPadding(true);
         setSpacing(false);
+
+        Set<Long> empleadosConHistorial = nominaService.getIdsEmpleadosConHistorial();
 
         GridCrud<Empleado> crudEmpleado = new GridCrud<>(Empleado.class, new WindowBasedCrudLayout());
         crudEmpleado.getGrid().addClassName("usuario-grid");
@@ -58,15 +64,46 @@ public class EmpleadoView extends VerticalLayout {
                 crudEmpleado.getUpdateButton().click();
             });
 
+            Button btnEstado = new Button();
+            btnEstado.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+            if (empleado.isActivo()) {
+                btnEstado.setIcon(new Icon(VaadinIcon.POWER_OFF));
+                btnEstado.addThemeVariants(ButtonVariant.LUMO_ERROR);
+                btnEstado.getElement().setProperty("title", "Dar de baja (Desactivar)");
+                btnEstado.addClickListener(e -> dialogBaja(empleado, crudEmpleado,empleadoService));
+            } else {
+                btnEstado.setIcon(new Icon(VaadinIcon.ARROW_CIRCLE_UP));
+                btnEstado.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
+                btnEstado.getElement().setProperty("title", "Reactivar empleado");
+                btnEstado.addClickListener(e -> {
+                    empleadoService.reactivarEmpleado(empleado);
+                    Notification.show("Empleado reactivado exitosamente", 4000, Notification.Position.MIDDLE)
+                            .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    crudEmpleado.refreshGrid();
+                });
+            }
+
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
             btnEliminar.addClassName("btn-accion-eliminar");
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+            boolean tieneHistorial = empleadosConHistorial.contains(empleado.getIdEmpleado());
+
+            if (tieneHistorial) {
+                btnEliminar.setEnabled(false);
+                btnEliminar.getElement().setProperty("title", "No se puede eliminar: ya tiene nóminas registradas. Use 'Dar de baja'.");
+            } else {
+                btnEliminar.setEnabled(true);
+                btnEliminar.getElement().setProperty("title", "Eliminar permanentemente");
+            }
+
             btnEliminar.addClickListener(e -> {
                 crudEmpleado.getGrid().select(empleado);
                 crudEmpleado.getDeleteButton().click();
             });
 
-            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEliminar);
+            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEstado, btnEliminar);
             acciones.setSpacing(false);
             acciones.setPadding(false);
             return acciones;
@@ -94,19 +131,17 @@ public class EmpleadoView extends VerticalLayout {
         buscarEmpleado.setPlaceholder("Buscar empleado...");
         buscarEmpleado.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscarEmpleado.setValueChangeMode(ValueChangeMode.LAZY);
-        buscarEmpleado.addValueChangeListener(e -> {
-            String filtro = e.getValue().toLowerCase().trim();
-            crudEmpleado.setFindAllOperation(() ->
-                    empleadoService.findAll().stream()
-                            .filter(emp -> emp.getPersona() != null &&
-                                    emp.getPersona().getNombre()
-                                            .toLowerCase().contains(filtro))
-                            .toList()
-            );
-            crudEmpleado.refreshGrid();
-        });
 
-        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarEmpleado);
+        Checkbox chkMostrarInactivos = new Checkbox("Mostrar inactivos");
+
+        buscarEmpleado.addValueChangeListener(
+                e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), chkMostrarInactivos.getValue(), empleadoService)
+        );
+        chkMostrarInactivos.addValueChangeListener(e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), e.getValue(),empleadoService));
+
+        actualizarFiltroGrid(crudEmpleado, "", false, empleadoService);
+
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarEmpleado, chkMostrarInactivos);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.addClassName("empleado-toolbar");
@@ -216,7 +251,12 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.UPDATE, "Editar Empleado");
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Empleado?");
 
-        crudEmpleado.setFindAllOperation(empleadoService::findAll);
+        crudEmpleado.setFindAllOperation(() ->
+                empleadoService.findAll().stream()
+                        .filter(Empleado::isActivo)
+                        .toList()
+        );
+
         crudEmpleado.setAddOperation(empleado -> {
             try {
                 return empleadoService.save(empleado);
@@ -225,9 +265,40 @@ public class EmpleadoView extends VerticalLayout {
             }
         });
         crudEmpleado.setUpdateOperation(empleadoService::update);
-        crudEmpleado.setDeleteOperation(empleadoService::delete);
+
+        crudEmpleado.setDeleteOperation(empleado -> {
+            try {
+                empleadoService.delete(empleado);
+            } catch (IllegalStateException ex) {
+                throw new RuntimeException(ex.getMessage());
+            } catch (DataIntegrityViolationException ex) {
+                throw new RuntimeException("El empleado tiene registros asociados (Préstamos, Vacaciones, etc.). Utilice el botón 'Dar de Baja'.");
+            } catch (Exception ex) {
+                throw new RuntimeException("Ocurrió un error inesperado al intentar eliminar el empleado.");
+            }
+        });
 
         add(toolbar, crudEmpleado);
+    }
+
+    private void dialogBaja(Empleado empleado, GridCrud<Empleado> crudEmpleado, EmpleadoService empleadoService) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.addClassName("dialog-baja-empleado");
+        dialog.setHeader("Dar de baja al empleado");
+        dialog.setText("¿Está seguro que desea dar de baja a " + empleado.getPersona().getNombre() + "? Se le cortará el acceso al sistema inmediatamente.");
+        dialog.setConfirmText("Sí, dar de baja");
+        dialog.setConfirmButtonTheme("error tonal");
+        dialog.setCancelable(true);
+        dialog.setCancelText("Cancelar");
+        dialog.setCancelButtonTheme("outlined");
+        dialog.addConfirmListener(event -> {
+
+            empleadoService.darDeBaja(empleado);
+            Notification.show("Empleado inhabilitado correctamente", 4000, Notification.Position.MIDDLE)
+                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            crudEmpleado.refreshGrid();
+        });
+        dialog.open();
     }
 
     private TextField crearCampoCedula() {
@@ -287,5 +358,18 @@ public class EmpleadoView extends VerticalLayout {
             direccion.clear();
             direccion.setReadOnly(false);
         }
+    }
+
+    private void actualizarFiltroGrid(GridCrud<Empleado> crud, String busqueda, boolean mostrarInactivos, EmpleadoService empleadoService) {
+        String filtroTexto = busqueda == null ? "" : busqueda.toLowerCase().trim();
+
+        crud.setFindAllOperation(() ->
+                empleadoService.findAll().stream()
+                        .filter(emp -> mostrarInactivos || emp.isActivo())
+                        .filter(emp -> emp.getPersona() != null &&
+                                emp.getPersona().getNombre().toLowerCase().contains(filtroTexto))
+                        .toList()
+        );
+        crud.refreshGrid();
     }
 }

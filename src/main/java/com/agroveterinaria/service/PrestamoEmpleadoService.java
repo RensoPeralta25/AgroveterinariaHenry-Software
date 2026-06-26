@@ -71,4 +71,6 @@ public class PrestamoEmpleadoService {
                             ", pero el sistema registra: RD$ " + balancePendienteActual);
         }
     }
+
+    public boolean existsByEmpleado(Empleado empleado){ return prestamoEmpleadoRepository.existsByEmpleado(empleado); }
 }

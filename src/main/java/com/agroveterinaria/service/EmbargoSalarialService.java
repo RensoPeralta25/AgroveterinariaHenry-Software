@@ -21,7 +21,11 @@ public class EmbargoSalarialService {
         return embargoSalarialRepository.save(embargo);
     }
 
-    public List<EmbargoSalarial> findByEmpleadoAndActivoTrue(Empleado empleado) {
-        return embargoSalarialRepository.findByEmpleadoAndActivoTrue(empleado);
+    public List<EmbargoSalarial> findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(Empleado empleado) {
+        return embargoSalarialRepository.findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(empleado);
+    }
+
+    public boolean existsByEmpleado(Empleado empleado){
+        return embargoSalarialRepository.existsByEmpleado(empleado);
     }
 }

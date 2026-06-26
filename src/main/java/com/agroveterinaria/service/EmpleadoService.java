@@ -6,6 +6,7 @@ import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,18 +17,18 @@ import java.util.regex.Pattern;
 
 @Service
 @Transactional
+@AllArgsConstructor
 @RolesAllowed("ADMINISTRADOR")
 public class EmpleadoService {
     private static final Pattern CEDULA_PATTERN = Pattern.compile("^\\d{3}-\\d{7}-\\d{1}$");
     private static final Pattern TELEFONO_PATTERN = Pattern.compile("^\\d{3}-\\d{3}-\\d{4}$");
 
     private final EmpleadoRepository empleadoRepository;
+    private final NominaService nominaService;
+    private final PrestamoEmpleadoService prestamoEmpleadoService;
+    private final EmbargoSalarialService embargoSalarialService;
+    private final VacacionEmpleadoService vacacionEmpleadoService;
     private final PersonaService personaService;
-
-    public EmpleadoService (EmpleadoRepository empleadoRepository, PersonaService personaService){
-        this.empleadoRepository = empleadoRepository;
-        this.personaService = personaService;
-    }
 
     public List<Empleado> findAll() { return empleadoRepository.findAll(); }
 
@@ -70,7 +71,42 @@ public class EmpleadoService {
     }
 
     public void delete(Empleado emp){
+        if (nominaService.existsByEmpleado(emp)) {
+            throw new IllegalStateException("No se puede eliminar el empleado porque ya tiene nóminas procesadas. Utilice la opción 'Dar de Baja'.");
+        }
+        if (prestamoEmpleadoService.existsByEmpleado(emp)) {
+            throw new IllegalStateException("No se puede eliminar: tiene préstamos registrados.");
+        }
+        if (embargoSalarialService.existsByEmpleado(emp)) {
+            throw new IllegalStateException("No se puede eliminar: tiene embargos registrados.");
+        }
+        if (vacacionEmpleadoService.existsByEmpleado(emp)) {
+            throw new IllegalStateException("No se puede eliminar: tiene vacaciones registradas.");
+        }
+
         empleadoRepository.delete(emp);
+    }
+
+    public void darDeBaja(Empleado empleado) {
+        empleado.setActivo(false);
+
+        if (empleado.getUsuario() != null) {
+            empleado.getUsuario().setActivo(false);
+        }
+
+        empleadoRepository.save(empleado);
+    }
+
+    public void reactivarEmpleado(Empleado empleado) {
+        if (empleado.isActivo()) return;
+
+        empleado.setActivo(true);
+
+        if (empleado.getUsuario() != null) {
+            empleado.getUsuario().setActivo(true);
+        }
+
+        empleadoRepository.save(empleado);
     }
 
     public void validar(Empleado empleado){

@@ -87,7 +87,8 @@ public class MainView extends Div {
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
             RutaService rutaService,
-            FacturaVentaPdfService facturaVentaPdfService) {
+            FacturaVentaPdfService facturaVentaPdfService,
+            NominaService nominaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -98,7 +99,7 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService);
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, nominaService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -143,7 +144,8 @@ public class MainView extends Div {
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
             RutaService rutaService,
-            FacturaVentaPdfService facturaVentaPdfService
+            FacturaVentaPdfService facturaVentaPdfService,
+            NominaService nominaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -294,7 +296,7 @@ public class MainView extends Div {
                     "Panel de Empleados",
                     "Información general del equipo de trabajo y roles",
                     VaadinIcon.GROUP,
-                    new EmpleadoView(empleadoService, personaService)
+                    new EmpleadoView(empleadoService, personaService, nominaService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });

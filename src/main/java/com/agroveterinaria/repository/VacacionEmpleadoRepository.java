@@ -20,4 +20,6 @@ public interface VacacionEmpleadoRepository extends JpaRepository<VacacionEmplea
     );
 
     List<VacacionEmpleado> findByEmpleadoAndPagadoPorAdelantadoFalse(Empleado empleado);
+
+    boolean existsByEmpleado(Empleado empleado);
 }

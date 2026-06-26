@@ -11,4 +11,6 @@ public interface PrestamoEmpleadoRepository extends JpaRepository<PrestamoEmplea
     List<PrestamoEmpleado> findByEmpleadoAndEstado(Empleado empleado, EstadoPrestamo estado);
 
     List<PrestamoEmpleado> findByEmpleado(Empleado empleado);
+
+    boolean existsByEmpleado(Empleado empleado);
 }

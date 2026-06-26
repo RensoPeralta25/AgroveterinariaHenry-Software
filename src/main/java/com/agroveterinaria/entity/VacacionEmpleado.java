@@ -22,8 +22,9 @@ public class VacacionEmpleado {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
     @ManyToOne
-    @JoinColumn(name = "empleado_id", nullable = false)
+    @JoinColumn(name = "id_empleado")
     private Empleado empleado;
 
     @NotNull
