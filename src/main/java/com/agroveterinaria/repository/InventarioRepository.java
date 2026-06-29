@@ -40,4 +40,9 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
     @Query("SELECT i.lote FROM Inventario i WHERE i.almacen = :almacen AND i.lote.producto = :producto AND i.cantidadActual > 0")
     List<Lote> findLotesConStock(@Param("almacen") Almacen almacen, @Param("producto") Producto producto);
 
+    @Query("SELECT i FROM Inventario i WHERE i.almacen = :almacen AND i.lote.producto = :producto ORDER BY i.lote.fechaVencimiento ASC")
+    List<Inventario> findByAlmacenAndProductoOrderByLote_FechaVencimientoAsc(
+            @Param("almacen") Almacen almacen,
+            @Param("producto") Producto producto
+    );
 }

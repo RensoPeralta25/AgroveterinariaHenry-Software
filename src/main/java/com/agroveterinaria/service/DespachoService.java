@@ -4,6 +4,7 @@ import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.dto.despacho.LineaDespachoDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoTransporte;
+import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -144,6 +145,111 @@ public class DespachoService {
         }
 
         transferenciaRepository.save(transferencia);
+        return despachoRepository.save(despacho);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DespachoResumenDTO> obtenerDocumentosPendientesDespacho() {
+        List<DespachoResumenDTO> pendientes = new java.util.ArrayList<>();
+
+        List<Venta> ventasListas = obtenerVentasPendientes();
+        for (Venta v : ventasListas) {
+            DespachoResumenDTO dto = new DespachoResumenDTO();
+            dto.setCodigo("VTA-" + v.getIdVenta());
+            dto.setTipo("Venta");
+            dto.setDestinatario(v.getCliente().getPersona().getNombre());
+            dto.setVentaOriginal(v);
+            pendientes.add(dto);
+        }
+
+        List<Transferencia> transferenciasListas = obtenerTransferenciasPendientes();
+        for (Transferencia t : transferenciasListas) {
+            DespachoResumenDTO dto = new DespachoResumenDTO();
+            dto.setCodigo("TRF-" + t.getIdTransferencia());
+            dto.setTipo("Transferencia");
+            dto.setDestinatario(t.getAlmacenDestino().getNombre());
+            dto.setTransferenciaOriginal(t);
+            pendientes.add(dto);
+        }
+
+        return pendientes;
+    }
+
+    @Transactional(readOnly = true)
+    public List<LineaDespachoDTO> obtenerLineasPendientesVenta(Long idVenta) {
+        Venta venta = ventaRepository.findById(idVenta)
+                .orElseThrow(() -> new RuntimeException("Error al cargar datos de la venta"));
+
+        return venta.getDetallesVentas().stream().map(dv -> {
+            BigDecimal despachadoHistorico = detalleDespachoRepository.sumCantidadByIdDetalleVenta(dv.getIdDetalleVenta());
+            return new LineaDespachoDTO(dv, despachadoHistorico);
+        }).filter(dto -> dto.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0).toList();
+    }
+
+    @Transactional
+    public Despacho procesarDespachoVenta(Long idVenta, Vehiculo vehiculo, Empleado conductor, List<LineaDespachoDTO> lineasAProcesar) {
+        Venta venta = ventaRepository.findById(idVenta)
+                .orElseThrow(() -> new RuntimeException("Venta no encontrada"));
+
+        Despacho despacho = new Despacho();
+
+        Transporte transporte = new Transporte();
+        transporte.setVehiculo(vehiculo);
+        transporte.setConductor(conductor);
+        transporte.setEstado(EstadoTransporte.PROGRAMADO);
+        transporte.setDescuento(BigDecimal.ZERO);
+        transporte = transporteRepository.save(transporte);
+
+        despacho.setTransporte(transporte);
+        despacho.setFechaHoraSalidaProgramada(LocalDateTime.now());
+        despacho.getVentas().add(venta);
+
+        boolean quedaMercanciaPendiente = false;
+
+        for (LineaDespachoDTO linea : lineasAProcesar) {
+            BigDecimal aDespachar = linea.getCantidadADespacharActual();
+            if (aDespachar != null && aDespachar.compareTo(BigDecimal.ZERO) > 0) {
+
+                com.agroveterinaria.entity.Lote loteFisico = linea.getDetalleVenta().getLote() != null ?
+                        linea.getDetalleVenta().getLote() : linea.getLoteSeleccionadoFisicamente();
+
+                if (loteFisico == null) {
+                    throw new RuntimeException("No se ha determinado un lote válido para el producto " + linea.getNombreProducto());
+                }
+
+                Inventario invOrigen = inventarioRepository.findByAlmacenAndLote(
+                        linea.getDetalleVenta().getAlmacen(),
+                        loteFisico
+                ).orElseThrow(() -> new RuntimeException("No se encontró inventario para el lote "
+                        + loteFisico.getNumeroLote() + " en el almacén " + linea.getDetalleVenta().getAlmacen().getNombre()));
+
+                if (invOrigen.getCantidadActual().compareTo(aDespachar) < 0) {
+                    throw new RuntimeException("Stock físico insuficiente para el lote " + loteFisico.getNumeroLote());
+                }
+
+                invOrigen.setCantidadActual(invOrigen.getCantidadActual().subtract(aDespachar));
+                inventarioRepository.save(invOrigen);
+
+                DetalleDespacho detalleCamion = new DetalleDespacho();
+                detalleCamion.setDespacho(despacho);
+                detalleCamion.setDetalleVenta(linea.getDetalleVenta());
+                detalleCamion.setLote(loteFisico);
+                detalleCamion.setAlmacen(linea.getDetalleVenta().getAlmacen());
+                detalleCamion.setCantidad(aDespachar);
+                despacho.addDetalle(detalleCamion);
+            }
+
+            BigDecimal totalAcumulado = linea.getCantidadYaDespachada().add(aDespachar != null ? aDespachar : BigDecimal.ZERO);
+            if (totalAcumulado.compareTo(linea.getCantidadSolicitada()) < 0) {
+                quedaMercanciaPendiente = true;
+            }
+        }
+
+        if (!quedaMercanciaPendiente) {
+            venta.setEstado(EstadoVenta.CERRADA);
+        }
+
+        ventaRepository.save(venta);
         return despachoRepository.save(despacho);
     }
 }
