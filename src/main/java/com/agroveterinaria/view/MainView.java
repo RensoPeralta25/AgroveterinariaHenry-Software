@@ -16,6 +16,7 @@ import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
+import com.agroveterinaria.view.dashboard.DashboardView;
 import com.agroveterinaria.view.logistica.GestionDespachosView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
@@ -87,7 +88,8 @@ public class MainView extends Div {
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
             RutaService rutaService,
-            FacturaVentaPdfService facturaVentaPdfService) {
+            FacturaVentaPdfService facturaVentaPdfService,
+            DashboardService dashboardService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -98,7 +100,8 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService);
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService,
+                dashboardService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -115,7 +118,7 @@ public class MainView extends Div {
                 "Panel Principal",
                 "Resumen general de la operación administrativa.",
                 VaadinIcon.DASHBOARD,
-                createWelcomePanel()
+                new DashboardView(dashboardService)
         );
     }
 
@@ -143,7 +146,8 @@ public class MainView extends Div {
             TransferenciaService transferenciaService,
             VehiculoService vehiculoService,
             RutaService rutaService,
-            FacturaVentaPdfService facturaVentaPdfService
+            FacturaVentaPdfService facturaVentaPdfService,
+            DashboardService dashboardService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -256,7 +260,7 @@ public class MainView extends Div {
                 "Panel Principal",
                 "Resumen general de la operación administrativa.",
                 VaadinIcon.DASHBOARD,
-                createWelcomePanel()
+                new DashboardView(dashboardService)
         ));
 
         productosButton.addClickListener(event -> showModule(
@@ -623,10 +627,4 @@ public class MainView extends Div {
         return layout;
     }
 
-    private Component createWelcomePanel() {
-        Div placeholder = new Div();
-        placeholder.addClassName("welcome-placeholder");
-        placeholder.setText("Selecciona un módulo para trabajar con productos, proveedores o usuarios.");
-        return placeholder;
-    }
 }

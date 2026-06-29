@@ -13,6 +13,8 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     List<Cita> findByPacienteIdMascota(Long idMascota);
 
+    long countByFechaHoraBetweenAndRealizadoFalse(LocalDateTime inicio, LocalDateTime fin);
+
     boolean existsByVeterinarioAndFechaHora(Empleado veterinario, LocalDateTime fechaHora);
 
     boolean existsByVeterinarioAndFechaHoraAndIdCitaNot(Empleado veterinario, LocalDateTime fechaHora, Long idCita);
