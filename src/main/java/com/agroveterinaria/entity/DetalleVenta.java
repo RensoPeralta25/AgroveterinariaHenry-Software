@@ -34,6 +34,15 @@ public class DetalleVenta {
     private Producto producto;
 
     @NotNull
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_almacen", nullable = false)
+    private Almacen almacen;
+
+    @ManyToOne
+    @JoinColumn(name = "id_lote")
+    private Lote lote;
+
+    @NotNull
     @Digits(integer = 12, fraction = 2, message = "La cantidad solo puede tener hasta 2 decimales")
     @Column(name = "cantidad", nullable = false, precision = 12, scale = 2)
     private BigDecimal cantidad;

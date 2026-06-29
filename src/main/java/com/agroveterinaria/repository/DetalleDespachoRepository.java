@@ -16,4 +16,7 @@ public interface DetalleDespachoRepository extends JpaRepository<DetalleDespacho
             "FROM DetalleDespacho d " +
             "WHERE d.detalleTransferencia.idDetalleTransferencia = :id")
     BigDecimal sumCantidadByIdDetalleTransferencia(@Param("id") Long idDetalleTransferencia);
+
+    @Query("SELECT SUM(d.cantidad) FROM DetalleDespacho d WHERE d.detalleVenta.idDetalleVenta = :id")
+    BigDecimal sumCantidadByIdDetalleVenta(@Param("id") Long id);
 }

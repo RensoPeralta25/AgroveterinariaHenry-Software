@@ -1,12 +1,15 @@
 package com.agroveterinaria.view.logistica;
 
+import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.dto.despacho.LineaDespachoDTO;
 import com.agroveterinaria.entity.Empleado;
-import com.agroveterinaria.entity.Transferencia;
+import com.agroveterinaria.entity.Lote;
+import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Vehiculo;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.service.DespachoService;
 import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.LoteService;
 import com.agroveterinaria.service.VehiculoService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -15,6 +18,7 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
@@ -32,22 +36,26 @@ public class NuevoDespachoDialog extends Dialog {
     private final DespachoService despachoService;
     private final VehiculoService vehiculoService;
     private final EmpleadoService empleadoService;
+    private final LoteService loteService;
     private final Runnable alGuardarExitosamente;
 
-    private ComboBox<Transferencia> cbTransferencia;
+    private ComboBox<DespachoResumenDTO> cbDocumentoPendiente;
     private ComboBox<Vehiculo> cbVehiculo;
     private ComboBox<Empleado> cbConductor;
     private Grid<LineaDespachoDTO> gridLineas;
 
     private List<LineaDespachoDTO> lineasActuales = new ArrayList<>();
 
-    public NuevoDespachoDialog(DespachoService despachoService, VehiculoService vehiculoService, EmpleadoService empleadoService, Runnable alGuardarExitosamente) {
+    public NuevoDespachoDialog(DespachoService despachoService, VehiculoService vehiculoService,
+                               EmpleadoService empleadoService, LoteService loteService,
+                               Runnable alGuardarExitosamente) {
         this.empleadoService = empleadoService;
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
+        this.loteService = loteService;
         this.alGuardarExitosamente = alGuardarExitosamente;
 
-        setWidth("800px");
+        setWidth("900px");
         setCloseOnOutsideClick(false);
 
         H3 titulo = new H3("Preparar Carga al Camión (Picking)");
@@ -67,18 +75,23 @@ public class NuevoDespachoDialog extends Dialog {
         botones.setWidthFull();
         botones.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
-        add(titulo, cbTransferencia, new HorizontalLayout(cbVehiculo, cbConductor), gridLineas, botones);
+        add(titulo, cbDocumentoPendiente, new HorizontalLayout(cbVehiculo, cbConductor), gridLineas, botones);
     }
 
     private void construirFormulario() {
-        cbTransferencia = new ComboBox<>("Documento Pendiente");
-        cbTransferencia.setWidthFull();
-        cbTransferencia.setItems(despachoService.obtenerTransferenciasPendientes());
-        cbTransferencia.setItemLabelGenerator(t -> "TRF-" + t.getIdTransferencia() + " -> " + t.getAlmacenDestino().getNombre());
+        cbDocumentoPendiente = new ComboBox<>("Documento Pendiente (Venta o Transferencia)");
+        cbDocumentoPendiente.setWidthFull();
+        cbDocumentoPendiente.setItems(despachoService.obtenerDocumentosPendientesDespacho());
+        cbDocumentoPendiente.setItemLabelGenerator(doc -> doc.getCodigo() + " -> Destino: " + doc.getDestinatario());
 
-        cbTransferencia.addValueChangeListener(e -> {
-            if (e.getValue() != null) {
-                lineasActuales = despachoService.obtenerLineasPendientesTransferencia(e.getValue());
+        cbDocumentoPendiente.addValueChangeListener(e -> {
+            DespachoResumenDTO doc = e.getValue();
+            if (doc != null) {
+                if ("Venta".equals(doc.getTipo())) {
+                    lineasActuales = despachoService.obtenerLineasPendientesVenta(doc.getVentaOriginal().getIdVenta());
+                } else {
+                    lineasActuales = despachoService.obtenerLineasPendientesTransferencia(doc.getTransferenciaOriginal());
+                }
                 gridLineas.setItems(lineasActuales);
             } else {
                 lineasActuales.clear();
@@ -103,7 +116,30 @@ public class NuevoDespachoDialog extends Dialog {
         gridLineas.setHeight("250px");
 
         gridLineas.addColumn(LineaDespachoDTO::getNombreProducto).setHeader("Producto").setFlexGrow(2);
-        gridLineas.addColumn(LineaDespachoDTO::getNumeroLote).setHeader("Lote").setFlexGrow(1);
+
+        gridLineas.addComponentColumn(dto -> {
+            if (dto.getNumeroLote() != null && !dto.getNumeroLote().equals("Asignado en picking")) {
+                return new Span(dto.getNumeroLote());
+            }
+
+            ComboBox<Lote> cbLotesDisponibles = new ComboBox<>();
+            cbLotesDisponibles.setWidthFull();
+            cbLotesDisponibles.setPlaceholder("Seleccionar lote...");
+
+            Producto producto = dto.getDetalleVenta() != null ?
+                    dto.getDetalleVenta().getProducto() : dto.getDetalleTransferencia().getLote().getProducto();
+
+            cbLotesDisponibles.setItems(loteService.buscarPorProducto(producto));
+            cbLotesDisponibles.setItemLabelGenerator(Lote::getNumeroLote);
+
+            if (dto.getLoteSeleccionadoFisicamente() != null) {
+                cbLotesDisponibles.setValue(dto.getLoteSeleccionadoFisicamente());
+            }
+
+            cbLotesDisponibles.addValueChangeListener(ev -> dto.setLoteSeleccionadoFisicamente(ev.getValue()));
+            return cbLotesDisponibles;
+        }).setHeader("Lote").setFlexGrow(1).setWidth("180px");
+
         gridLineas.addColumn(LineaDespachoDTO::getCantidadPendiente).setHeader("Pendiente").setFlexGrow(0).setTextAlign(ColumnTextAlign.END);
 
         gridLineas.addComponentColumn(dto -> {
@@ -128,7 +164,7 @@ public class NuevoDespachoDialog extends Dialog {
     }
 
     private void procesarDespacho() {
-        if (cbTransferencia.isEmpty() || cbVehiculo.isEmpty() || cbConductor.isEmpty()) {
+        if (cbDocumentoPendiente.isEmpty() || cbVehiculo.isEmpty() || cbConductor.isEmpty()) {
             Notification.show("Complete todos los campos de cabecera").addThemeVariants(NotificationVariant.LUMO_ERROR);
             return;
         }
@@ -139,8 +175,27 @@ public class NuevoDespachoDialog extends Dialog {
             return;
         }
 
+        boolean faltanLotesBackorder = lineasActuales.stream().anyMatch(l ->
+                l.getCantidadADespacharActual().compareTo(BigDecimal.ZERO) > 0 &&
+                        "Asignado en picking".equals(l.getNumeroLote()) &&
+                        l.getLoteSeleccionadoFisicamente() == null
+        );
+
+        if (faltanLotesBackorder) {
+            Notification.show("Debe especificar el lote para todos los artículos en backorder a despachar")
+                    .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+
         try {
-            despachoService.procesarDespachoTransferencia(cbTransferencia.getValue(), cbVehiculo.getValue(), cbConductor.getValue(), lineasActuales);
+            DespachoResumenDTO doc = cbDocumentoPendiente.getValue();
+
+            if ("Venta".equals(doc.getTipo())) {
+                despachoService.procesarDespachoVenta(doc.getVentaOriginal().getIdVenta(), cbVehiculo.getValue(), cbConductor.getValue(), lineasActuales);
+            } else {
+                despachoService.procesarDespachoTransferencia(doc.getTransferenciaOriginal(), cbVehiculo.getValue(), cbConductor.getValue(), lineasActuales);
+            }
+
             Notification.show("Camión despachado. Inventario actualizado.").addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             alGuardarExitosamente.run();
             close();

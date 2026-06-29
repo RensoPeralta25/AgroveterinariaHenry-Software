@@ -401,7 +401,7 @@ public class MainView extends Div {
                     "Gestión de Despachos",
                     "Control de salida de mercancía en vehículos de la empresa.",
                     VaadinIcon.OUTBOX,
-                    new GestionDespachosView(despachoService, vehiculoService, empleadoService)
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
@@ -434,7 +434,7 @@ public class MainView extends Div {
                     "Registrar Venta",
                     "Registro de clientes, productos y descuentos de venta",
                     VaadinIcon.CART,
-                    new VentaView(ventaService, clienteService, empleadoService, productoService)
+                    new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService)
             );
             ventasButton.addClassName("menu-button-active");
         });

@@ -1,16 +1,9 @@
 package com.agroveterinaria.view.Venta;
 
-import com.agroveterinaria.entity.Cliente;
-import com.agroveterinaria.entity.Empleado;
-import com.agroveterinaria.entity.Producto;
-import com.agroveterinaria.entity.TipoCliente;
-import com.agroveterinaria.entity.Venta;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.enums.StatusEntidad;
-import com.agroveterinaria.service.ClienteService;
-import com.agroveterinaria.service.EmpleadoService;
-import com.agroveterinaria.service.ProductoService;
-import com.agroveterinaria.service.VentaService;
+import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -48,6 +41,8 @@ public class VentaView extends VerticalLayout {
     private final ClienteService clienteService;
     private final EmpleadoService empleadoService;
     private final ProductoService productoService;
+    private final AlmacenService almacenService;
+    private final LoteService loteService;
 
     private final ComboBox<Cliente> clienteExistente = new ComboBox<>("Buscar cliente");
     private final TextField cedulaCliente = new TextField("Cedula");
@@ -61,6 +56,9 @@ public class VentaView extends VerticalLayout {
     private final Checkbox llevaDespacho = new Checkbox("Lleva despacho");
 
     private final ComboBox<Producto> producto = new ComboBox<>("Producto");
+    private final ComboBox<Almacen> cbAlmacen = new ComboBox<>("Almacén Origen");
+    private final Checkbox chkLoteAutomatico = new Checkbox("Lote Auto. (PEPS)");
+    private final ComboBox<Lote> cbLote = new ComboBox<>("Lote Específico");
     private final BigDecimalField cantidad = new BigDecimalField("Cantidad");
     private final BigDecimalField impuesto = new BigDecimalField("Impuesto");
     private final BigDecimalField descuento = new BigDecimalField("Descuento");
@@ -81,12 +79,16 @@ public class VentaView extends VerticalLayout {
             VentaService ventaService,
             ClienteService clienteService,
             EmpleadoService empleadoService,
-            ProductoService productoService
+            ProductoService productoService,
+            AlmacenService almacenService,
+            LoteService loteService
     ) {
         this.ventaService = ventaService;
         this.clienteService = clienteService;
         this.empleadoService = empleadoService;
         this.productoService = productoService;
+        this.almacenService = almacenService;
+        this.loteService = loteService;
 
         setSizeFull();
         setPadding(false);
@@ -137,10 +139,15 @@ public class VentaView extends VerticalLayout {
         agregarProducto.addClassName("btn-nuevo");
         agregarProducto.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        HorizontalLayout productoFila = new HorizontalLayout(producto, cantidad, impuesto, agregarProducto);
+        HorizontalLayout productoFila = new HorizontalLayout(producto, cbAlmacen, chkLoteAutomatico, cbLote, cantidad, impuesto, agregarProducto);
         productoFila.setWidthFull();
         productoFila.setAlignItems(FlexComponent.Alignment.END);
         productoFila.expand(producto);
+        cbAlmacen.setWidth("140px");
+        cbLote.setWidth("130px");
+        cantidad.setWidth("90px");
+        impuesto.setWidth("90px");
+        chkLoteAutomatico.getStyle().set("padding-bottom", "10px");
 
         Button guardar = new Button("Registrar venta", new Icon(VaadinIcon.CHECK), event -> registrarVenta());
         guardar.addClassName("btn-nuevo");
@@ -227,6 +234,31 @@ public class VentaView extends VerticalLayout {
                 .toList());
         producto.setItemLabelGenerator(Producto::getNombre);
 
+        cbAlmacen.setItems(almacenService.listarTodos().stream()
+                .filter(a -> a.getStatus() == StatusEntidad.ACTIVO).toList());
+        cbAlmacen.setItemLabelGenerator(Almacen::getNombre);
+        cbAlmacen.setPlaceholder("Seleccione...");
+
+        chkLoteAutomatico.setValue(true);
+        cbLote.setEnabled(false);
+        cbLote.setItemLabelGenerator(l -> l.getNumeroLote() != null ? l.getNumeroLote() : "Sin Lote");
+
+        chkLoteAutomatico.addValueChangeListener(e -> {
+            cbLote.setEnabled(!e.getValue());
+            if (e.getValue()) cbLote.clear();
+        });
+
+        Runnable actualizarLotes = () -> {
+            if (producto.getValue() != null && cbAlmacen.getValue() != null) {
+                cbLote.setItems(loteService.buscarPorProducto(producto.getValue()));
+            } else {
+                cbLote.clear();
+                cbLote.setItems(new ArrayList<>());
+            }
+        };
+        producto.addValueChangeListener(e -> actualizarLotes.run());
+        cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
+
         cantidad.setValue(BigDecimal.ONE);
         cantidad.setValueChangeMode(ValueChangeMode.EAGER);
 
@@ -254,6 +286,12 @@ public class VentaView extends VerticalLayout {
         gridLineas.addColumn(linea -> linea.getProducto().getNombre())
                 .setHeader("Producto")
                 .setFlexGrow(1);
+        gridLineas.addColumn(linea -> linea.getAlmacen() != null ? linea.getAlmacen().getNombre() : "-")
+                .setHeader("Almacén")
+                .setWidth("150px")
+                .setFlexGrow(0);
+        gridLineas.addColumn(linea -> linea.getLote() != null ? linea.getLote().getNumeroLote() : "Auto (PEPS)")
+                .setHeader("Lote").setWidth("100px").setFlexGrow(0);
         gridLineas.addColumn(linea -> linea.getCantidad().toPlainString())
                 .setHeader("Cantidad")
                 .setWidth("110px")
@@ -309,6 +347,10 @@ public class VentaView extends VerticalLayout {
             mostrarError("Debes seleccionar un producto.");
             return;
         }
+        if (cbAlmacen.getValue() == null) {
+            mostrarError("Debes seleccionar el almacén de origen.");
+            return;
+        }
         if (cantidad.getValue() == null || cantidad.getValue().compareTo(BigDecimal.ZERO) <= 0) {
             mostrarError("La cantidad debe ser mayor que cero.");
             return;
@@ -317,11 +359,15 @@ public class VentaView extends VerticalLayout {
         try {
             LineaVentaForm linea = new LineaVentaForm(
                     producto.getValue(),
+                    cbAlmacen.getValue(),
+                    cbLote.getValue(),
                     cantidad.getValue().setScale(2, RoundingMode.HALF_UP),
                     impuesto.getValue() != null ? impuesto.getValue().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO
             );
             lineas.add(linea);
             producto.clear();
+            cbAlmacen.clear();
+            cbLote.clear();
             cantidad.setValue(BigDecimal.ONE);
             impuesto.setValue(BigDecimal.ZERO);
             refrescarLineas();
@@ -370,7 +416,9 @@ public class VentaView extends VerticalLayout {
                         .map(linea -> new VentaService.LineaVentaRequest(
                                 linea.getProducto().getIdProducto(),
                                 linea.getCantidad(),
-                                linea.getImpuesto()
+                                linea.getImpuesto(),
+                                linea.getAlmacen().getIdAlmacen(),
+                                linea.getLote() != null ? linea.getLote().getIdLote() : null
                         ))
                         .toList()
         );
@@ -422,6 +470,9 @@ public class VentaView extends VerticalLayout {
         montoPagado.setValue(BigDecimal.ZERO);
         metodoPago.clear();
         producto.clear();
+        cbAlmacen.clear();
+        cbLote.clear();
+        chkLoteAutomatico.setValue(true);
         cantidad.setValue(BigDecimal.ONE);
         impuesto.setValue(BigDecimal.ZERO);
         lineas.clear();
@@ -454,17 +505,29 @@ public class VentaView extends VerticalLayout {
 
     private static class LineaVentaForm {
         private final Producto producto;
+        private final Almacen almacen;
+        private final Lote lote;
         private final BigDecimal cantidad;
         private final BigDecimal impuesto;
 
-        LineaVentaForm(Producto producto, BigDecimal cantidad, BigDecimal impuesto) {
+        LineaVentaForm(Producto producto, Almacen almacen, Lote lote, BigDecimal cantidad, BigDecimal impuesto) {
             this.producto = producto;
+            this.almacen = almacen;
+            this.lote = lote;
             this.cantidad = cantidad;
             this.impuesto = impuesto;
         }
 
         Producto getProducto() {
             return producto;
+        }
+
+        Almacen getAlmacen() {
+            return almacen;
+        }
+
+        Lote getLote() {
+            return lote;
         }
 
         BigDecimal getCantidad() {
