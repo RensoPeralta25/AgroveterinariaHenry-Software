@@ -11,6 +11,7 @@
     "@vaadin/vaadin-lumo-styles": "25.1.2",
     "@vaadin/vaadin-themable-mixin": "25.1.2",
     "@vaadin/vaadin-usage-statistics": "2.1.3",
+    "chart.js": "^4.5.1",
     "date-fns": "4.1.0",
     "lit": "3.3.2",
     "ol": "10.6.1",
@@ -73,7 +74,7 @@
       "vite": "7.3.2",
       "vite-plugin-checker": "0.12.0"
     },
-    "hash": "c800464cff220725ab9835e00de4e2c7093993d29885bfb4a88f1a4068703f63",
+    "hash": "903c361dd9be438f0b2582e1b71d01038cc4c4def9fd8c543f7e7cdc884e0bc6",
     "overrides": {
       "@vaadin/a11y-base": "25.1.2",
       "@vaadin/accordion": "25.1.2",
@@ -151,6 +152,7 @@
       "@vaadin/vaadin-usage-statistics": "$@vaadin/vaadin-usage-statistics",
       "@vaadin/vertical-layout": "25.1.2",
       "@vaadin/virtual-list": "25.1.2",
+      "chart.js": "$chart.js",
       "date-fns": "$date-fns",
       "lit": "$lit",
       "ol": "$ol",
@@ -243,6 +245,7 @@
     "@vaadin/rich-text-editor": "25.1.2",
     "@vaadin/vaadin-lumo-styles": "$@vaadin/vaadin-lumo-styles",
     "@vaadin/email-field": "25.1.2",
-    "@vaadin/message-input": "25.1.2"
+    "@vaadin/message-input": "25.1.2",
+    "chart.js": "$chart.js"
   }
 }

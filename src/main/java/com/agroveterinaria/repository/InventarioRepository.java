@@ -35,6 +35,18 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
     @Query("SELECT COALESCE(SUM(i.cantidadActual), 0) FROM Inventario i WHERE i.lote.producto = :producto")
     BigDecimal sumarStockPorProducto(@Param("producto") Producto producto);
 
+    @Query("SELECT COUNT(p) FROM Producto p " +
+            "WHERE p.status = com.agroveterinaria.enums.StatusEntidad.ACTIVO " +
+            "AND p.categoria <> com.agroveterinaria.enums.CategoriaProducto.SERVICIO " +
+            "AND COALESCE((SELECT SUM(i.cantidadActual) FROM Inventario i WHERE i.lote.producto = p), 0) <= :stockMinimo")
+    long contarProductosActivosConStockBajo(@Param("stockMinimo") BigDecimal stockMinimo);
+
+    @Query("SELECT i.lote.producto.categoria, SUM(i.cantidadActual) FROM Inventario i " +
+            "WHERE i.lote.producto.status = com.agroveterinaria.enums.StatusEntidad.ACTIVO " +
+            "GROUP BY i.lote.producto.categoria " +
+            "ORDER BY SUM(i.cantidadActual) DESC")
+    List<Object[]> sumarStockPorCategoria();
+
     Optional<Inventario> findByAlmacenAndLote(Almacen almacen, Lote lote);
 
     @Query("SELECT i.lote FROM Inventario i WHERE i.almacen = :almacen AND i.lote.producto = :producto AND i.cantidadActual > 0")
