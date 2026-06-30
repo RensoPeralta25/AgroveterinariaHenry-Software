@@ -27,6 +27,7 @@ import com.agroveterinaria.view.Venta.ListaVentasView;
 import com.agroveterinaria.view.Venta.VentaView;
 import com.agroveterinaria.view.transferencia.RegistroTransferenciaView;
 import com.agroveterinaria.view.transferencia.TransferenciasView;
+import com.agroveterinaria.view.transporte.VehiculoView;
 import com.agroveterinaria.view.usuario.UsuarioView;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
@@ -202,8 +203,9 @@ public class MainView extends Div {
         Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Gestión de Recepciones");
         Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
         Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Transferencias");
+        Button vehiculosBtn = createSubmenuButton(VaadinIcon.TRUCK, "Flota de Vehículos");
 
-        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn);
+        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn, vehiculosBtn);
         logisticaSubmenu.addClassName("sidebar-submenu");
         logisticaSubmenu.setPadding(false);
         logisticaSubmenu.setSpacing(false);
@@ -252,6 +254,7 @@ public class MainView extends Div {
         regTransferenciaBtn.setEnabled(accesoAlmacen);
         recepcionesBtn.setEnabled(accesoAlmacen || esConductor);
         despachosBtn.setEnabled(accesoAlmacen || esConductor);
+        vehiculosBtn.setEnabled(esAdmin);
 
 
         inicioButton.addClickListener(event -> showModule(
@@ -363,6 +366,18 @@ public class MainView extends Div {
             almacenSubmenu.setVisible(true);
             showModule(ajustesAuditoriaBtn, "Almacén e Inventario", "Ajustes de Inventario", "Auditoría, registro de mermas y sobrantes físicos.", VaadinIcon.ADJUST, new AjustesInventarioView(ajusteInventarioService, almacenService, productoService, loteService, empleadoService, securityService, inventarioService));
             almacenButton.addClassName("menu-button-active");
+        });
+        vehiculosBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(
+                    vehiculosBtn,
+                    "Logística",
+                    "Flota de Vehículos",
+                    "Gestión y estado de los camiones de la empresa.",
+                    VaadinIcon.TRUCK,
+                    new VehiculoView(vehiculoService)
+            );
+            logisticaButton.addClassName("menu-button-active");
         });
 
         class NavegadorCompras {

@@ -101,7 +101,7 @@ public class NuevoDespachoDialog extends Dialog {
 
         cbVehiculo = new ComboBox<>("Vehículo Asignado");
         cbVehiculo.setWidthFull();
-        cbVehiculo.setItems(vehiculoService.listarTodos());
+        cbVehiculo.setItems(vehiculoService.listarDisponibles());
         cbVehiculo.setItemLabelGenerator(v -> v.getPlaca() + " - " + v.getModelo());
 
         cbConductor = new ComboBox<>("Conductor Asignado");
