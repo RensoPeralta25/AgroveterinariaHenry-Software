@@ -1,5 +1,6 @@
 package com.agroveterinaria.service;
 
+import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Nomina;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import com.agroveterinaria.repository.NominaRepository;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
@@ -34,6 +36,14 @@ public class NominaService {
 
     public Optional<Nomina> findById(Long id) {
         return nominaRepository.findById(id);
+    }
+
+    public Set<Long> getIdsEmpleadosConHistorial() {
+        return nominaRepository.findIdsEmpleadosConHistorial();
+    }
+
+    public boolean existsByEmpleado(Empleado empleado){
+        return nominaRepository.existsByEmpleado(empleado);
     }
 
 }

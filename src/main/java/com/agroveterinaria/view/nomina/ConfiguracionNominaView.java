@@ -15,6 +15,10 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.util.Locale;
+
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class ConfiguracionNominaView extends VerticalLayout {
     private final ConfiguracionNominaService configuracionNominaService;
@@ -29,10 +33,11 @@ public class ConfiguracionNominaView extends VerticalLayout {
         Grid<ConfiguracionNomina> grid = new Grid<>(ConfiguracionNomina.class, false);
         grid.addClassName("configuracion-grid-grid");
         grid.addThemeNames("row-stripes");
+        grid.addClassName("configuracion-grid");
 
         grid.addColumn(ConfiguracionNomina::getClave).setHeader("Clave").setFlexGrow(1);
         grid.addColumn(ConfiguracionNomina::getDescripcion).setHeader("Descripción").setFlexGrow(2);
-        grid.addColumn(ConfiguracionNomina::getValor).setHeader("Valor actual").setWidth("150px").setFlexGrow(0);
+        grid.addColumn(this::formatearValorConfiguracion).setHeader("Valor actual").setWidth("150px").setFlexGrow(0);
 
         grid.addComponentColumn(config -> {
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
@@ -79,6 +84,28 @@ public class ConfiguracionNominaView extends VerticalLayout {
         dialog.add(contenido);
         dialog.getFooter().add(btnCancelar, btnGuardar);
         dialog.open();
+    }
+
+    private String formatearMonto(BigDecimal monto) {
+        if (monto == null) return "0.00";
+        NumberFormat formato = NumberFormat.getNumberInstance(new Locale("es", "DO"));
+        formato.setMinimumFractionDigits(2);
+        formato.setMaximumFractionDigits(2);
+        return formato.format(monto);
+    }
+
+    private String formatearValorConfiguracion(ConfiguracionNomina config) {
+        if (config.getValor() == null) return "0.00";
+
+        String clave = config.getClave().toUpperCase();
+
+        if (clave.contains("PORCENTAJE")) {
+            BigDecimal valorPorcentual = config.getValor().multiply(new BigDecimal("100"));
+            return valorPorcentual.setScale(2, java.math.RoundingMode.HALF_UP) + "%";
+
+        } else {
+            return "RD$ " + formatearMonto(config.getValor());
+        }
     }
 
     private void mostrarError(String mensaje) {

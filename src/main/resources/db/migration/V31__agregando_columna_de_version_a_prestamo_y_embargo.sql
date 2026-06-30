@@ -1,0 +1,3 @@
+ALTER TABLE prestamo_empleado ADD COLUMN version BIGINT DEFAULT 0 NOT NULL;
+
+ALTER TABLE embargo_salarial ADD COLUMN version BIGINT DEFAULT 0 NOT NULL;

@@ -1,12 +1,11 @@
 package com.agroveterinaria.enums;
 
-public enum PeriodoNomina {
-    MES("Mensual"),
-    QUINCENA("Quincenal");
+public enum TipoEmbargo {
+    PENSION_ALIMENTICIA("Pensión Alimenticia");
 
     private final String descripcion;
 
-    PeriodoNomina(String descripcion) {
+    TipoEmbargo(String descripcion) {
         this.descripcion = descripcion;
     }
 
