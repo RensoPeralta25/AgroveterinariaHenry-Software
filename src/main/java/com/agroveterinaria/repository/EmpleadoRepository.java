@@ -19,4 +19,6 @@ public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
     List<Empleado> findByCargo(@Param("rol") RolEmpleado rol);
 
     List<Empleado> findByActivoTrue();
+
+    Empleado findByUsuarioUsername(String username);
 }

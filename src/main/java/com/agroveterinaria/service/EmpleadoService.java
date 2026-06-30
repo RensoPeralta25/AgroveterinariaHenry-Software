@@ -109,6 +109,10 @@ public class EmpleadoService {
         empleadoRepository.save(empleado);
     }
 
+    public Empleado findByUsuarioUsername(String username) {
+        return empleadoRepository.findByUsuarioUsername(username);
+    }
+
     public void validar(Empleado empleado){
         if (empleado == null) {
             throw new IllegalArgumentException("Error: No se recibieron datos del empleado.");

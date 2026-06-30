@@ -11,6 +11,7 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
+import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -53,6 +54,7 @@ public class EmpleadoView extends VerticalLayout {
         crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getCedula() : "").setHeader("Cédula");
         crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getNombre() : "").setHeader("Nombre");
         crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getTelefono() : "").setHeader("Teléfono");
+        crudEmpleado.getGrid().addColumn(Empleado::getFechaIngreso).setHeader("Fecha de Ingreso").setSortable(true);
         crudEmpleado.getGrid().addColumn(Empleado::getSalario).setHeader("Salario");
 
         crudEmpleado.getGrid().addComponentColumn(empleado -> {
@@ -128,6 +130,7 @@ public class EmpleadoView extends VerticalLayout {
         });
 
         TextField buscarEmpleado = new TextField();
+        buscarEmpleado.setWidthFull();
         buscarEmpleado.setPlaceholder("Buscar empleado...");
         buscarEmpleado.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscarEmpleado.setValueChangeMode(ValueChangeMode.LAZY);
@@ -138,6 +141,8 @@ public class EmpleadoView extends VerticalLayout {
                 e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), chkMostrarInactivos.getValue(), empleadoService)
         );
         chkMostrarInactivos.addValueChangeListener(e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), e.getValue(),empleadoService));
+        chkMostrarInactivos.getStyle().set("white-space", "nowrap");
+        chkMostrarInactivos.getStyle().set("flex-shrink", "0");
 
         actualizarFiltroGrid(crudEmpleado, "", false, empleadoService);
 
@@ -155,6 +160,7 @@ public class EmpleadoView extends VerticalLayout {
                 "persona.nombre",
                 "persona.telefono",
                 "persona.direccion",
+                "fechaIngreso",
                 "salario",
                 "cargos"
         );
@@ -164,6 +170,7 @@ public class EmpleadoView extends VerticalLayout {
                 "Nombre",
                 "Teléfono",
                 "Dirección",
+                "Fecha de ingreso",
                 "Salario",
                 "Cargos"
         );
@@ -212,6 +219,12 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setFieldProvider("persona.direccion", empleado -> direccionField);
         formFactory.setFieldProvider("salario", empleado -> crearCampoSalario());
 
+        formFactory.setFieldProvider("fechaIngreso", empleado -> {
+            DatePicker fechaIngresoField = new DatePicker("Fecha de ingreso");
+            fechaIngresoField.setClearButtonVisible(true);
+            fechaIngresoField.setWidthFull();
+            return fechaIngresoField;
+        });
 
         formFactory.setFieldProvider("cargos", empleado -> {
             MultiSelectComboBox<RolEmpleado> combo = new MultiSelectComboBox<>("Roles");

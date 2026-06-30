@@ -34,7 +34,16 @@ public class VacacionEmpleado {
     private LocalDate fechaFin;
 
     @Min(value = 1, message = "La cantidad de días debe ser al menos 1")
-    private int cantidadDias;
+    private int cantidadDiasDescanso;
+
+    @Min(value = 0, message = "La cantidad de días a pagar no puede ser negativa")
+    @Column(name = "cantidad_dias_a_pagar")
+    private int cantidadDiasAPagar;
+
+    @NotNull
+    @ManyToOne
+    @JoinColumn(name = "id_empleado_aprobador")
+    private Empleado aprobadoPor;
     
     private boolean pagadoPorAdelantado = false;
 }

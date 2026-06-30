@@ -9,7 +9,9 @@
 :host(.recepciones-pendientes-grid) [part~="header-cell"],
 :host(.transferencia-grid) [part~="header-cell"],
 :host(.despacho-grid),
-:host(.ajustes-grid) [part~="header-cell"] {
+:host(.ajustes-grid) [part~="header-cell"],
+:host(.feriado-grid) [part~="header-cell"],
+:host(.vacacion-grid) [part~="header-cell"]{
     background-color: #002899;
     color: #ffffff;
     font-weight: 500;

@@ -119,4 +119,40 @@ public class ConfiguracionNominaService {
                 .map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIVISOR_LIMITE_EMBARGO'."));
     }
+
+    public int getAniosBonificacionSenior() {
+        BigDecimal valor = configuracionNominaRepository.findByClave("ANIOS_BONIFICACION_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'ANIOS_BONIFICACION_SENIOR'."));
+
+        return valor.intValue();
+    }
+
+    public int getDiasDescansoVacaciones() {
+        return configuracionNominaRepository.findByClave("DIAS_DESCANSO_VACACIONES")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_DESCANSO_VACACIONES'."));
+    }
+
+    public int getAniosVacacionesSenior() {
+        return configuracionNominaRepository.findByClave("ANIOS_VACACIONES_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'ANIOS_VACACIONES_SENIOR'."));
+    }
+
+    public int getDiasPagoVacacionesBasico() {
+        return configuracionNominaRepository.findByClave("DIAS_PAGO_VACACIONES_BASICO")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_PAGO_VACACIONES_BASICO'."));
+    }
+
+    public int getDiasPagoVacacionesSenior() {
+        return configuracionNominaRepository.findByClave("DIAS_PAGO_VACACIONES_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_PAGO_VACACIONES_SENIOR'."));
+    }
 }

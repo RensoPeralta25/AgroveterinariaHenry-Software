@@ -27,6 +27,7 @@ import com.agroveterinaria.view.Venta.VentaView;
 import com.agroveterinaria.view.transferencia.RegistroTransferenciaView;
 import com.agroveterinaria.view.transferencia.TransferenciasView;
 import com.agroveterinaria.view.usuario.UsuarioView;
+import com.agroveterinaria.view.vacacion.VacacionEmpleadoView;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.Div;
@@ -88,7 +89,10 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
-            NominaService nominaService) {
+            NominaService nominaService,
+            VacacionEmpleadoService vacacionEmpleadoService,
+            DiaFeriadoService diaFeriadoService,
+            PeriodoFiscalService periodoFiscalService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -99,7 +103,8 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, nominaService);
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, nominaService,
+                vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -145,7 +150,10 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
-            NominaService nominaService
+            NominaService nominaService,
+            VacacionEmpleadoService vacacionEmpleadoService,
+            DiaFeriadoService diaFeriadoService,
+            PeriodoFiscalService periodoFiscalService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -182,6 +190,7 @@ public class MainView extends Div {
         Button ventasButton = createMenuButton(VaadinIcon.CART, "Ventas");
         Button recursosHumanosButton = createMenuButton(VaadinIcon.INVOICE, "Recursos Humanos");
         Button nominaButton = createSubmenuButton(VaadinIcon.INVOICE, "Nómina");
+        Button vacacionesButton = createSubmenuButton(VaadinIcon.FLIGHT_TAKEOFF, "Vacaciones");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -213,7 +222,7 @@ public class MainView extends Div {
         ventasSubmenu.setSpacing(false);
         ventasSubmenu.setVisible(false);
 
-        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton);
+        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton);
         recursosHumanosSubMenu.addClassName("sidebar-submenu");
         recursosHumanosSubMenu.setPadding(false);
         recursosHumanosSubMenu.setSpacing(false);
@@ -236,6 +245,7 @@ public class MainView extends Div {
         recursosHumanosButton.setEnabled(esAdmin);
         empleadosButton.setEnabled(esAdmin);
         nominaButton.setEnabled(esAdmin);
+        vacacionesButton.setEnabled(esAdmin);
 
         boolean accesoAlmacen = esAdmin || esAsistente;
 
@@ -475,7 +485,21 @@ public class MainView extends Div {
                 "Panel de Nómina",
                 "Generación y control de nóminas del personal",
                 VaadinIcon.INVOICE,
-                new NominaView(corridaNominaService, detalleNominaService, configuracionNominaService)
+                new NominaView(corridaNominaService, detalleNominaService, configuracionNominaService, diaFeriadoService,
+                        empleadoService, periodoFiscalService)
+            );
+            recursosHumanosButton.addClassName("menu-button-active");
+        });
+
+        vacacionesButton.addClickListener(event -> {
+            recursosHumanosSubMenu.setVisible(true);
+            showModule(
+                    vacacionesButton,
+                    "Gestión de Vacaciones",
+                    "Control de Vacaciones",
+                    "Programación y registro de descansos del personal",
+                    VaadinIcon.FLIGHT_TAKEOFF,
+                    new VacacionEmpleadoView(vacacionEmpleadoService, empleadoService, diaFeriadoService, configuracionNominaService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });

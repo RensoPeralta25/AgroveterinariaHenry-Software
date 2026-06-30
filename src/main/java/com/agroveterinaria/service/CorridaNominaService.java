@@ -29,6 +29,7 @@ public class CorridaNominaService {
     private final PrestamoEmpleadoService prestamoEmpleadoService;
     private final EmbargoSalarialService embargoSalarialService;
     private final ConfiguracionNominaService configuracionNominaService;
+    private final DiaFeriadoService diaFeriadoService;
 
     public List<CorridaNomina> findAllConNominas() {
         return corridaRepository.findAllConNominas();
@@ -40,10 +41,53 @@ public class CorridaNominaService {
         return corridaRepository.existsByPeriodoAndFechaEmisionBetween(periodo, inicio, fin);
     }
 
-    public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo) {
+    public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo, PeriodoFiscal periodoFiscal, Empleado empleadoEspecifico) {
+        if (tipo == TipoCorrida.VACACIONES_ANTICIPADAS) {
+            if (empleadoEspecifico == null) {
+                throw new IllegalStateException("Debe seleccionar un empleado para generar vacaciones anticipadas.");
+            }
+
+            List<VacacionEmpleado> pendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(empleadoEspecifico);
+            if (pendientes == null || pendientes.isEmpty()) {
+                throw new IllegalStateException("El empleado seleccionado no tiene vacaciones aprobadas pendientes de pago.");
+            }
+        }
+
+        if (corridaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
+            throw new IllegalStateException("Acción denegada: Existe una corrida de nómina PENDIENTE en el sistema. Debe aprobarla o eliminarla antes de generar una nueva.");
+        }
+
+        LocalDate hoy = LocalDate.now();
+        LocalDate finDeEsteMes = hoy.withDayOfMonth(hoy.lengthOfMonth());
+        if (fecha.isAfter(finDeEsteMes)) {
+            throw new IllegalStateException("Acción denegada: No se pueden generar ni programar corridas de nómina para meses futuros.");
+        }
+
+        if (corridaRepository.existsByPeriodoAndFechaEmisionAndTipo(periodo, fecha, tipo)) {
+            throw new IllegalStateException("Ya existe una corrida de tipo " + tipo +
+                    " para el período " + periodo + " en la fecha " + fecha+ "."
+            );
+        }
+
+        if (tipo == TipoCorrida.REGALIA_PASCUAL) {
+            validarRegaliaPascual(fecha);
+        } else if (tipo == TipoCorrida.BONIFICACION) {
+            if (periodoFiscal == null) {
+                throw new IllegalStateException("Para generar bonificaciones, debe seleccionar un Período Fiscal.");
+            }
+            validarBonificacion(fecha, periodoFiscal);
+        }
+
         CorridaNomina corrida = new CorridaNomina(periodo, fecha);
         corrida.setTipo(tipo);
-        List<Empleado> empleados = empleadoService.findByActivoTrue();
+
+        if (periodoFiscal != null) {
+            corrida.setPeriodoFiscal(periodoFiscal);
+        }
+
+        List<Empleado> empleados = (empleadoEspecifico != null)
+                ? List.of(empleadoEspecifico)
+                : empleadoService.findByActivoTrue();
         Set<Nomina> nominas = new LinkedHashSet<>();
 
         for (Empleado empleado : empleados) {
@@ -108,12 +152,13 @@ public class CorridaNominaService {
                     prestamoEmpleadoService.save(prestamo);
                 }
             }
-        }
 
-        if (corrida.getTipo() == TipoCorrida.VACACIONES_ANTICIPADAS) {
-            for (Nomina nomina : corrida.getNominas()) {
-                List<VacacionEmpleado> vacaciones = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(nomina.getEmpleado());
-                for (VacacionEmpleado vacacion : vacaciones) {
+            boolean tienePagoVacaciones = nomina.getDetalles().stream()
+                    .anyMatch(d -> d.getTipo() == TipoConcepto.PAGO_VACACIONES);
+
+            if (tienePagoVacaciones) {
+                List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(nomina.getEmpleado());
+                for (VacacionEmpleado vacacion : vacacionesNoPagadas) {
                     vacacion.setPagadoPorAdelantado(true);
                     vacacionEmpleadoService.save(vacacion);
                 }
@@ -222,29 +267,46 @@ public class CorridaNominaService {
         }
 
         List<VacacionEmpleado> vacaciones = vacacionEmpleadoService.encontrarVacacionesEnPeriodo(empleado, inicioPeriodo, finPeriodo);
-        BigDecimal montoTotalVacaciones = BigDecimal.ZERO;
+        BigDecimal montoTotalDescontarSalario = BigDecimal.ZERO;
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
         if (!vacaciones.isEmpty()) {
             BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+            List<LocalDate> feriadosDelPeriodo = diaFeriadoService.obtenerFechasFeriadasEnRango(inicioPeriodo, finPeriodo);
 
             for (VacacionEmpleado vacacion : vacaciones) {
                 LocalDate inicioReal = vacacion.getFechaInicio().isAfter(inicioPeriodo) ? vacacion.getFechaInicio() : inicioPeriodo;
                 LocalDate finReal = vacacion.getFechaFin().isBefore(finPeriodo) ? vacacion.getFechaFin() : finPeriodo;
-                long diasSolapados = ChronoUnit.DAYS.between(inicioReal, finReal) + 1;
 
-                BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(diasSolapados));
-                montoTotalVacaciones = montoTotalVacaciones.add(montoVacacion);
+                long diasFisicosAusente = 0;
+                LocalDate diaIterador = inicioReal;
 
-                if (!vacacion.isPagadoPorAdelantado()) {
+                while (!diaIterador.isAfter(finReal)) {
+                    boolean esDomingo = diaIterador.getDayOfWeek() == java.time.DayOfWeek.SUNDAY;
+                    boolean esFeriado = feriadosDelPeriodo.contains(diaIterador);
+
+                    if (!esDomingo && !esFeriado) {
+                        diasFisicosAusente++;
+                    }
+                    diaIterador = diaIterador.plusDays(1);
+                }
+
+                montoTotalDescontarSalario = montoTotalDescontarSalario.add(salarioDiario.multiply(BigDecimal.valueOf(diasFisicosAusente)));
+
+                boolean inicianEnEstePeriodo = !vacacion.getFechaInicio().isBefore(inicioPeriodo) && !vacacion.getFechaInicio().isAfter(finPeriodo);
+
+                if (!vacacion.isPagadoPorAdelantado() && inicianEnEstePeriodo) {
+                    BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
+
                     detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
-                            "Vacaciones (" + diasSolapados + " días)", montoVacacion, 1.0));
+                            "Vacaciones Ordinarias (" + vacacion.getCantidadDiasAPagar() + " días pagados)", montoVacacion, 1.0));
+
                     totalDevengado = totalDevengado.add(montoVacacion);
                 }
             }
         }
 
-        BigDecimal montoSalarioRestante = salarioDelPeriodo.subtract(montoTotalVacaciones);
+        BigDecimal montoSalarioRestante = salarioDelPeriodo.subtract(montoTotalDescontarSalario);
         if (montoSalarioRestante.compareTo(BigDecimal.ZERO) > 0) {
             detalles.add(crearDetalle(nomina, TipoConcepto.SALARIO_BASE, "Salario base", montoSalarioRestante, 1.0));
             totalDevengado = totalDevengado.add(montoSalarioRestante);
@@ -299,6 +361,7 @@ public class CorridaNominaService {
         }
 
         BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+        int aniosSenior = configuracionNominaService.getAniosBonificacionSenior();
         BigDecimal diasTope = configuracionNominaService.getDiasBonificacionTope();
         BigDecimal diasBase = configuracionNominaService.getDiasBonificacionBase();
 
@@ -307,7 +370,7 @@ public class CorridaNominaService {
         Period tiempoLaborando = Period.between(fechaIngreso, fechaCierreFiscal);
         int anios = tiempoLaborando.getYears();
 
-        if (anios >= 3) {
+        if (anios >= aniosSenior) {
             return salarioDiario.multiply(diasTope).setScale(2, java.math.RoundingMode.HALF_UP);
 
         } else if (anios >= 1) {
@@ -347,10 +410,10 @@ public class CorridaNominaService {
 
         for (VacacionEmpleado vacacion : vacacionesPendientes) {
             BigDecimal salarioDiario = calcularSalarioDiario(empleado);
-            BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDias()));
+            BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
 
             detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
-                    "Anticipo Vacaciones (" + vacacion.getCantidadDias() + " días)", montoVacacion, 1.0));
+                    "Anticipo Vacaciones (" + vacacion.getCantidadDiasDescanso() + " días)", montoVacacion, 1.0));
 
             totalDevengado = totalDevengado.add(montoVacacion);
         }
@@ -368,6 +431,37 @@ public class CorridaNominaService {
             }
 
             cobrarEmbargosActivos(empleado, nomina, detalles);
+        }
+    }
+
+    private void validarRegaliaPascual(LocalDate fecha) {
+        if (fecha.getMonth() != java.time.Month.DECEMBER) {
+            throw new IllegalStateException("La Regalía Pascual solo puede generarse en el mes de diciembre.");
+        }
+        if (fecha.getDayOfMonth() > 20) {
+            throw new IllegalStateException("La fecha límite legal para pagar la Regalía Pascual es el 20 de diciembre.");
+        }
+        if (corridaRepository.existeCorridaAnualPorTipo(TipoCorrida.REGALIA_PASCUAL, fecha.getYear())) {
+            throw new IllegalStateException("Ya existe una Regalía Pascual pagada en este año.");
+        }
+
+        long corridasOrdinarias = corridaRepository.countByTipoAndAnio(TipoCorrida.ORDINARIA, fecha.getYear());
+        if (corridasOrdinarias < 11) {
+            throw new IllegalStateException("No se puede generar la regalía porque faltan nóminas ordinarias por procesar.");
+        }
+    }
+
+    private void validarBonificacion(LocalDate fecha, PeriodoFiscal periodoFiscal) {
+        LocalDate fechaCierre = LocalDate.of(periodoFiscal.getAnio(), 12, 31);
+        LocalDate fechaMinima = fechaCierre.plusDays(90);
+        LocalDate fechaMaxima = fechaCierre.plusDays(120);
+
+        if (fecha.isBefore(fechaMinima) || fecha.isAfter(fechaMaxima)) {
+            throw new IllegalStateException("La bonificación debe pagarse entre el 31 de marzo y el 30 de abril posterior al cierre fiscal.");
+        }
+
+        if (corridaRepository.existsByTipoAndPeriodoFiscal(TipoCorrida.BONIFICACION, periodoFiscal)) {
+            throw new IllegalStateException("Ya se pagó la bonificación para este período fiscal.");
         }
     }
 }

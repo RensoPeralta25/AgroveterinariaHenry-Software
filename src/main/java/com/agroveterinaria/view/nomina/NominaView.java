@@ -1,17 +1,12 @@
 package com.agroveterinaria.view.nomina;
 
 
-import com.agroveterinaria.entity.ConfiguracionNomina;
-import com.agroveterinaria.entity.CorridaNomina;
-import com.agroveterinaria.entity.DetalleNomina;
-import com.agroveterinaria.entity.Nomina;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.PeriodoNomina;
 import com.agroveterinaria.enums.TipoConcepto;
 import com.agroveterinaria.enums.TipoCorrida;
-import com.agroveterinaria.service.ConfiguracionNominaService;
-import com.agroveterinaria.service.CorridaNominaService;
-import com.agroveterinaria.service.DetalleNominaService;
+import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -31,11 +26,11 @@ import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.NumberField;
+import org.vaadin.crudui.crud.impl.GridCrud;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,11 +40,19 @@ public class NominaView extends VerticalLayout {
     private final CorridaNominaService corridaNominaService;
     private final DetalleNominaService detalleNominaService;
     private final ConfiguracionNominaService configuracionNominaService;
+    private final DiaFeriadoService diaFeriadoService;
+    private final EmpleadoService empleadoService;
+    private final PeriodoFiscalService periodoFiscalService;
 
-    public NominaView(CorridaNominaService corridaNominaService, DetalleNominaService detalleNominaService, ConfiguracionNominaService configuracionNominaService) {
+    public NominaView(CorridaNominaService corridaNominaService, DetalleNominaService detalleNominaService,
+                      ConfiguracionNominaService configuracionNominaService, DiaFeriadoService diaFeriadoService,
+                      EmpleadoService empleadoService, PeriodoFiscalService periodoFiscalService) {
         this.corridaNominaService = corridaNominaService;
         this.detalleNominaService = detalleNominaService;
         this.configuracionNominaService = configuracionNominaService;
+        this.diaFeriadoService = diaFeriadoService;
+        this.empleadoService = empleadoService;
+        this.periodoFiscalService = periodoFiscalService;
 
         setSizeFull();
         setPadding(true);
@@ -57,37 +60,47 @@ public class NominaView extends VerticalLayout {
 
         Tab tabCorridas = new Tab("Corridas de nómina");
 
-        Tab separador = new Tab("|");
-        separador.getStyle()
+        Tab separador1 = new Tab("|");
+        separador1.getStyle()
                 .set("color", "#cccccc")
                 .set("pointer-events", "none")
                 .set("cursor", "default")
                 .set("padding", "0 4px")
                 .set("min-width", "0");
-        separador.setEnabled(false);
+        separador1.setEnabled(false);
+
+        Tab separador2 = new Tab("|");
+        separador2.getStyle()
+                .set("color", "#cccccc")
+                .set("pointer-events", "none")
+                .set("cursor", "default")
+                .set("padding", "0 4px")
+                .set("min-width", "0");
+        separador2.setEnabled(false);
 
         Tab tabConfiguracion = new Tab("Configuración");
-        Tabs tabs = new Tabs(tabCorridas, separador,tabConfiguracion);
+        Tab tabFeriados = new Tab("Días Feriados");
+
+        Tabs tabs = new Tabs(tabCorridas, separador1,tabConfiguracion, separador2, tabFeriados);
         tabs.setWidthFull();
 
         VerticalLayout contenidoCorridas = crearContenidoCorridas();
         VerticalLayout contenidoConfiguracion = new ConfiguracionNominaView(configuracionNominaService);
+        VerticalLayout vistaFeriados = new DiaFeriadoView(diaFeriadoService);
 
+        vistaFeriados.setVisible(false);
         contenidoConfiguracion.setVisible(false);
 
         tabs.addSelectedChangeListener(e -> {
             Tab selected = tabs.getSelectedTab();
-            if (selected.equals(separador)) {
-                tabs.setSelectedTab(tabCorridas);
-                return;
-            }
-            contenidoCorridas.setVisible(tabs.getSelectedTab().equals(tabCorridas));
-            contenidoConfiguracion.setVisible(tabs.getSelectedTab().equals(tabConfiguracion));
+            contenidoCorridas.setVisible(selected.equals(tabCorridas));
+            contenidoConfiguracion.setVisible(selected.equals(tabConfiguracion));
+            vistaFeriados.setVisible(selected.equals(tabFeriados));
         });
 
         tabs.getStyle().set("border-bottom", "1px solid #e0e0e0");
         tabs.getStyle().set("width", "fit-content");
-        add(tabs, contenidoCorridas, contenidoConfiguracion);
+        add(tabs, contenidoCorridas, contenidoConfiguracion, vistaFeriados);
     }
 
     private VerticalLayout crearContenidoCorridas() {
@@ -156,7 +169,17 @@ public class NominaView extends VerticalLayout {
         btnGenerar.addClassName("btn-nuevo");
         btnGenerar.addClickListener(e -> dialogGeneracion(gridCorridas));
 
-        HorizontalLayout toolbar = new HorizontalLayout(btnGenerar);
+        ComboBox<TipoCorrida> filtroTipo = new ComboBox<>();
+        filtroTipo.setPlaceholder("Filtrar por Tipo...");
+        filtroTipo.setTooltipText("Filtrar por Tipo");
+        filtroTipo.setItems(TipoCorrida.values());
+        filtroTipo.setClearButtonVisible(true);
+        filtroTipo.setMinWidth("280px");
+        filtroTipo.setItemLabelGenerator(TipoCorrida::getDescripcion);
+
+        filtroTipo.addValueChangeListener(e -> actualizarFiltroGrid(gridCorridas, filtroTipo.getValue(), corridaNominaService));
+
+        HorizontalLayout toolbar = new HorizontalLayout(btnGenerar, filtroTipo);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.getStyle().set("margin-bottom", "12px");
@@ -171,15 +194,48 @@ public class NominaView extends VerticalLayout {
         dialog.setHeaderTitle("Nueva corrida de nómina");
         dialog.setWidth("450px");
 
+        ComboBox<TipoCorrida> cmbTipo = new ComboBox<>("Tipo de Corrida");
+        cmbTipo.setItems(TipoCorrida.values());
+        cmbTipo.setValue(TipoCorrida.ORDINARIA);
+        cmbTipo.setItemLabelGenerator(TipoCorrida::getDescripcion);
+        cmbTipo.setWidthFull();
+
         ComboBox<PeriodoNomina> cmbPeriodo = new ComboBox<>("Período");
         cmbPeriodo.setItems(PeriodoNomina.values());
+        cmbPeriodo.setItemLabelGenerator(PeriodoNomina::getDescripcion);
         cmbPeriodo.setWidthFull();
 
         DatePicker fechaEmision = new DatePicker("Fecha de emisión");
         fechaEmision.setValue(LocalDate.now());
         fechaEmision.setWidthFull();
 
-        VerticalLayout contenido = new VerticalLayout(cmbPeriodo, fechaEmision);
+        ComboBox<PeriodoFiscal> cmbPeriodoFiscal = new ComboBox<>("Período Fiscal");
+        cmbPeriodoFiscal.setItems(periodoFiscalService.findAll());
+        cmbPeriodoFiscal.setItemLabelGenerator(p -> p.getAnio() + "");
+        cmbPeriodoFiscal.setWidthFull();
+        cmbPeriodoFiscal.setVisible(false);
+
+        ComboBox<Empleado> cmbEmpleado = new ComboBox<>("Empleado (Solo Pago Individual)");
+        cmbEmpleado.setItems(empleadoService.findByActivoTrue());
+        cmbEmpleado.setItemLabelGenerator(e -> e.getPersona().getNombre());
+        cmbEmpleado.setWidthFull();
+        cmbEmpleado.setVisible(false);
+
+        cmbTipo.addValueChangeListener(event -> {
+            TipoCorrida tipo = event.getValue();
+            cmbPeriodoFiscal.setVisible(tipo == TipoCorrida.BONIFICACION);
+            cmbEmpleado.setVisible(tipo == TipoCorrida.VACACIONES_ANTICIPADAS);
+
+            if (tipo == TipoCorrida.BONIFICACION || tipo == TipoCorrida.REGALIA_PASCUAL) {
+                cmbPeriodo.setValue(PeriodoNomina.MES);
+            }
+
+            if (tipo == TipoCorrida.VACACIONES_ANTICIPADAS) {
+                cmbPeriodo.setValue(PeriodoNomina.QUINCENA);
+            }
+        });
+
+        VerticalLayout contenido = new VerticalLayout(cmbTipo, cmbPeriodo, fechaEmision, cmbPeriodoFiscal, cmbEmpleado);
         contenido.setPadding(false);
         contenido.setSpacing(true);
 
@@ -190,23 +246,42 @@ public class NominaView extends VerticalLayout {
         Button btnGenerar = new Button("Generar", new Icon(VaadinIcon.PLAY));
         btnGenerar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         btnGenerar.addClickListener(e -> {
-            if (cmbPeriodo.isEmpty() || fechaEmision.isEmpty()) {
-                mostrarError("Debes completar todos los campos.");
+            if (cmbTipo.isEmpty() || cmbPeriodo.isEmpty() || fechaEmision.isEmpty()) {
+                mostrarError("Debes completar todos los campos principales.");
+                return;
+            }
+
+            if (cmbTipo.getValue() == TipoCorrida.BONIFICACION && cmbPeriodoFiscal.isEmpty()) {
+                mostrarError("Seleccione el Período Fiscal para la Bonificación.");
+                return;
+            }
+
+            if (cmbTipo.getValue() == TipoCorrida.VACACIONES_ANTICIPADAS && cmbEmpleado.isEmpty()) {
+                mostrarError("Seleccione un Empleado para la corrida anticipada.");
                 return;
             }
 
             PeriodoNomina periodo = cmbPeriodo.getValue();
             LocalDate fecha = fechaEmision.getValue();
+            TipoCorrida tipo = cmbTipo.getValue();
 
-            if (corridaNominaService.existeCorridaEnPeriodo(periodo, fecha)) {
-                mostrarError("Ya existe una corrida para ese período.");
+            if (tipo == TipoCorrida.ORDINARIA && corridaNominaService.existeCorridaEnPeriodo(periodo, fecha)) {
+                mostrarError("Ya existe una corrida ordinaria para ese período.");
                 return;
             }
 
-            CorridaNomina corrida = corridaNominaService.generarCorrida(periodo, fecha, TipoCorrida.ORDINARIA); // TODO: Esto va a cambiar en el futuro
-            dialog.close();
-            refrescarGrid(gridCorridas);
-            dialogResultadoCorrida(corrida, gridCorridas, true);
+            try {
+                CorridaNomina corrida = corridaNominaService.generarCorrida(
+                        periodo, fecha, tipo, cmbPeriodoFiscal.getValue(), cmbEmpleado.getValue()
+                );
+
+                dialog.close();
+                refrescarGrid(gridCorridas);
+                dialogResultadoCorrida(corrida, gridCorridas, true);
+
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
         });
 
         dialog.add(contenido);
@@ -232,14 +307,8 @@ public class NominaView extends VerticalLayout {
         BigDecimalField comisionesExtraordinarias = crearCampoMoneda("Comisiones Extraordinarias / Bonos");
         comisionesExtraordinarias.setValue(obtenerMontoConcepto(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS));
 
-        BigDecimalField bonificaciones = crearCampoMoneda("Bonificaciones");
-        bonificaciones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.BONIFICACIONES));
-
         BigDecimalField dietasYViaticos = crearCampoMoneda("Dietas y viáticos");
         dietasYViaticos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.DIETAS_Y_VIATICOS));
-
-        BigDecimalField pagoVacaciones = crearCampoMoneda("Pago de vacaciones");
-        pagoVacaciones.setValue(obtenerMontoConcepto(nomina, TipoConcepto.PAGO_VACACIONES));
 
         NumberField ausencias = new NumberField("Ausencias no pagadas (días)");
         ausencias.setMin(0);
@@ -254,7 +323,7 @@ public class NominaView extends VerticalLayout {
         BigDecimalField otrosDescuentos = crearCampoMoneda("Otros descuentos");
         otrosDescuentos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.OTRAS_DEDUCCIONES));
 
-        FormLayout formIngresos = new FormLayout(horasExtras, comisionesRegulares, comisionesExtraordinarias, bonificaciones, dietasYViaticos, pagoVacaciones);
+        FormLayout formIngresos = new FormLayout(horasExtras, comisionesRegulares, comisionesExtraordinarias, dietasYViaticos);
         formIngresos.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("300px", 2));
 
@@ -289,10 +358,7 @@ public class NominaView extends VerticalLayout {
 
             agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_REGULARES, "Comisiones Regulares", comisionesRegulares.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS, "Comisiones Extraordinarias", comisionesExtraordinarias.getValue(), 1.0);
-            agregarOActualizarNovedad(nomina, TipoConcepto.BONIFICACIONES, "Bonificaciones", bonificaciones.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.DIETAS_Y_VIATICOS, "Dietas y viáticos", dietasYViaticos.getValue(), 1.0);
-            agregarOActualizarNovedad(nomina, TipoConcepto.PAGO_VACACIONES, "Pago de vacaciones", pagoVacaciones.getValue(), 1.0);
-
             agregarOActualizarNovedad(nomina, TipoConcepto.ANTICIPO_SALARIO, "Anticipo de salario", anticipo.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.OTRAS_DEDUCCIONES, "Otros descuentos", otrosDescuentos.getValue(), 1.0);
 
@@ -528,5 +594,13 @@ public class NominaView extends VerticalLayout {
     private void mostrarExito(String mensaje) {
         Notification notification = Notification.show(mensaje, 3000, Notification.Position.MIDDLE);
         notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+    }
+
+    private void actualizarFiltroGrid(Grid<CorridaNomina> grid, TipoCorrida tipoFiltro, CorridaNominaService corridaNominaServiceservice) {
+        List<CorridaNomina> listaFiltrada = corridaNominaService.findAllConNominas().stream()
+                .filter(c -> tipoFiltro == null || c.getTipo() == tipoFiltro)
+                .toList();
+
+        grid.setItems(listaFiltrada);
     }
 }
