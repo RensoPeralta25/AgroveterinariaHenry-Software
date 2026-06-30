@@ -3,6 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Vehiculo;
 import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.EstadoVehiculo;
 import com.agroveterinaria.enums.UnidadMedida;
 import com.agroveterinaria.repository.ProductoRepository;
 import com.agroveterinaria.repository.ProveedorRepository;
@@ -28,6 +29,11 @@ public class VehiculoService {
     @Transactional(readOnly = true)
     public List<Vehiculo> listarTodos() {
         return vehiculoRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Vehiculo> listarDisponibles() {
+        return vehiculoRepository.findByEstado(EstadoVehiculo.DISPONIBLE);
     }
 
     @Transactional(readOnly = true)
