@@ -1,0 +1,1 @@
+ALTER TABLE ruta ADD COLUMN tarifa_viatico_standard NUMERIC(12, 2) NOT NULL DEFAULT 0.00;

@@ -18,6 +18,7 @@ import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
 import com.agroveterinaria.view.dashboard.DashboardView;
 import com.agroveterinaria.view.logistica.GestionDespachosView;
+import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
@@ -204,8 +205,9 @@ public class MainView extends Div {
         Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
         Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Transferencias");
         Button vehiculosBtn = createSubmenuButton(VaadinIcon.TRUCK, "Flota de Vehículos");
+        Button rutaBtn = createSubmenuButton(VaadinIcon.ROAD, "Configuración de Rutas");
 
-        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn, vehiculosBtn);
+        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn, vehiculosBtn, rutaBtn);
         logisticaSubmenu.addClassName("sidebar-submenu");
         logisticaSubmenu.setPadding(false);
         logisticaSubmenu.setSpacing(false);
@@ -376,6 +378,18 @@ public class MainView extends Div {
                     "Gestión y estado de los camiones de la empresa.",
                     VaadinIcon.TRUCK,
                     new VehiculoView(vehiculoService)
+            );
+            logisticaButton.addClassName("menu-button-active");
+        });
+        rutaBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(
+                    rutaBtn,
+                    "Logística",
+                    "Configuración de Rutas",
+                    "Catálogo estándar de trayectos, distancias y viáticos sugeridos.",
+                    VaadinIcon.ROAD,
+                    new RutaView(rutaService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
