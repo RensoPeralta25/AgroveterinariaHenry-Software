@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ public class Empleado {
     @Column(name = "id_empleado")
     private Long IdEmpleado;
 
+    @NotNull
     @Valid
     @OneToOne
     @JoinColumn(name = "id_persona")
@@ -47,5 +49,11 @@ public class Empleado {
     @NotNull(message = "El salario es obligatorio")
     @PositiveOrZero(message = "El salario no puede ser negativo")
     private BigDecimal salario;
+
+    @NotNull(message = "La fecha de ingreso es obligatoria")
+    private LocalDate fechaIngreso;
+    
+    private boolean activo = true;
+    private boolean prorratearEmbargos = true;
 
 }

@@ -1,12 +1,13 @@
 package com.agroveterinaria.enums;
 
-public enum PeriodoNomina {
-    MES("Mensual"),
-    QUINCENA("Quincenal");
+public enum EstadoPrestamo {
+    ACTIVO("Activo"),
+    SALDADO("Saldado"),
+    CANCELADO("Cancelado");
 
     private final String descripcion;
 
-    PeriodoNomina(String descripcion) {
+    EstadoPrestamo(String descripcion) {
         this.descripcion = descripcion;
     }
 

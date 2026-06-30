@@ -4,7 +4,8 @@ public enum TipoConcepto {
     // Ingresos
     SALARIO_BASE,
     HORAS_EXTRAS,
-    COMISIONES,
+    COMISIONES_REGULARES,
+    COMISIONES_EXTRAORDINARIAS,
     BONIFICACIONES,
     PAGO_VACACIONES,
     SUELDO_13,
@@ -22,9 +23,9 @@ public enum TipoConcepto {
 
     public boolean esIngreso() {
         return this == SALARIO_BASE || this == HORAS_EXTRAS ||
-                this == COMISIONES  || this == BONIFICACIONES ||
-                this == PAGO_VACACIONES || this == SUELDO_13 ||
-                this == DIETAS_Y_VIATICOS;
+                this == COMISIONES_REGULARES || this == COMISIONES_EXTRAORDINARIAS  ||
+                this == BONIFICACIONES || this == PAGO_VACACIONES ||
+                this == SUELDO_13 || this == DIETAS_Y_VIATICOS;
     }
 
     public boolean esDeduccion() {
