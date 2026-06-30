@@ -335,7 +335,7 @@ public class NuevaRecepcionDialog extends Dialog {
 
         cbRuta = new ComboBox<>("Ruta");
         cbRuta.setItems(rutaService.listarTodos());
-        cbRuta.setItemLabelGenerator(r -> r.getDistanciaKm() + " km");
+        cbRuta.setItemLabelGenerator(r -> r.getNombre() + " km");
         cbRuta.setWidthFull();
 
         formCamionYChofer.add(cbVehiculo, cbConductor, cbRuta);

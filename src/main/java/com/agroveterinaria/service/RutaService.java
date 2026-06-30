@@ -5,11 +5,9 @@ import com.agroveterinaria.entity.Ruta;
 import com.agroveterinaria.entity.Vehiculo;
 import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.UnidadMedida;
-import com.agroveterinaria.repository.ProductoRepository;
-import com.agroveterinaria.repository.ProveedorRepository;
-import com.agroveterinaria.repository.RutaRepository;
-import com.agroveterinaria.repository.VehiculoRepository;
+import com.agroveterinaria.repository.*;
 import jakarta.annotation.security.RolesAllowed;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +20,16 @@ import java.util.Optional;
 public class RutaService {
 
     private final RutaRepository rutaRepository;
+    private final RecepcionRepository recepcionRepository;
 
-    public RutaService(RutaRepository rutaRepository) {
+    public RutaService(RutaRepository rutaRepository, RecepcionRepository recepcionRepository) {
         this.rutaRepository = rutaRepository;
+        this.recepcionRepository = recepcionRepository;
     }
 
     @Transactional(readOnly = true)
     public List<Ruta> listarTodos() {
-        return rutaRepository.findAll();
+        return rutaRepository.findAllConParadas();
     }
 
     @Transactional(readOnly = true)
@@ -48,8 +48,19 @@ public class RutaService {
     }
 
     @Transactional
-    public void eliminar(Ruta ruta) {
-        rutaRepository.delete(ruta);
+    public void eliminar(Long idRuta) {
+        Ruta ruta = rutaRepository.findById(idRuta)
+                .orElseThrow(() -> new IllegalArgumentException("La ruta seleccionada no existe."));
+
+        if (recepcionRepository.existsByRutaEnTransporte(ruta)) {
+            throw new IllegalStateException("No se puede eliminar la ruta porque ya está asociada al transporte de una recepción de mercancía.");
+        }
+
+        try {
+            rutaRepository.delete(ruta);
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException("No es posible eliminar la ruta debido a restricciones de integridad en el sistema.");
+        }
     }
 
 }
