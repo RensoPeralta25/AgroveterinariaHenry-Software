@@ -98,8 +98,7 @@ public class MainView extends Div {
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService,
-            DashboardService dashboardService) {
+            PeriodoFiscalService periodoFiscalService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -111,8 +110,7 @@ public class MainView extends Div {
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
-                nominaService, gastoOperativoService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
-                dashboardService);
+                gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
       
         VerticalLayout mainPanel = createMainPanel();
 
