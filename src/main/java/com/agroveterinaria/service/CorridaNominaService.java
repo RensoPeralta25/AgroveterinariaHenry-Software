@@ -35,13 +35,9 @@ public class CorridaNominaService {
         return corridaRepository.findAllConNominas();
     }
 
-    public boolean existeCorridaEnPeriodo(PeriodoNomina periodo, LocalDate fecha) {
-        LocalDate inicio = fecha.withDayOfMonth(1);
-        LocalDate fin = fecha.withDayOfMonth(fecha.lengthOfMonth());
-        return corridaRepository.existsByPeriodoAndFechaEmisionBetween(periodo, inicio, fin);
-    }
-
     public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo, PeriodoFiscal periodoFiscal, Empleado empleadoEspecifico) {
+        validarDisponibilidadDePeriodo(periodo, fecha);
+
         if (tipo == TipoCorrida.VACACIONES_ANTICIPADAS) {
             if (empleadoEspecifico == null) {
                 throw new IllegalStateException("Debe seleccionar un empleado para generar vacaciones anticipadas.");
@@ -55,12 +51,6 @@ public class CorridaNominaService {
 
         if (corridaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
             throw new IllegalStateException("Acción denegada: Existe una corrida de nómina PENDIENTE en el sistema. Debe aprobarla o eliminarla antes de generar una nueva.");
-        }
-
-        LocalDate hoy = LocalDate.now();
-        LocalDate finDeEsteMes = hoy.withDayOfMonth(hoy.lengthOfMonth());
-        if (fecha.isAfter(finDeEsteMes)) {
-            throw new IllegalStateException("Acción denegada: No se pueden generar ni programar corridas de nómina para meses futuros.");
         }
 
         if (corridaRepository.existsByPeriodoAndFechaEmisionAndTipo(periodo, fecha, tipo)) {
@@ -462,6 +452,55 @@ public class CorridaNominaService {
 
         if (corridaRepository.existsByTipoAndPeriodoFiscal(TipoCorrida.BONIFICACION, periodoFiscal)) {
             throw new IllegalStateException("Ya se pagó la bonificación para este período fiscal.");
+        }
+    }
+
+    public void validarDisponibilidadDePeriodo(PeriodoNomina periodoRequerido, LocalDate fecha) {
+        LocalDate hoy = LocalDate.now();
+
+        if (fecha.getYear() > hoy.getYear() || (fecha.getYear() == hoy.getYear() && fecha.getMonthValue() > hoy.getMonthValue())) {
+            throw new IllegalStateException("El sistema no permite generar nóminas para meses futuros.");
+        }
+
+        LocalDate limiteAntiguedad = hoy.minusMonths(3).withDayOfMonth(1);
+        if (fecha.isBefore(limiteAntiguedad)) {
+            throw new IllegalStateException("No se pueden generar nóminas con más de 3 meses de antigüedad por políticas de cierre contable.");
+        }
+
+        LocalDate inicioMes = fecha.withDayOfMonth(1);
+        LocalDate finMes = fecha.withDayOfMonth(fecha.lengthOfMonth());
+        LocalDate mitadMes = fecha.withDayOfMonth(15);
+
+        boolean existeMensual = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.MES, inicioMes, finMes);
+        if (existeMensual) {
+            throw new IllegalStateException("Ya existe una nómina mensual generada para este mes.");
+        }
+
+        if (periodoRequerido == PeriodoNomina.MES) {
+            boolean existeQuincena = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, finMes);
+            if (existeQuincena) {
+                throw new IllegalStateException("No puede generar una nómina mensual porque ya existen quincenas procesadas en este mes.");
+            }
+
+        } else if (periodoRequerido == PeriodoNomina.QUINCENA) {
+            boolean esPrimeraQuincena = fecha.getDayOfMonth() <= 15;
+
+            if (esPrimeraQuincena) {
+                boolean existeQ1 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, mitadMes);
+                if (existeQ1) {
+                    throw new IllegalStateException("La primera quincena de este mes ya fue generada.");
+                }
+            } else {
+                boolean existeQ1 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, mitadMes);
+                if (!existeQ1) {
+                    throw new IllegalStateException("No puede generar la segunda quincena sin haber procesado la primera. Genere una nómina Mensual.");
+                }
+
+                boolean existeQ2 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, mitadMes.plusDays(1), finMes);
+                if (existeQ2) {
+                    throw new IllegalStateException("La segunda quincena de este mes ya fue generada.");
+                }
+            }
         }
     }
 }

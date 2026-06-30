@@ -265,11 +265,6 @@ public class NominaView extends VerticalLayout {
             LocalDate fecha = fechaEmision.getValue();
             TipoCorrida tipo = cmbTipo.getValue();
 
-            if (tipo == TipoCorrida.ORDINARIA && corridaNominaService.existeCorridaEnPeriodo(periodo, fecha)) {
-                mostrarError("Ya existe una corrida ordinaria para ese período.");
-                return;
-            }
-
             try {
                 CorridaNomina corrida = corridaNominaService.generarCorrida(
                         periodo, fecha, tipo, cmbPeriodoFiscal.getValue(), cmbEmpleado.getValue()
