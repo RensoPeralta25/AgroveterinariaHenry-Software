@@ -3,6 +3,7 @@ package com.agroveterinaria.view.logistica;
 import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.service.DespachoService;
 import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.LoteService;
 import com.agroveterinaria.service.VehiculoService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -30,6 +31,7 @@ public class GestionDespachosView extends VerticalLayout {
     private final DespachoService despachoService;
     private final VehiculoService vehiculoService;
     private final EmpleadoService empleadoService;
+    private final LoteService loteService;
     private Grid<DespachoResumenDTO> gridDespachos;
     private ListDataProvider<DespachoResumenDTO> dataProvider;
 
@@ -39,10 +41,12 @@ public class GestionDespachosView extends VerticalLayout {
 
     public GestionDespachosView(DespachoService despachoService,
                                 VehiculoService vehiculoService,
-                                EmpleadoService empleadoService) {
+                                EmpleadoService empleadoService,
+                                LoteService loteService) {
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
+        this.loteService = loteService;
 
         setSizeFull();
         setPadding(true);
@@ -55,6 +59,7 @@ public class GestionDespachosView extends VerticalLayout {
                     despachoService,
                     vehiculoService,
                     empleadoService,
+                    loteService,
                     this::cargarDatos
             );
             dialog.open();

@@ -20,4 +20,6 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long> {
     List<Despacho> findAllConRelaciones();
 
     Despacho findFirstByTransferenciaOrderByFechaHoraSalidaProgramadaDesc(Transferencia transferencia);
+
+    long countByFechaHoraEntregaIsNull();
 }

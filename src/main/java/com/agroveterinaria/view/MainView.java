@@ -16,7 +16,9 @@ import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
+import com.agroveterinaria.view.dashboard.DashboardView;
 import com.agroveterinaria.view.logistica.GestionDespachosView;
+import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
@@ -26,6 +28,7 @@ import com.agroveterinaria.view.Venta.ListaVentasView;
 import com.agroveterinaria.view.Venta.VentaView;
 import com.agroveterinaria.view.transferencia.RegistroTransferenciaView;
 import com.agroveterinaria.view.transferencia.TransferenciasView;
+import com.agroveterinaria.view.transporte.VehiculoView;
 import com.agroveterinaria.view.usuario.UsuarioView;
 import com.agroveterinaria.view.vacacion.VacacionEmpleadoView;
 import com.vaadin.flow.component.Component;
@@ -92,7 +95,8 @@ public class MainView extends Div {
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService) {
+            PeriodoFiscalService periodoFiscalService,
+            DashboardService dashboardService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -104,7 +108,7 @@ public class MainView extends Div {
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, nominaService,
-                vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
+                vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,dashboardService);
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -121,7 +125,7 @@ public class MainView extends Div {
                 "Panel Principal",
                 "Resumen general de la operación administrativa.",
                 VaadinIcon.DASHBOARD,
-                createWelcomePanel()
+                new DashboardView(dashboardService)
         );
     }
 
@@ -153,7 +157,8 @@ public class MainView extends Div {
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService
+            PeriodoFiscalService periodoFiscalService,
+            DashboardService dashboardService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -209,8 +214,10 @@ public class MainView extends Div {
         Button recepcionesBtn = createSubmenuButton(VaadinIcon.INBOX, "Gestión de Recepciones");
         Button despachosBtn = createSubmenuButton(VaadinIcon.OUTBOX, "Gestión de Despachos");
         Button regTransferenciaBtn = createSubmenuButton(VaadinIcon.EXCHANGE, "Transferencias");
+        Button vehiculosBtn = createSubmenuButton(VaadinIcon.TRUCK, "Flota de Vehículos");
+        Button rutaBtn = createSubmenuButton(VaadinIcon.ROAD, "Configuración de Rutas");
 
-        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn);
+        VerticalLayout logisticaSubmenu = new VerticalLayout(historialComprasBtn, recepcionesBtn, despachosBtn, regTransferenciaBtn, vehiculosBtn, rutaBtn);
         logisticaSubmenu.addClassName("sidebar-submenu");
         logisticaSubmenu.setPadding(false);
         logisticaSubmenu.setSpacing(false);
@@ -260,6 +267,7 @@ public class MainView extends Div {
         regTransferenciaBtn.setEnabled(accesoAlmacen);
         recepcionesBtn.setEnabled(accesoAlmacen || esConductor);
         despachosBtn.setEnabled(accesoAlmacen || esConductor);
+        vehiculosBtn.setEnabled(esAdmin);
 
 
         inicioButton.addClickListener(event -> showModule(
@@ -268,7 +276,7 @@ public class MainView extends Div {
                 "Panel Principal",
                 "Resumen general de la operación administrativa.",
                 VaadinIcon.DASHBOARD,
-                createWelcomePanel()
+                new DashboardView(dashboardService)
         ));
 
         productosButton.addClickListener(event -> showModule(
@@ -372,6 +380,30 @@ public class MainView extends Div {
             showModule(ajustesAuditoriaBtn, "Almacén e Inventario", "Ajustes de Inventario", "Auditoría, registro de mermas y sobrantes físicos.", VaadinIcon.ADJUST, new AjustesInventarioView(ajusteInventarioService, almacenService, productoService, loteService, empleadoService, securityService, inventarioService));
             almacenButton.addClassName("menu-button-active");
         });
+        vehiculosBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(
+                    vehiculosBtn,
+                    "Logística",
+                    "Flota de Vehículos",
+                    "Gestión y estado de los camiones de la empresa.",
+                    VaadinIcon.TRUCK,
+                    new VehiculoView(vehiculoService)
+            );
+            logisticaButton.addClassName("menu-button-active");
+        });
+        rutaBtn.addClickListener(e -> {
+            logisticaSubmenu.setVisible(true);
+            showModule(
+                    rutaBtn,
+                    "Logística",
+                    "Configuración de Rutas",
+                    "Catálogo estándar de trayectos, distancias y viáticos sugeridos.",
+                    VaadinIcon.ROAD,
+                    new RutaView(rutaService)
+            );
+            logisticaButton.addClassName("menu-button-active");
+        });
 
         class NavegadorCompras {
             void mostrarHistorial() {
@@ -413,7 +445,7 @@ public class MainView extends Div {
                     "Gestión de Despachos",
                     "Control de salida de mercancía en vehículos de la empresa.",
                     VaadinIcon.OUTBOX,
-                    new GestionDespachosView(despachoService, vehiculoService, empleadoService)
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
@@ -446,7 +478,7 @@ public class MainView extends Div {
                     "Registrar Venta",
                     "Registro de clientes, productos y descuentos de venta",
                     VaadinIcon.CART,
-                    new VentaView(ventaService, clienteService, empleadoService, productoService)
+                    new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -649,10 +681,4 @@ public class MainView extends Div {
         return layout;
     }
 
-    private Component createWelcomePanel() {
-        Div placeholder = new Div();
-        placeholder.addClassName("welcome-placeholder");
-        placeholder.setText("Selecciona un módulo para trabajar con productos, proveedores o usuarios.");
-        return placeholder;
-    }
 }

@@ -1,5 +1,7 @@
 package com.agroveterinaria.dto.despacho;
 
+import com.agroveterinaria.entity.Transferencia;
+import com.agroveterinaria.entity.Venta;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -13,4 +15,7 @@ public class DespachoResumenDTO {
     private LocalDateTime fechaProgramadaRaw;
     private String fechaProgramadaFormateada;
     private String estado;
+
+    private Venta ventaOriginal;
+    private Transferencia transferenciaOriginal;
 }
