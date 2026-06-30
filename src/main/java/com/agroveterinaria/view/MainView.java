@@ -17,6 +17,7 @@ import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
 import com.agroveterinaria.view.dashboard.DashboardView;
+import com.agroveterinaria.view.finanzas.GastosView;
 import com.agroveterinaria.view.logistica.GestionDespachosView;
 import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
@@ -92,6 +93,8 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
+            DashboardService dashboardService,
+            GastoOperativoService gastoOperativoService,
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
@@ -107,8 +110,10 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, nominaService,
-                vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,dashboardService);
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
+                nominaService, gastoOperativoService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
+                dashboardService);
+      
         VerticalLayout mainPanel = createMainPanel();
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
@@ -154,11 +159,12 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
+            DashboardService dashboardService,
+            GastoOperativoService gastoOperativoService,
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService,
-            DashboardService dashboardService
+            PeriodoFiscalService periodoFiscalService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -235,6 +241,16 @@ public class MainView extends Div {
         recursosHumanosSubMenu.setSpacing(false);
         recursosHumanosSubMenu.setVisible(false);
 
+        Button finanzasButton = createMenuButton(VaadinIcon.MONEY_EXCHANGE, "Finanzas");
+        Button gastosGeneralesBtn = createSubmenuButton(VaadinIcon.MONEY_WITHDRAW, "Gastos Operativos");
+
+        VerticalLayout finanzasSubmenu = new VerticalLayout(gastosGeneralesBtn);
+        finanzasSubmenu.addClassName("sidebar-submenu");
+        finanzasSubmenu.setPadding(false);
+        finanzasSubmenu.setSpacing(false);
+        finanzasSubmenu.setVisible(false);
+
+
         inicioButton.setEnabled(true);
 
         clientesButton.setEnabled(esAdmin || esCajero || esVeterinario);
@@ -268,6 +284,9 @@ public class MainView extends Div {
         recepcionesBtn.setEnabled(accesoAlmacen || esConductor);
         despachosBtn.setEnabled(accesoAlmacen || esConductor);
         vehiculosBtn.setEnabled(esAdmin);
+
+        finanzasButton.setEnabled(esAdmin);
+        gastosGeneralesBtn.setEnabled(esAdmin);
 
 
         inicioButton.addClickListener(event -> showModule(
@@ -403,6 +422,20 @@ public class MainView extends Div {
                     new RutaView(rutaService)
             );
             logisticaButton.addClassName("menu-button-active");
+        });
+
+        finanzasButton.addClickListener(e -> finanzasSubmenu.setVisible(!finanzasSubmenu.isVisible()));
+        gastosGeneralesBtn.addClickListener(e -> {
+            finanzasSubmenu.setVisible(true);
+            showModule(
+                    gastosGeneralesBtn,
+                    "Finanzas y Contabilidad",
+                    "Gastos Operativos",
+                    "Registro manual de salidas de dinero, mantenimiento, servicios e imprevistos.",
+                    VaadinIcon.MONEY_WITHDRAW,
+                    new GastosView(gastoOperativoService)
+            );
+            finanzasButton.addClassName("menu-button-active");
         });
 
         class NavegadorCompras {
@@ -551,7 +584,9 @@ public class MainView extends Div {
                 mascotasButton,
                 citasButton,
                 ventasButton,
-                ventasSubmenu
+                ventasSubmenu,
+                finanzasButton,
+                finanzasSubmenu
         );
         navigation.addClassName("sidebar-nav");
         navigation.setPadding(false);
