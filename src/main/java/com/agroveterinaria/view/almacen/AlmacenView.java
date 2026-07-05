@@ -6,6 +6,7 @@ import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.AlmacenService;
 import com.agroveterinaria.service.InventarioService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -19,11 +20,6 @@ import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.map.Map;
-import com.vaadin.flow.component.map.configuration.Coordinate;
-import com.vaadin.flow.component.map.configuration.feature.MarkerFeature;
-import com.vaadin.flow.component.map.configuration.layer.VectorLayer;
-import com.vaadin.flow.component.map.configuration.source.VectorSource;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -411,9 +407,15 @@ public class AlmacenView extends VerticalLayout {
                         inv.getLote().getFechaVencimiento().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "N/A"
         ).setHeader("Vencimiento").setWidth("140px").setFlexGrow(0);
 
-        gridInventario.addColumn(inv ->
-                        String.format("%,.2f", inv.getCantidadActual())
-                ).setHeader("Cantidad Actual").setWidth("140px").setFlexGrow(0)
+        gridInventario.addColumn(inv -> {
+                    Producto p = inv.getLote().getProducto();
+                    return FormatoInventarioUtil.formatearCantidad(
+                            inv.getCantidadActual(),
+                            p.getContenidoPorEmpaque(),
+                            Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
+                            false
+                    );
+                }).setHeader("Cantidad Actual").setWidth("170px").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);
 
         List<Inventario> existencias = inventarioService.listarPorAlmacen(almacen);

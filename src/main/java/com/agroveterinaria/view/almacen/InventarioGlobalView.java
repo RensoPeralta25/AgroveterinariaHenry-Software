@@ -4,6 +4,7 @@ import com.agroveterinaria.dto.inventario.InventarioGlobalDTO;
 import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.service.InventarioService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
@@ -12,7 +13,6 @@ import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
-import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -91,10 +91,18 @@ public class InventarioGlobalView extends VerticalLayout {
             return empaque;
         }).setHeader("Presentación").setFlexGrow(1).setSortable(true);
 
-        gridGlobal.addColumn(dto -> String.format("%,.2f", dto.getTotalGlobal()))
+        gridGlobal.addColumn(dto -> {
+                    Producto p = dto.getProducto();
+                    return FormatoInventarioUtil.formatearCantidad(
+                            dto.getTotalGlobal(),
+                            p.getContenidoPorEmpaque(),
+                            Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
+                            false
+                    );
+                })
                 .setHeader("Existencia Total")
                 .setFlexGrow(1)
-                .setTextAlign(ColumnTextAlign.START)
+                .setTextAlign(ColumnTextAlign.END)
                 .setSortable(true);
 
         gridGlobal.addComponentColumn(dto -> {
@@ -171,7 +179,14 @@ public class InventarioGlobalView extends VerticalLayout {
             return "-";
         }).setHeader("Estado").setFlexGrow(1);
 
-        gridDesglose.addColumn(inv -> String.format("%,.2f", inv.getCantidadActual()))
+        gridDesglose.addColumn(inv -> {
+                    return FormatoInventarioUtil.formatearCantidad(
+                            inv.getCantidadActual(),
+                            producto.getContenidoPorEmpaque(),
+                            Boolean.TRUE.equals(producto.getPermiteFraccionamiento()),
+                            false
+                    );
+                })
                 .setHeader("Cantidad").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
 
         List<Inventario> detalle = inventarioService.obtenerDesglosePorProducto(producto);
