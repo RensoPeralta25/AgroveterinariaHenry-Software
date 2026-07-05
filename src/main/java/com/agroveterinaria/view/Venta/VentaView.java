@@ -1,9 +1,11 @@
 package com.agroveterinaria.view.Venta;
 
+import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -59,7 +61,7 @@ public class VentaView extends VerticalLayout {
     private final ComboBox<Almacen> cbAlmacen = new ComboBox<>("Almacén Origen");
     private final Checkbox chkLoteAutomatico = new Checkbox("Lote Auto. (PEPS)");
     private final ComboBox<Lote> cbLote = new ComboBox<>("Lote Específico");
-    private final BigDecimalField cantidad = new BigDecimalField("Cantidad");
+    private final CantidadFraccionadaField cantidad = new CantidadFraccionadaField();
     private final BigDecimalField impuesto = new BigDecimalField("Impuesto");
     private final BigDecimalField descuento = new BigDecimalField("Descuento");
     private final BigDecimalField montoPagado = new BigDecimalField("Monto pagado");
@@ -145,7 +147,6 @@ public class VentaView extends VerticalLayout {
         productoFila.expand(producto);
         cbAlmacen.setWidth("140px");
         cbLote.setWidth("130px");
-        cantidad.setWidth("90px");
         impuesto.setWidth("90px");
         chkLoteAutomatico.getStyle().set("padding-bottom", "10px");
 
@@ -240,6 +241,9 @@ public class VentaView extends VerticalLayout {
         cbAlmacen.setPlaceholder("Seleccione...");
 
         chkLoteAutomatico.setValue(true);
+        chkLoteAutomatico.getStyle().set("padding-bottom", "10px");
+        chkLoteAutomatico.getStyle().set("white-space", "nowrap");
+        chkLoteAutomatico.setMinWidth("145px");
         cbLote.setEnabled(false);
         cbLote.setItemLabelGenerator(l -> l.getNumeroLote() != null ? l.getNumeroLote() : "Sin Lote");
 
@@ -256,11 +260,24 @@ public class VentaView extends VerticalLayout {
                 cbLote.setItems(new ArrayList<>());
             }
         };
-        producto.addValueChangeListener(e -> actualizarLotes.run());
+
+        producto.addValueChangeListener(e -> {
+            actualizarLotes.run();
+            Producto p = e.getValue();
+            if (p != null) {
+                cantidad.configurarProducto(
+                        p.getContenidoPorEmpaque(),
+                        p.getPermiteFraccionamiento(),
+                        false
+                );
+                cantidad.setValue(BigDecimal.ONE);
+            } else {
+                cantidad.clear();
+            }
+        });
         cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
 
         cantidad.setValue(BigDecimal.ONE);
-        cantidad.setValueChangeMode(ValueChangeMode.EAGER);
 
         impuesto.setValue(BigDecimal.ZERO);
         impuesto.setPrefixComponent(new Span("RD$"));
@@ -292,9 +309,14 @@ public class VentaView extends VerticalLayout {
                 .setFlexGrow(0);
         gridLineas.addColumn(linea -> linea.getLote() != null ? linea.getLote().getNumeroLote() : "Auto (PEPS)")
                 .setHeader("Lote").setWidth("100px").setFlexGrow(0);
-        gridLineas.addColumn(linea -> linea.getCantidad().toPlainString())
+        gridLineas.addColumn(linea -> FormatoInventarioUtil.formatearCantidad(
+                        linea.getCantidad(),
+                        linea.getProducto().getContenidoPorEmpaque(),
+                        Boolean.TRUE.equals(linea.getProducto().getPermiteFraccionamiento()),
+                        false)
+                )
                 .setHeader("Cantidad")
-                .setWidth("110px")
+                .setWidth("160px")
                 .setFlexGrow(0);
         gridLineas.addColumn(linea -> formatMoney(linea.getPrecioUnitario()))
                 .setHeader("Precio")
@@ -539,17 +561,35 @@ public class VentaView extends VerticalLayout {
         }
 
         BigDecimal getPrecioUnitario() {
-            boolean fraccionada = Boolean.TRUE.equals(producto.getPermiteFraccionamiento())
-                    && cantidad.stripTrailingZeros().scale() > 0;
-            BigDecimal precio = fraccionada ? producto.getPrecioFraccion() : producto.getPrecioEmpaque();
-            if (precio == null) {
-                throw new IllegalArgumentException("El producto no tiene precio configurado para esta venta.");
+            if (producto.getPrecioEmpaque() == null) {
+                throw new IllegalArgumentException("El producto no tiene precio configurado.");
             }
-            return precio.setScale(2, RoundingMode.HALF_UP);
+            return producto.getPrecioEmpaque().setScale(2, RoundingMode.HALF_UP);
         }
 
         BigDecimal getSubtotal() {
-            return getPrecioUnitario().multiply(cantidad).add(impuesto).setScale(2, RoundingMode.HALF_UP);
+            if (!Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
+                return getPrecioUnitario().multiply(cantidad).add(impuesto).setScale(2, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal factor = producto.getContenidoPorEmpaque();
+            if (factor == null || factor.compareTo(BigDecimal.ONE) <= 0) {
+                return getPrecioUnitario().multiply(cantidad).add(impuesto).setScale(2, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal[] division = cantidad.divideAndRemainder(factor);
+            BigDecimal cajas = division[0];
+            BigDecimal unidadesSueltas = division[1];
+
+            BigDecimal totalCajas = cajas.multiply(producto.getPrecioEmpaque());
+
+            BigDecimal precioFracc = producto.getPrecioFraccion() != null ?
+                    producto.getPrecioFraccion() :
+                    producto.getPrecioEmpaque().divide(factor, 4, RoundingMode.HALF_UP);
+
+            BigDecimal totalUnidades = unidadesSueltas.multiply(precioFracc);
+
+            return totalCajas.add(totalUnidades).add(impuesto).setScale(2, RoundingMode.HALF_UP);
         }
     }
 }
