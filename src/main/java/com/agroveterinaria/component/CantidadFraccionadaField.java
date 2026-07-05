@@ -30,6 +30,8 @@ public class CantidadFraccionadaField extends CustomField<BigDecimal> {
         layout.setPadding(false);
         layout.setMargin(false);
         layout.setAlignItems(FlexComponent.Alignment.BASELINE);
+        layout.getStyle().set("margin-top", "8px");
+        layout.getStyle().set("margin-bottom", "8px");
         this.getStyle().set("padding-top", "0");
         this.getStyle().set("margin-top", "0");
         add(layout);
@@ -59,11 +61,12 @@ public class CantidadFraccionadaField extends CustomField<BigDecimal> {
             txtUnidades.setVisible(false);
         } else {
             txtCajas.setVisible(true);
-            txtCajas.setLabel("Unidades de Empaque Entero");
-            txtCajas.setWidth("130px");
+            txtCajas.setLabel("Empaques");
+            txtCajas.setWidth("100px");
+            txtCajas.getStyle().set("margin-right", "15px");
             txtUnidades.setVisible(true);
-            txtUnidades.setLabel("Unidades sueltas");
-            txtUnidades.setWidth("150px");
+            txtUnidades.setLabel("Unidades");
+            txtUnidades.setWidth("100px");
         }
         clear();
     }

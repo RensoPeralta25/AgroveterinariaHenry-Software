@@ -11,6 +11,8 @@ import com.agroveterinaria.service.DespachoService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.LoteService;
 import com.agroveterinaria.service.VehiculoService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
+import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -23,9 +25,6 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.BigDecimalField;
-import com.vaadin.flow.data.value.ValueChangeMode;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -55,7 +54,7 @@ public class NuevoDespachoDialog extends Dialog {
         this.loteService = loteService;
         this.alGuardarExitosamente = alGuardarExitosamente;
 
-        setWidth("900px");
+        setWidth("980px");
         setCloseOnOutsideClick(false);
 
         H3 titulo = new H3("Preparar Carga al Camión (Picking)");
@@ -112,8 +111,8 @@ public class NuevoDespachoDialog extends Dialog {
 
     private void construirGrid() {
         gridLineas = new Grid<>(LineaDespachoDTO.class, false);
-        gridLineas.addThemeNames("row-stripes", "compact");
-        gridLineas.setHeight("250px");
+        gridLineas.addThemeNames("row-stripes");
+        gridLineas.setHeight("300px");
 
         gridLineas.addColumn(LineaDespachoDTO::getNombreProducto).setHeader("Producto").setFlexGrow(2);
 
@@ -126,8 +125,7 @@ public class NuevoDespachoDialog extends Dialog {
             cbLotesDisponibles.setWidthFull();
             cbLotesDisponibles.setPlaceholder("Seleccionar lote...");
 
-            Producto producto = dto.getDetalleVenta() != null ?
-                    dto.getDetalleVenta().getProducto() : dto.getDetalleTransferencia().getLote().getProducto();
+            Producto producto = obtenerProducto(dto);
 
             cbLotesDisponibles.setItems(loteService.buscarPorProducto(producto));
             cbLotesDisponibles.setItemLabelGenerator(Lote::getNumeroLote);
@@ -138,29 +136,54 @@ public class NuevoDespachoDialog extends Dialog {
 
             cbLotesDisponibles.addValueChangeListener(ev -> dto.setLoteSeleccionadoFisicamente(ev.getValue()));
             return cbLotesDisponibles;
-        }).setHeader("Lote").setFlexGrow(1).setWidth("180px");
+        }).setHeader("Lote").setFlexGrow(1).setWidth("160px");
 
-        gridLineas.addColumn(LineaDespachoDTO::getCantidadPendiente).setHeader("Pendiente").setFlexGrow(0).setTextAlign(ColumnTextAlign.END);
+        gridLineas.addColumn(dto -> {
+            Producto prod = obtenerProducto(dto);
+            return FormatoInventarioUtil.formatearCantidad(
+                    dto.getCantidadPendiente(),
+                    prod.getContenidoPorEmpaque(),
+                    Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
+                    false
+            );
+        }).setHeader("Pendiente").setFlexGrow(0).setWidth("130px").setTextAlign(ColumnTextAlign.END);
+
 
         gridLineas.addComponentColumn(dto -> {
-            BigDecimalField field = new BigDecimalField();
-            field.setWidth("100px");
+            Producto prod = obtenerProducto(dto);
+
+            CantidadFraccionadaField field = new CantidadFraccionadaField();
+            field.configurarProducto(
+                    prod.getContenidoPorEmpaque(),
+                    Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
+                    false
+            );
+
             field.setValue(dto.getCantidadADespacharActual());
-            field.setValueChangeMode(ValueChangeMode.ON_BLUR);
+
             field.addValueChangeListener(e -> {
-                if (e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                BigDecimal val = e.getValue();
+                if (val == null || val.compareTo(BigDecimal.ZERO) < 0) {
                     field.setValue(BigDecimal.ZERO);
                     dto.setCantidadADespacharActual(BigDecimal.ZERO);
-                } else if (e.getValue().compareTo(dto.getCantidadPendiente()) > 0) {
+                } else if (val.compareTo(dto.getCantidadPendiente()) > 0) {
                     field.setValue(dto.getCantidadPendiente());
                     dto.setCantidadADespacharActual(dto.getCantidadPendiente());
-                    Notification.show("No puede despachar más de lo pendiente").addThemeVariants(NotificationVariant.LUMO_WARNING);
+                    Notification.show("No puede despachar más mercancía de la pendiente documentada").addThemeVariants(NotificationVariant.LUMO_WARNING);
                 } else {
-                    dto.setCantidadADespacharActual(e.getValue());
+                    dto.setCantidadADespacharActual(val);
                 }
             });
             return field;
-        }).setHeader("A Cargar Hoy").setFlexGrow(0).setTextAlign(ColumnTextAlign.END);
+        }).setHeader("A Cargar Hoy").setFlexGrow(0).setWidth("320px");
+    }
+
+    private Producto obtenerProducto(LineaDespachoDTO dto) {
+        if (dto.getDetalleVenta() != null) {
+            return dto.getDetalleVenta().getProducto();
+        } else {
+            return dto.getDetalleTransferencia().getLote().getProducto();
+        }
     }
 
     private void procesarDespacho() {
