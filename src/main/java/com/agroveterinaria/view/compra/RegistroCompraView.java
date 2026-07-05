@@ -11,7 +11,7 @@ import com.agroveterinaria.service.CompraService;
 import com.agroveterinaria.service.InventarioService;
 import com.agroveterinaria.service.ProductoService;
 import com.agroveterinaria.service.ProveedorService;
-import com.vaadin.flow.component.UI;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -29,6 +29,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.data.value.ValueChangeMode;
@@ -36,6 +37,7 @@ import com.vaadin.flow.router.*;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -183,14 +185,22 @@ public class RegistroCompraView extends VerticalLayout {
 
         gridProductos.addColumn(producto -> {
             BigDecimal stock = inventarioService.obtenerStockTotal(producto);
-            return stock != null ? String.format("%,.2f", stock) : "0.00";
+            return FormatoInventarioUtil.formatearCantidad(
+                    stock != null ? stock : BigDecimal.ZERO,
+                    obtenerFactorSeguro(producto),
+                    Boolean.TRUE.equals(producto.getPermiteFraccionamiento()),
+                    false
+            );
         }).setHeader("Stock Actual").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         gridProductos.addColumn(producto -> {
             if (cbProveedor.getValue() == null) return "-";
-            BigDecimal costoAnterior = compraService.obtenerUltimoCosto(producto, cbProveedor.getValue());
-            return costoAnterior != null ? String.format("RD$ %,.2f", costoAnterior) : "-";
-        }).setHeader("Costo Anterior").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
+            BigDecimal costoAnteriorUni = compraService.obtenerUltimoCosto(producto, cbProveedor.getValue());
+            if (costoAnteriorUni == null) return "-";
+
+            BigDecimal costoEmpaque = costoAnteriorUni.multiply(obtenerFactorSeguro(producto));
+            return String.format("RD$ %,.2f", costoEmpaque);
+        }).setHeader("Costo anterior").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         txtBuscarProducto.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
@@ -242,45 +252,83 @@ public class RegistroCompraView extends VerticalLayout {
                 .setHeader("Producto").setFlexGrow(2);
 
         gridDetalles.addComponentColumn(item -> {
-            BigDecimalField txtCantidad = new BigDecimalField();
-            txtCantidad.setWidthFull();
-            txtCantidad.addThemeName("small");
-            txtCantidad.setValue(item.getCantidad());
-            txtCantidad.addThemeName("align-right");
-            txtCantidad.setValueChangeMode(ValueChangeMode.ON_BLUR);
-            txtCantidad.addValueChangeListener(e -> {
-                if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) > 0) {
-                    item.setCantidad(e.getValue());
+            Producto prod = item.getProducto();
+            BigDecimal factor = obtenerFactorSeguro(prod);
+            boolean esGranel = false;
+
+            if (esGranel) {
+                BigDecimalField txtGranel = new BigDecimalField();
+                txtGranel.setWidthFull();
+                txtGranel.addThemeName("small");
+                txtGranel.setValue(item.getCantidad());
+                txtGranel.addThemeName("align-right");
+                txtGranel.addValueChangeListener(e -> {
+                    if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) > 0) {
+                        item.setCantidad(e.getValue());
+                    } else {
+                        txtGranel.setValue(BigDecimal.ONE);
+                        item.setCantidad(BigDecimal.ONE);
+                    }
                     gridDetalles.getDataProvider().refreshItem(item);
                     actualizarTotal();
-                } else {
-                    txtCantidad.setValue(BigDecimal.ONE);
-                }
-                ejecutarAutoGuardadoSilencioso();
-            });
-            return txtCantidad;
-        }).setHeader("Cantidad").setWidth("110px").setFlexGrow(0);
+                    ejecutarAutoGuardadoSilencioso();
+                });
+                return txtGranel;
+            } else {
+                IntegerField txtPaquetes = new IntegerField();
+                txtPaquetes.setWidthFull();
+                txtPaquetes.addThemeName("small");
+                txtPaquetes.setStepButtonsVisible(true);
+
+                int paquetesActuales = item.getCantidad() != null ?
+                        item.getCantidad().divide(factor, 0, RoundingMode.DOWN).intValue() : 1;
+
+                txtPaquetes.setValue(paquetesActuales > 0 ? paquetesActuales : 1);
+
+                txtPaquetes.addValueChangeListener(e -> {
+                    int cantCajas = e.getValue() != null && e.getValue() > 0 ? e.getValue() : 1;
+                    if (e.getValue() == null || e.getValue() <= 0) {
+                        txtPaquetes.setValue(1);
+                    }
+                    item.setCantidad(BigDecimal.valueOf(cantCajas).multiply(factor));
+                    gridDetalles.getDataProvider().refreshItem(item);
+                    actualizarTotal();
+                    ejecutarAutoGuardadoSilencioso();
+                });
+                return txtPaquetes;
+            }
+        }).setHeader("Cant. (Empaques)").setWidth("140px").setFlexGrow(0);
 
         gridDetalles.addComponentColumn(item -> {
+            Producto prod = item.getProducto();
+            BigDecimal factor = obtenerFactorSeguro(prod);
+
             BigDecimalField txtCosto = new BigDecimalField();
             txtCosto.setWidthFull();
             txtCosto.addThemeName("small");
             txtCosto.setPrefixComponent(new Span("RD$"));
-            txtCosto.setValue(item.getCostoActual());
+
+            BigDecimal costoEmpaque = item.getCostoActual() != null ?
+                    item.getCostoActual().multiply(factor) : BigDecimal.ZERO;
+
+            txtCosto.setValue(costoEmpaque);
             txtCosto.addThemeName("align-right");
             txtCosto.setValueChangeMode(ValueChangeMode.ON_BLUR);
+
             txtCosto.addValueChangeListener(e -> {
                 if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) >= 0) {
-                    item.setCostoActual(e.getValue());
-                    gridDetalles.getDataProvider().refreshItem(item);
-                    actualizarTotal();
+                    BigDecimal costoUnitario = e.getValue().divide(factor, 6, RoundingMode.HALF_UP);
+                    item.setCostoActual(costoUnitario);
                 } else {
                     txtCosto.setValue(BigDecimal.ZERO);
+                    item.setCostoActual(BigDecimal.ZERO);
                 }
+                gridDetalles.getDataProvider().refreshItem(item);
+                actualizarTotal();
                 ejecutarAutoGuardadoSilencioso();
             });
             return txtCosto;
-        }).setHeader("Costo actual").setWidth("140px").setFlexGrow(0);
+        }).setHeader("Costo actual").setWidth("150px").setFlexGrow(0);
 
         gridDetalles.addColumn(item -> String.format("RD$ %,.2f", item.getSubtotal()))
                 .setHeader("Subtotal").setTextAlign(ColumnTextAlign.END).setFlexGrow(0);
@@ -319,17 +367,17 @@ public class RegistroCompraView extends VerticalLayout {
         btnProcesar.addClickListener(e -> procesarCompra());
 
         layout.add(titulo, gridDetalles, layoutTotal, btnProcesar);
-
         layout.expand(gridDetalles);
 
         return layout;
     }
 
-
     private void agregarAlCarrito(Producto producto) {
+        BigDecimal factor = obtenerFactorSeguro(producto);
+
         for (DetalleCompraDTO item : carrito) {
             if (item.getProducto().getIdProducto().equals(producto.getIdProducto())) {
-                item.setCantidad(item.getCantidad().add(BigDecimal.ONE));
+                item.setCantidad(item.getCantidad().add(factor));
                 gridDetalles.getDataProvider().refreshItem(item);
                 actualizarTotal();
                 ejecutarAutoGuardadoSilencioso();
@@ -338,6 +386,7 @@ public class RegistroCompraView extends VerticalLayout {
         }
 
         DetalleCompraDTO nuevoItem = new DetalleCompraDTO(producto);
+        nuevoItem.setCantidad(factor);
 
         if (cbProveedor.getValue() != null) {
             BigDecimal ultimoCosto = compraService.obtenerUltimoCosto(producto, cbProveedor.getValue());
@@ -370,6 +419,14 @@ public class RegistroCompraView extends VerticalLayout {
         }
 
         mostrarDialogoConfirmacion();
+    }
+
+    private BigDecimal obtenerFactorSeguro(Producto prod) {
+        BigDecimal factor = prod.getContenidoPorEmpaque();
+        if (factor == null || factor.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ONE;
+        }
+        return factor;
     }
 
     private void mostrarDialogoConfirmacion() {
@@ -602,5 +659,4 @@ public class RegistroCompraView extends VerticalLayout {
             idBorradorActual = borradorGuardado.getIdCompra();
         }
     }
-
 }
