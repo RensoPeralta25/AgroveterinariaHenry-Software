@@ -4,6 +4,7 @@ import com.agroveterinaria.entity.DetalleTransferencia;
 import com.agroveterinaria.entity.Transferencia;
 import com.agroveterinaria.enums.EstadoTransferencia;
 import com.agroveterinaria.service.TransferenciaService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -153,7 +154,13 @@ public class TransferenciasView extends VerticalLayout {
 
         gridDetalles.addColumn(d -> d.getLote().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
         gridDetalles.addColumn(d -> d.getLote().getNumeroLote() != null ? d.getLote().getNumeroLote() : "S/N").setHeader("Lote").setFlexGrow(1);
-        gridDetalles.addColumn(d -> String.format("%,.2f", d.getCantidad())).setHeader("Cantidad Enviada").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
+
+        gridDetalles.addColumn(d -> FormatoInventarioUtil.formatearCantidad(
+                d.getCantidad(),
+                d.getLote().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
+                false
+        )).setHeader("Cantidad Enviada").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         Transferencia tCompleta = transferenciaService.obtenerTransferenciaConDetalles(transferencia.getIdTransferencia());
         gridDetalles.setItems(tCompleta.getDetalles());
