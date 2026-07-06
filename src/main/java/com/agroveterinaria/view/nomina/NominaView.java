@@ -78,29 +78,42 @@ public class NominaView extends VerticalLayout {
                 .set("min-width", "0");
         separador2.setEnabled(false);
 
+        Tab separador3 = new Tab("|");
+        separador3.getStyle()
+                .set("color", "#cccccc")
+                .set("pointer-events", "none")
+                .set("cursor", "default")
+                .set("padding", "0 4px")
+                .set("min-width", "0");
+        separador3.setEnabled(false);
+
         Tab tabConfiguracion = new Tab("Configuración");
         Tab tabFeriados = new Tab("Días Feriados");
+        Tab tabPeriodos = new Tab("Períodos Fiscales");
 
-        Tabs tabs = new Tabs(tabCorridas, separador1,tabConfiguracion, separador2, tabFeriados);
+        Tabs tabs = new Tabs(tabCorridas, separador1,tabConfiguracion, separador2, tabFeriados, separador3, tabPeriodos);
         tabs.setWidthFull();
 
         VerticalLayout contenidoCorridas = crearContenidoCorridas();
         VerticalLayout contenidoConfiguracion = new ConfiguracionNominaView(configuracionNominaService);
         VerticalLayout vistaFeriados = new DiaFeriadoView(diaFeriadoService);
+        VerticalLayout vistaPeriodos = new PeriodoFiscalView(periodoFiscalService);
 
         vistaFeriados.setVisible(false);
         contenidoConfiguracion.setVisible(false);
+        vistaPeriodos.setVisible(false);
 
         tabs.addSelectedChangeListener(e -> {
             Tab selected = tabs.getSelectedTab();
             contenidoCorridas.setVisible(selected.equals(tabCorridas));
             contenidoConfiguracion.setVisible(selected.equals(tabConfiguracion));
             vistaFeriados.setVisible(selected.equals(tabFeriados));
+            vistaPeriodos.setVisible(selected.equals(tabPeriodos));
         });
 
         tabs.getStyle().set("border-bottom", "1px solid #e0e0e0");
         tabs.getStyle().set("width", "fit-content");
-        add(tabs, contenidoCorridas, contenidoConfiguracion, vistaFeriados);
+        add(tabs, contenidoCorridas, contenidoConfiguracion, vistaFeriados, vistaPeriodos);
     }
 
     private VerticalLayout crearContenidoCorridas() {
@@ -210,7 +223,7 @@ public class NominaView extends VerticalLayout {
         fechaEmision.setWidthFull();
 
         ComboBox<PeriodoFiscal> cmbPeriodoFiscal = new ComboBox<>("Período Fiscal");
-        cmbPeriodoFiscal.setItems(periodoFiscalService.findAll());
+        cmbPeriodoFiscal.setItems(periodoFiscalService.obtenerPeriodosDisponiblesParaBonificacion());
         cmbPeriodoFiscal.setItemLabelGenerator(p -> p.getAnio() + "");
         cmbPeriodoFiscal.setWidthFull();
         cmbPeriodoFiscal.setVisible(false);
