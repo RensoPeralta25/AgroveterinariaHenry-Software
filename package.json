@@ -3,6 +3,11 @@
   "license": "UNLICENSED",
   "type": "module",
   "dependencies": {
+    "@fullcalendar/core": "^6.1.21",
+    "@fullcalendar/daygrid": "^6.1.21",
+    "@fullcalendar/interaction": "^6.1.21",
+    "@fullcalendar/list": "^6.1.21",
+    "@fullcalendar/timegrid": "^6.1.21",
     "@vaadin/aura": "25.1.2",
     "@vaadin/common-frontend": "0.0.22",
     "@vaadin/react-components": "25.1.2",
@@ -74,8 +79,13 @@
       "vite": "7.3.2",
       "vite-plugin-checker": "0.12.0"
     },
-    "hash": "eb665d4b0a4c899472148da918d1176e2beb828d34d2e1defa3c22f39189e745",
+    "hash": "3afbdb363953cba0751c38dae38411011f55ce10fd1edd7005240f531815271f",
     "overrides": {
+      "@fullcalendar/core": "$@fullcalendar/core",
+      "@fullcalendar/daygrid": "$@fullcalendar/daygrid",
+      "@fullcalendar/interaction": "$@fullcalendar/interaction",
+      "@fullcalendar/list": "$@fullcalendar/list",
+      "@fullcalendar/timegrid": "$@fullcalendar/timegrid",
       "@vaadin/a11y-base": "25.1.2",
       "@vaadin/accordion": "25.1.2",
       "@vaadin/app-layout": "25.1.2",
@@ -246,6 +256,11 @@
     "@vaadin/vaadin-lumo-styles": "$@vaadin/vaadin-lumo-styles",
     "@vaadin/email-field": "25.1.2",
     "@vaadin/message-input": "25.1.2",
-    "chart.js": "$chart.js"
+    "chart.js": "$chart.js",
+    "@fullcalendar/core": "$@fullcalendar/core",
+    "@fullcalendar/list": "$@fullcalendar/list",
+    "@fullcalendar/interaction": "$@fullcalendar/interaction",
+    "@fullcalendar/timegrid": "$@fullcalendar/timegrid",
+    "@fullcalendar/daygrid": "$@fullcalendar/daygrid"
   }
 }

@@ -6,6 +6,117 @@ body {
     background: #f6f8fb;
 }
 
+.cita-view {
+    gap: 18px;
+}
+
+.cita-calendar {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.cita-calendar .fc {
+    height: 100%;
+    color: #1f2937;
+    font-family: inherit;
+}
+
+.cita-calendar-host {
+    width: 100%;
+    height: 470px;
+    min-height: 470px;
+}
+
+.cita-calendar script {
+    display: none;
+}
+
+.cita-calendar .fc-toolbar-title {
+    font-size: 20px;
+    font-weight: 760;
+}
+
+.cita-calendar .fc-button {
+    border-radius: 8px;
+    border-color: #dbe4ef;
+    background: #ffffff;
+    color: #334155;
+    font-weight: 650;
+    box-shadow: none;
+}
+
+.cita-calendar .fc-button-primary:not(:disabled).fc-button-active,
+.cita-calendar .fc-button-primary:not(:disabled):active,
+.cita-calendar .fc-button-primary:hover {
+    border-color: #1676f3;
+    background: #1676f3;
+    color: #ffffff;
+}
+
+.cita-calendar .fc-col-header-cell,
+.cita-calendar .fc-timegrid-slot-label,
+.cita-calendar .fc-list-day-cushion {
+    color: #475569;
+    font-weight: 650;
+}
+
+.cita-calendar .fc-event {
+    border: 0;
+    border-radius: 6px;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+.cita-calendar .cita-pendiente {
+    background: #1676f3;
+    color: #ffffff;
+}
+
+.cita-calendar .cita-realizada {
+    background: #0f766e;
+    color: #ffffff;
+}
+
+.cita-calendar .fc-event-main {
+    overflow: hidden;
+}
+
+.cita-calendar .fc-timegrid-event {
+    min-height: 20px;
+}
+
+.cita-grid {
+    height: 390px !important;
+    max-height: 390px;
+    margin-top: -18px;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+.cita-pagination {
+    box-sizing: border-box;
+    min-height: 48px;
+    padding: 8px 14px;
+    margin-top: 4px;
+    border: 1px solid #e2e8f0;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: #ffffff;
+}
+
+.cita-pagination-summary {
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .main-view {
     min-height: 100vh;
     background: #f6f8fb;
