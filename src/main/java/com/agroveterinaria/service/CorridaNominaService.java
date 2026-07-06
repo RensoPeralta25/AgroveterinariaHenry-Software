@@ -30,13 +30,14 @@ public class CorridaNominaService {
     private final EmbargoSalarialService embargoSalarialService;
     private final ConfiguracionNominaService configuracionNominaService;
     private final DiaFeriadoService diaFeriadoService;
+    private final PeriodoFiscalService periodoFiscalService;
 
     public List<CorridaNomina> findAllConNominas() {
         return corridaRepository.findAllConNominas();
     }
 
     public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo, PeriodoFiscal periodoFiscal, Empleado empleadoEspecifico) {
-        validarDisponibilidadDePeriodo(periodo, fecha);
+        validarDisponibilidadDePeriodo(periodo, fecha, tipo);
 
         if (tipo == TipoCorrida.VACACIONES_ANTICIPADAS) {
             if (empleadoEspecifico == null) {
@@ -73,6 +74,9 @@ public class CorridaNominaService {
 
         if (periodoFiscal != null) {
             corrida.setPeriodoFiscal(periodoFiscal);
+        } else {
+            periodoFiscalService.buscarPorFecha(fecha)
+                    .ifPresent(periodoActivo -> corrida.setPeriodoFiscal(periodoActivo));
         }
 
         List<Empleado> empleados = (empleadoEspecifico != null)
@@ -442,7 +446,7 @@ public class CorridaNominaService {
     }
 
     private void validarBonificacion(LocalDate fecha, PeriodoFiscal periodoFiscal) {
-        LocalDate fechaCierre = LocalDate.of(periodoFiscal.getAnio(), 12, 31);
+        LocalDate fechaCierre = periodoFiscal.getFechaCierre();
         LocalDate fechaMinima = fechaCierre.plusDays(90);
         LocalDate fechaMaxima = fechaCierre.plusDays(120);
 
@@ -455,7 +459,7 @@ public class CorridaNominaService {
         }
     }
 
-    public void validarDisponibilidadDePeriodo(PeriodoNomina periodoRequerido, LocalDate fecha) {
+    public void validarDisponibilidadDePeriodo(PeriodoNomina periodoRequerido, LocalDate fecha, TipoCorrida tipo) {
         LocalDate hoy = LocalDate.now();
 
         if (fecha.getYear() > hoy.getYear() || (fecha.getYear() == hoy.getYear() && fecha.getMonthValue() > hoy.getMonthValue())) {
@@ -465,6 +469,10 @@ public class CorridaNominaService {
         LocalDate limiteAntiguedad = hoy.minusMonths(3).withDayOfMonth(1);
         if (fecha.isBefore(limiteAntiguedad)) {
             throw new IllegalStateException("No se pueden generar nóminas con más de 3 meses de antigüedad por políticas de cierre contable.");
+        }
+
+        if (tipo != TipoCorrida.ORDINARIA) {
+            return;
         }
 
         LocalDate inicioMes = fecha.withDayOfMonth(1);
