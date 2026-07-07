@@ -22,15 +22,15 @@ public class VacacionEmpleado {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull
+    @NotNull(message = "El empleado es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_empleado")
     private Empleado empleado;
 
-    @NotNull
+    @NotNull(message = "La fecha de inicio es obligatoria")
     private LocalDate fechaInicio;
 
-    @NotNull
+    @NotNull(message = "La fecha de finalización es obligatoria")
     private LocalDate fechaFin;
 
     @Min(value = 1, message = "La cantidad de días debe ser al menos 1")
@@ -45,5 +45,5 @@ public class VacacionEmpleado {
     @JoinColumn(name = "id_empleado_aprobador")
     private Empleado aprobadoPor;
     
-    private boolean pagadoPorAdelantado = false;
+    private boolean pagado = false;
 }

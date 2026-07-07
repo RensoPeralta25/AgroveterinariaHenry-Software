@@ -11,6 +11,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -51,24 +52,52 @@ public class VacacionEmpleadoView extends VerticalLayout {
         crudVacaciones.getGrid().addColumn(VacacionEmpleado::getFechaInicio).setHeader("Fecha Inicio");
         crudVacaciones.getGrid().addColumn(VacacionEmpleado::getFechaFin).setHeader("Fecha Fin");
         crudVacaciones.getGrid().addColumn(VacacionEmpleado::getCantidadDiasDescanso).setHeader("Días");
-        crudVacaciones.getGrid().addColumn(v -> v.isPagadoPorAdelantado() ? "Sí" : "No").setHeader("Pagado Adelantado");
+
+        crudVacaciones.getGrid().addComponentColumn(vacacion -> {
+            Span circulo = new Span();
+            circulo.getStyle().set("width", "10px");
+            circulo.getStyle().set("height", "10px");
+            circulo.getStyle().set("border-radius", "50%");
+            circulo.getStyle().set("display", "inline-block");
+
+            circulo.getStyle().set("background-color", vacacion.isPagado() ? "#2e7d32" : "#d32f2f");
+
+            Span texto = new Span(vacacion.isPagado() ? "Sí" : "No");
+            texto.getStyle().set("color", vacacion.isPagado() ? "#2e7d32" : "#d32f2f");
+            texto.getStyle().set("font-weight", "500");
+
+            HorizontalLayout layout = new HorizontalLayout(circulo, texto);
+            layout.setAlignItems(Alignment.CENTER);
+            layout.setSpacing(true);
+
+            return layout;
+        }).setHeader("Pagado");
 
         crudVacaciones.getGrid().addComponentColumn(vacacion -> {
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnEditar.getElement().setProperty("title", "Editar vacación");
-            btnEditar.addClickListener(e -> {
-                crudVacaciones.getGrid().select(vacacion);
-                crudVacaciones.getUpdateButton().click();
-            });
 
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
-            btnEliminar.getElement().setProperty("title", "Eliminar registro");
-            btnEliminar.addClickListener(e -> {
-                crudVacaciones.getGrid().select(vacacion);
-                crudVacaciones.getDeleteButton().click();
-            });
+
+            if (vacacion.isPagado()) {
+                btnEditar.setEnabled(false);
+                btnEliminar.setEnabled(false);
+                btnEditar.getElement().setProperty("title", "Bloqueado: Vacaciones ya pagadas");
+                btnEliminar.getElement().setProperty("title", "Bloqueado: Vacaciones ya pagadas");
+            } else {
+                btnEditar.getElement().setProperty("title", "Editar vacación");
+                btnEditar.addClickListener(e -> {
+                    crudVacaciones.getGrid().select(vacacion);
+                    crudVacaciones.getUpdateButton().click();
+                });
+
+                btnEliminar.getElement().setProperty("title", "Eliminar registro");
+                btnEliminar.addClickListener(e -> {
+                    crudVacaciones.getGrid().select(vacacion);
+                    crudVacaciones.getDeleteButton().click();
+                });
+            }
 
             HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEliminar);
             acciones.setSpacing(false);
@@ -197,7 +226,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Registro?");
 
         crudVacaciones.setAddOperation(vacacion -> {
-            vacacion.setPagadoPorAdelantado(false);
+            vacacion.setPagado(false);
             registrarAprobador(vacacion, empleadoService);
             return vacacionEmpleadoService.save(vacacion);
         });

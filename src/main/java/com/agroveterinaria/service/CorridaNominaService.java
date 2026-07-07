@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
@@ -44,9 +45,23 @@ public class CorridaNominaService {
                 throw new IllegalStateException("Debe seleccionar un empleado para generar vacaciones anticipadas.");
             }
 
-            List<VacacionEmpleado> pendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(empleadoEspecifico);
+            List<VacacionEmpleado> pendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(empleadoEspecifico);
             if (pendientes == null || pendientes.isEmpty()) {
                 throw new IllegalStateException("El empleado seleccionado no tiene vacaciones aprobadas pendientes de pago.");
+            }
+
+            boolean tieneVacacionEnRango = false;
+
+            for (VacacionEmpleado vac : pendientes) {
+                long diasAnticipacion = ChronoUnit.DAYS.between(LocalDate.now(), vac.getFechaInicio());
+                if (diasAnticipacion >= 0 && diasAnticipacion <= 14) {
+                    tieneVacacionEnRango = true;
+                    break;
+                }
+            }
+
+            if (!tieneVacacionEnRango) {
+                throw new IllegalStateException("El empleado tiene vacaciones pendientes, pero ninguna está dentro del rango legal para pago (0 a 14 días antes del inicio).");
             }
         }
 
@@ -151,9 +166,9 @@ public class CorridaNominaService {
                     .anyMatch(d -> d.getTipo() == TipoConcepto.PAGO_VACACIONES);
 
             if (tienePagoVacaciones) {
-                List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(nomina.getEmpleado());
+                List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(nomina.getEmpleado());
                 for (VacacionEmpleado vacacion : vacacionesNoPagadas) {
-                    vacacion.setPagadoPorAdelantado(true);
+                    vacacion.setPagado(true);
                     vacacionEmpleadoService.save(vacacion);
                 }
             }
@@ -236,7 +251,36 @@ public class CorridaNominaService {
 
     private BigDecimal calcularSalarioDiario(Empleado empleado) {
         BigDecimal divisorOficial = configuracionNominaService.getDivisorMensualDiario();
-        return empleado.getSalario().divide(divisorOficial, 2, java.math.RoundingMode.HALF_UP);
+        BigDecimal salarioBase = empleado.getSalario();
+
+        LocalDate hoy = LocalDate.now();
+        LocalDate fechaInicioCalculo = hoy.minusYears(1);
+
+        if (empleado.getFechaIngreso().isAfter(fechaInicioCalculo)) {
+            fechaInicioCalculo = empleado.getFechaIngreso();
+        }
+
+        long mesesTrabajados = ChronoUnit.MONTHS.between(fechaInicioCalculo, hoy);
+        if (mesesTrabajados <= 0)
+            mesesTrabajados = 1;
+
+        BigDecimal totalComisionesRegulares = detalleNominaRepository.sumarTotalPorConceptoYRangoDeFechas(
+                empleado,
+                TipoConcepto.COMISIONES_REGULARES,
+                fechaInicioCalculo,
+                hoy
+        );
+
+        if (totalComisionesRegulares == null)
+            totalComisionesRegulares = BigDecimal.ZERO;
+
+
+        BigDecimal promedioMensualComisiones = totalComisionesRegulares.divide(
+                BigDecimal.valueOf(mesesTrabajados), 2, RoundingMode.HALF_UP);
+
+        BigDecimal salarioComputable = salarioBase.add(promedioMensualComisiones);
+
+        return salarioComputable.divide(divisorOficial, 2, RoundingMode.HALF_UP);
     }
 
     private void procesarNominaOrdinaria(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, PeriodoNomina periodo, LocalDate fechaEmision) {
@@ -265,7 +309,10 @@ public class CorridaNominaService {
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
         if (!vacaciones.isEmpty()) {
-            BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+            BigDecimal salarioDiarioComputable = calcularSalarioDiario(empleado);
+            BigDecimal divisorOficial = configuracionNominaService.getDivisorMensualDiario();
+            BigDecimal salarioBaseDiario = empleado.getSalario().divide(divisorOficial, 2, java.math.RoundingMode.HALF_UP);
+
             List<LocalDate> feriadosDelPeriodo = diaFeriadoService.obtenerFechasFeriadasEnRango(inicioPeriodo, finPeriodo);
 
             for (VacacionEmpleado vacacion : vacaciones) {
@@ -285,17 +332,19 @@ public class CorridaNominaService {
                     diaIterador = diaIterador.plusDays(1);
                 }
 
-                montoTotalDescontarSalario = montoTotalDescontarSalario.add(salarioDiario.multiply(BigDecimal.valueOf(diasFisicosAusente)));
+                montoTotalDescontarSalario = montoTotalDescontarSalario.add(salarioBaseDiario.multiply(BigDecimal.valueOf(diasFisicosAusente)));
 
                 boolean inicianEnEstePeriodo = !vacacion.getFechaInicio().isBefore(inicioPeriodo) && !vacacion.getFechaInicio().isAfter(finPeriodo);
 
-                if (!vacacion.isPagadoPorAdelantado() && inicianEnEstePeriodo) {
-                    BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
+                if (!vacacion.isPagado() && inicianEnEstePeriodo) {
+                    BigDecimal montoVacacion = salarioDiarioComputable.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
 
                     detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
                             "Vacaciones Ordinarias (" + vacacion.getCantidadDiasAPagar() + " días pagados)", montoVacacion, 1.0));
 
                     totalDevengado = totalDevengado.add(montoVacacion);
+                    
+                    vacacionEmpleadoService.marcarComoPagada(vacacion);
                 }
             }
         }
@@ -393,23 +442,30 @@ public class CorridaNominaService {
                 TipoConcepto.PAGO_VACACIONES
         );
 
-        BigDecimal totalGanado = detalleNominaRepository.sumarSalarioOrdinarioDelAnio(empleado, inicioAnio, finAnio, conceptosOrdinarios);
+        BigDecimal totalGanado = detalleNominaRepository.sumarSalarioOrdinarioDelAnio(empleado, EstadoCorrida.APROBADA,
+                inicioAnio, finAnio, conceptosOrdinarios);
 
         return totalGanado.divide(new BigDecimal("12"), 2, java.math.RoundingMode.HALF_UP);
     }
 
     private void procesarVacacionesAnticipadas(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoPorAdelantadoFalse(empleado);
+        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(empleado);
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
         for (VacacionEmpleado vacacion : vacacionesPendientes) {
-            BigDecimal salarioDiario = calcularSalarioDiario(empleado);
-            BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
+            long diasAnticipacion = ChronoUnit.DAYS.between(LocalDate.now(), vacacion.getFechaInicio());
 
-            detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
-                    "Anticipo Vacaciones (" + vacacion.getCantidadDiasDescanso() + " días)", montoVacacion, 1.0));
+            if (diasAnticipacion >= 0 && diasAnticipacion <= 14) {
+                BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+                BigDecimal montoVacacion = salarioDiario.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
 
-            totalDevengado = totalDevengado.add(montoVacacion);
+                detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
+                        "Anticipo Vacaciones (" + vacacion.getCantidadDiasDescanso() + " días)", montoVacacion, 1.0));
+
+                totalDevengado = totalDevengado.add(montoVacacion);
+
+                vacacionEmpleadoService.marcarComoPagada(vacacion);
+            }
         }
 
         if (totalDevengado.compareTo(BigDecimal.ZERO) > 0) {
@@ -451,7 +507,7 @@ public class CorridaNominaService {
         LocalDate fechaMaxima = fechaCierre.plusDays(120);
 
         if (fecha.isBefore(fechaMinima) || fecha.isAfter(fechaMaxima)) {
-            throw new IllegalStateException("La bonificación debe pagarse entre el 31 de marzo y el 30 de abril posterior al cierre fiscal.");
+            throw new IllegalStateException("La bonificación debe pagarse entre el 90 y 120 días posterior al cierre fiscal.");
         }
 
         if (corridaRepository.existsByTipoAndPeriodoFiscal(TipoCorrida.BONIFICACION, periodoFiscal)) {
@@ -479,13 +535,13 @@ public class CorridaNominaService {
         LocalDate finMes = fecha.withDayOfMonth(fecha.lengthOfMonth());
         LocalDate mitadMes = fecha.withDayOfMonth(15);
 
-        boolean existeMensual = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.MES, inicioMes, finMes);
+        boolean existeMensual = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.MES, inicioMes, finMes);
         if (existeMensual) {
             throw new IllegalStateException("Ya existe una nómina mensual generada para este mes.");
         }
 
         if (periodoRequerido == PeriodoNomina.MES) {
-            boolean existeQuincena = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, finMes);
+            boolean existeQuincena = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, inicioMes, finMes);
             if (existeQuincena) {
                 throw new IllegalStateException("No puede generar una nómina mensual porque ya existen quincenas procesadas en este mes.");
             }
@@ -494,17 +550,17 @@ public class CorridaNominaService {
             boolean esPrimeraQuincena = fecha.getDayOfMonth() <= 15;
 
             if (esPrimeraQuincena) {
-                boolean existeQ1 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, mitadMes);
+                boolean existeQ1 = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, inicioMes, mitadMes);
                 if (existeQ1) {
                     throw new IllegalStateException("La primera quincena de este mes ya fue generada.");
                 }
             } else {
-                boolean existeQ1 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, inicioMes, mitadMes);
+                boolean existeQ1 = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, inicioMes, mitadMes);
                 if (!existeQ1) {
                     throw new IllegalStateException("No puede generar la segunda quincena sin haber procesado la primera. Genere una nómina Mensual.");
                 }
 
-                boolean existeQ2 = corridaRepository.existsByPeriodoAndFechaEmisionBetween(PeriodoNomina.QUINCENA, mitadMes.plusDays(1), finMes);
+                boolean existeQ2 = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, mitadMes.plusDays(1), finMes);
                 if (existeQ2) {
                     throw new IllegalStateException("La segunda quincena de este mes ya fue generada.");
                 }

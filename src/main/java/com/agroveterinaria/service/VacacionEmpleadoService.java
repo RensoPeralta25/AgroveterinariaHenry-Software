@@ -5,11 +5,9 @@ import com.agroveterinaria.entity.VacacionEmpleado;
 import com.agroveterinaria.repository.VacacionEmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,7 +38,7 @@ public class VacacionEmpleadoService {
         VacacionEmpleado original = vacacionEmpleadoRepository.findById(vacacionModificada.getId())
                 .orElseThrow(() -> new IllegalArgumentException("La vacación no existe."));
 
-        if (original.isPagadoPorAdelantado()) {
+        if (original.isPagado()) {
             throw new IllegalStateException("Acción denegada: No se pueden modificar los datos de una vacación que ya fue procesada y pagada en nómina.");
         }
 
@@ -61,19 +59,24 @@ public class VacacionEmpleadoService {
         return vacacionEmpleadoRepository.save(vacacionModificada);
     }
 
+    public void marcarComoPagada(VacacionEmpleado vacacion) {
+        vacacion.setPagado(true);
+        vacacionEmpleadoRepository.save(vacacion);
+    }
+
     public List<VacacionEmpleado> findAll(){
         return vacacionEmpleadoRepository.findAll();
     }
 
     public void delete(VacacionEmpleado vacacionEmpleado){
-        if (vacacionEmpleado.isPagadoPorAdelantado()) {
+        if (vacacionEmpleado.isPagado()) {
             throw new IllegalStateException("Acción denegada: No se puede eliminar un registro de vacaciones que ya ha sido pagado en nómina.");
         }
         vacacionEmpleadoRepository.delete(vacacionEmpleado);
     }
 
-    public List<VacacionEmpleado>  findByEmpleadoAndPagadoPorAdelantadoFalse(Empleado empleado){
-        return vacacionEmpleadoRepository.findByEmpleadoAndPagadoPorAdelantadoFalse(empleado);
+    public List<VacacionEmpleado> findByEmpleadoAndPagadoFalse(Empleado empleado){
+        return vacacionEmpleadoRepository.findByEmpleadoAndPagadoFalse(empleado);
     }
 
     public boolean existsByEmpleado(Empleado empleado){

@@ -19,7 +19,7 @@ public interface VacacionEmpleadoRepository extends JpaRepository<VacacionEmplea
             @Param("finPeriodo") LocalDate finPeriodo
     );
 
-    List<VacacionEmpleado> findByEmpleadoAndPagadoPorAdelantadoFalse(Empleado empleado);
+    List<VacacionEmpleado> findByEmpleadoAndPagadoFalse(Empleado empleado);
 
     boolean existsByEmpleado(Empleado empleado);
 
