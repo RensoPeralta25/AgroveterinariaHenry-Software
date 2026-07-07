@@ -314,16 +314,39 @@ body {
     font-weight: 760;
 }
 
-.user-avatar {
+.user-avatar,
+.user-avatar-button {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 48px;
     height: 48px;
+    min-width: 48px;
     border-radius: 50%;
     background: #e5e7eb;
     color: #64748b;
     border: 1px solid #cbd5e1;
+    font-size: 15px;
+    font-weight: 760;
+    padding: 0;
+    overflow: hidden;
+}
+
+.user-avatar-button {
+    cursor: pointer;
+}
+
+.user-avatar-button:hover {
+    background: #eef6ff;
+    color: #1676f3;
+    border-color: #bfdbfe;
+}
+
+.user-avatar-image {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 50%;
 }
 
 .content-area {
@@ -408,6 +431,80 @@ body {
     overflow: hidden;
     border: 1px solid #e2e8f0;
     box-shadow: none;
+}
+
+.configuracion-view {
+    gap: 22px;
+}
+
+.configuracion-section {
+    width: 100%;
+    box-sizing: border-box;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.configuracion-section:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.configuracion-section-title {
+    margin: 0 0 18px;
+    color: #111827;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 760;
+}
+
+.configuracion-photo-row {
+    width: 100%;
+    gap: 18px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+
+.configuracion-photo-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 112px;
+    height: 112px;
+    min-width: 112px;
+    border-radius: 50%;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1676f3;
+    font-size: 32px;
+    font-weight: 760;
+    overflow: hidden;
+}
+
+.configuracion-photo-preview img {
+    width: 112px;
+    height: 112px;
+    object-fit: cover;
+}
+
+.configuracion-photo-actions {
+    min-width: min(360px, 100%);
+    gap: 8px;
+}
+
+.configuracion-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.configuracion-actions {
+    width: 100%;
+    margin-top: 18px;
+}
+
+.configuracion-empty {
+    color: #64748b;
+    font-size: 15px;
 }
 
 .quick-actions-card {
@@ -695,7 +792,8 @@ body {
 
     .dashboard-metrics-grid,
     .dashboard-charts-grid,
-    .dashboard-alerts-list {
+    .dashboard-alerts-list,
+    .configuracion-form-grid {
         grid-template-columns: 1fr;
     }
 
