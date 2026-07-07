@@ -1,5 +1,8 @@
 package com.agroveterinaria.view;
 
+import com.agroveterinaria.entity.Empleado;
+import com.agroveterinaria.entity.Persona;
+import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.ProductoService;
@@ -16,6 +19,7 @@ import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
 import com.agroveterinaria.view.cliente.ClienteView;
 import com.agroveterinaria.view.cobro.CobroView;
+import com.agroveterinaria.view.configuracion.ConfiguracionUsuarioView;
 import com.agroveterinaria.view.dashboard.DashboardView;
 import com.agroveterinaria.view.finanzas.GastosView;
 import com.agroveterinaria.view.logistica.GestionDespachosView;
@@ -34,10 +38,12 @@ import com.agroveterinaria.view.usuario.UsuarioView;
 import com.agroveterinaria.view.vacacion.VacacionEmpleadoView;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -52,6 +58,7 @@ import jakarta.annotation.security.PermitAll;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @Route("")
@@ -112,7 +119,7 @@ public class MainView extends Div {
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
       
-        VerticalLayout mainPanel = createMainPanel();
+        VerticalLayout mainPanel = createMainPanel(securityService);
 
         HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
         shell.addClassName("app-shell");
@@ -604,25 +611,35 @@ public class MainView extends Div {
         return sidebar;
     }
 
-    private VerticalLayout createMainPanel() {
+    private VerticalLayout createMainPanel(SecurityService securityService) {
         moduleTitle.addClassName("module-title");
 
         Button collapseButton = new Button(VaadinIcon.ANGLE_LEFT.create());
         collapseButton.addClassName("collapse-button");
         collapseButton.setAriaLabel("Contraer menú");
 
-        Div avatar = new Div();
-        avatar.addClassName("user-avatar");
-        avatar.add(VaadinIcon.USER.create());
+        Button avatarButton = new Button();
+        avatarButton.addClassName("user-avatar-button");
+        avatarButton.setAriaLabel("Menú de usuario");
+        actualizarAvatarUsuario(avatarButton, securityService);
 
-        Button logoutButton = new Button("Salir", VaadinIcon.SIGN_OUT.create());
-        logoutButton.addClickListener(event -> authContext.logout());
+        ContextMenu userMenu = new ContextMenu(avatarButton);
+        userMenu.setOpenOnClick(true);
+        userMenu.addItem("Configuración", event -> showModule(
+                null,
+                "Configuración",
+                "Configuración de Usuario",
+                "Perfil, foto de usuario y contraseña",
+                VaadinIcon.COG,
+                new ConfiguracionUsuarioView(securityService, () -> actualizarAvatarUsuario(avatarButton, securityService))
+        ));
+        userMenu.addItem("Salir", event -> authContext.logout());
 
         HorizontalLayout topBarLeft = new HorizontalLayout(collapseButton, moduleTitle);
         topBarLeft.addClassName("topbar-left");
         topBarLeft.setAlignItems(FlexComponent.Alignment.CENTER);
 
-        HorizontalLayout topBarRight = new HorizontalLayout(avatar, logoutButton);
+        HorizontalLayout topBarRight = new HorizontalLayout(avatarButton);
         topBarRight.setAlignItems(FlexComponent.Alignment.CENTER);
         topBarRight.setSpacing(true);
 
@@ -671,7 +688,9 @@ public class MainView extends Div {
             Component moduleView
     ) {
         menuButtons.forEach(button -> button.removeClassName("menu-button-active"));
-        activeButton.addClassName("menu-button-active");
+        if (activeButton != null) {
+            activeButton.addClassName("menu-button-active");
+        }
 
         moduleTitle.setText(title);
 
@@ -712,6 +731,36 @@ public class MainView extends Div {
         layout.setSpacing(false);
 
         return layout;
+    }
+
+    private void actualizarAvatarUsuario(Button avatarButton, SecurityService securityService) {
+        avatarButton.setText("");
+        avatarButton.setIcon(null);
+
+        Usuario usuario = securityService.obtenerUsuarioAutenticado();
+        if (usuario != null && usuario.getFotoPerfil() != null && usuario.getFotoPerfil().length > 0) {
+            Image foto = new Image("data:image/jpeg;base64," + Base64.getEncoder().encodeToString(usuario.getFotoPerfil()), "Foto de perfil");
+            foto.addClassName("user-avatar-image");
+            avatarButton.setIcon(foto);
+            return;
+        }
+
+        Empleado empleado = securityService.obtenerEmpleadoAutenticado();
+        if (empleado != null && empleado.getPersona() != null) {
+            avatarButton.setText(obtenerIniciales(empleado.getPersona()));
+            return;
+        }
+
+        avatarButton.setIcon(VaadinIcon.USER.create());
+    }
+
+    private String obtenerIniciales(Persona persona) {
+        String nombre = persona.getNombre() == null ? "" : persona.getNombre().trim();
+        String apellido = persona.getApellido() == null ? "" : persona.getApellido().trim();
+        String primera = nombre.isBlank() ? "" : nombre.substring(0, 1);
+        String segunda = apellido.isBlank() ? "" : apellido.substring(0, 1);
+        String resultado = (primera + segunda).toUpperCase();
+        return resultado.isBlank() ? "U" : resultado;
     }
 
 }
