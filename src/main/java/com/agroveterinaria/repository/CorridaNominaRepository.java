@@ -22,7 +22,8 @@ public interface CorridaNominaRepository extends JpaRepository<CorridaNomina, Lo
             "ORDER BY c.fechaEmision DESC")
     List<CorridaNomina> findAllConNominas();
 
-    boolean existsByPeriodoAndFechaEmisionBetween(
+    boolean existsByTipoAndPeriodoAndFechaEmisionBetween(
+            TipoCorrida tipo,
             PeriodoNomina periodo,
             LocalDate inicio,
             LocalDate fin
