@@ -1,6 +1,7 @@
 package com.agroveterinaria.view.nomina;
 
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.PeriodoNomina;
@@ -124,8 +125,11 @@ public class NominaView extends VerticalLayout {
         layout.getStyle().set("margin-top", "12px");
 
         Grid<CorridaNomina> gridCorridas = new Grid<>(CorridaNomina.class, false);
+        GridPaginator<CorridaNomina> paginator = new GridPaginator<>(gridCorridas, 10, "corridas");
         gridCorridas.addClassName("usuario-grid");
         gridCorridas.addThemeNames("row-stripes");
+        gridCorridas.setWidthFull();
+        gridCorridas.setHeight("390px");
 
         gridCorridas.addColumn(CorridaNomina::getIdCorrida)
                 .setHeader("ID").setSortable(true).setWidth("70px").setFlexGrow(0);
@@ -149,20 +153,20 @@ public class NominaView extends VerticalLayout {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addClassName("btn-accion-editar");
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> dialogResultadoCorrida(corrida,gridCorridas, false));
+            btnVer.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, paginator, false));
 
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEditar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
-            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, true));
+            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, paginator, true));
 
             Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK));
             btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnAprobar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
             btnAprobar.addClickListener(e -> {
                 corridaNominaService.aprobarCorrida(corrida);
-                refrescarGrid(gridCorridas);
+                refrescarGrid(paginator);
                 mostrarExito("Corrida aprobada correctamente.");
             });
 
@@ -170,7 +174,7 @@ public class NominaView extends VerticalLayout {
             btnEliminar.addClassName("btn-accion-eliminar");
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEliminar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
-            btnEliminar.addClickListener(e -> confirmarEliminar(corrida, gridCorridas));
+            btnEliminar.addClickListener(e -> confirmarEliminar(corrida, paginator));
 
             HorizontalLayout acciones = new HorizontalLayout(btnVer, btnEditar,btnAprobar, btnEliminar);
             acciones.setSpacing(false);
@@ -180,7 +184,7 @@ public class NominaView extends VerticalLayout {
 
         Button btnGenerar = new Button("Nueva corrida", new Icon(VaadinIcon.PLUS));
         btnGenerar.addClassName("btn-nuevo");
-        btnGenerar.addClickListener(e -> dialogGeneracion(gridCorridas));
+        btnGenerar.addClickListener(e -> dialogGeneracion(gridCorridas, paginator));
 
         ComboBox<TipoCorrida> filtroTipo = new ComboBox<>();
         filtroTipo.setPlaceholder("Filtrar por Tipo...");
@@ -190,19 +194,19 @@ public class NominaView extends VerticalLayout {
         filtroTipo.setMinWidth("280px");
         filtroTipo.setItemLabelGenerator(TipoCorrida::getDescripcion);
 
-        filtroTipo.addValueChangeListener(e -> actualizarFiltroGrid(gridCorridas, filtroTipo.getValue(), corridaNominaService));
+        filtroTipo.addValueChangeListener(e -> actualizarFiltroGrid(paginator, filtroTipo.getValue(), corridaNominaService));
 
         HorizontalLayout toolbar = new HorizontalLayout(btnGenerar, filtroTipo);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.getStyle().set("margin-bottom", "12px");
 
-        refrescarGrid(gridCorridas);
-        layout.add(toolbar, gridCorridas);
+        refrescarGrid(paginator);
+        layout.add(toolbar, paginator, gridCorridas);
         return layout;
     }
 
-    private void dialogGeneracion(Grid<CorridaNomina> gridCorridas) {
+    private void dialogGeneracion(Grid<CorridaNomina> gridCorridas, GridPaginator<CorridaNomina> paginator) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Nueva corrida de nómina");
         dialog.setWidth("450px");
@@ -284,8 +288,8 @@ public class NominaView extends VerticalLayout {
                 );
 
                 dialog.close();
-                refrescarGrid(gridCorridas);
-                dialogResultadoCorrida(corrida, gridCorridas, true);
+                refrescarGrid(paginator);
+                dialogResultadoCorrida(corrida, gridCorridas, paginator, true);
 
             } catch (Exception ex) {
                 mostrarError(ex.getMessage());
@@ -390,7 +394,12 @@ public class NominaView extends VerticalLayout {
         dialog.open();
     }
 
-    private void dialogResultadoCorrida(CorridaNomina corrida, Grid<CorridaNomina> gridCorridas, boolean esModoEdicion) {
+    private void dialogResultadoCorrida(
+            CorridaNomina corrida,
+            Grid<CorridaNomina> gridCorridas,
+            GridPaginator<CorridaNomina> paginator,
+            boolean esModoEdicion
+    ) {
         if(esModoEdicion){
             for (Nomina nomina : corrida.getNominas()) {
                 BigDecimal devengado = nomina.getDetalles().stream()
@@ -468,7 +477,7 @@ public class NominaView extends VerticalLayout {
         if (esModoEdicion) {
             Button btnDejarPendiente = new Button("Dejar pendiente", e -> {
                 dialog.close();
-                refrescarGrid(gridCorridas);
+                refrescarGrid(paginator);
                 mostrarExito("La corrida se ha mantenido como pendiente.");
             });
             btnDejarPendiente.addClassName("btn-borde");
@@ -478,7 +487,7 @@ public class NominaView extends VerticalLayout {
             btnAprobar.addClickListener(e -> {
                 corridaNominaService.aprobarCorrida(corrida);
                 dialog.close();
-                refrescarGrid(gridCorridas);
+                refrescarGrid(paginator);
                 mostrarExito("Corrida aprobada correctamente.");
             });
             dialog.getFooter().add(btnAprobar, btnDejarPendiente);
@@ -520,7 +529,7 @@ public class NominaView extends VerticalLayout {
         dialog.open();
     }
 
-    private void confirmarEliminar(CorridaNomina corrida, Grid<CorridaNomina> gridCorridas) {
+    private void confirmarEliminar(CorridaNomina corrida, GridPaginator<CorridaNomina> paginator) {
         Dialog confirm = new Dialog();
         confirm.setHeaderTitle("¿Eliminar corrida?");
 
@@ -529,7 +538,7 @@ public class NominaView extends VerticalLayout {
         Button btnSi = new Button("Sí, eliminar", e -> {
             corridaNominaService.delete(corrida);
             confirm.close();
-            refrescarGrid(gridCorridas);
+            refrescarGrid(paginator);
             mostrarExito("Corrida eliminada.");
         });
         btnSi.addThemeVariants(ButtonVariant.LUMO_ERROR);
@@ -590,8 +599,8 @@ public class NominaView extends VerticalLayout {
                 .findFirst().orElse(null);
     }
 
-    private void refrescarGrid(Grid<CorridaNomina> gridCorridas) {
-        gridCorridas.setItems(corridaNominaService.findAllConNominas());
+    private void refrescarGrid(GridPaginator<CorridaNomina> paginator) {
+        paginator.setItems(corridaNominaService.findAllConNominas());
     }
 
     private void mostrarError(String mensaje) {
@@ -604,11 +613,15 @@ public class NominaView extends VerticalLayout {
         notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
     }
 
-    private void actualizarFiltroGrid(Grid<CorridaNomina> grid, TipoCorrida tipoFiltro, CorridaNominaService corridaNominaServiceservice) {
+    private void actualizarFiltroGrid(
+            GridPaginator<CorridaNomina> paginator,
+            TipoCorrida tipoFiltro,
+            CorridaNominaService corridaNominaServiceservice
+    ) {
         List<CorridaNomina> listaFiltrada = corridaNominaService.findAllConNominas().stream()
                 .filter(c -> tipoFiltro == null || c.getTipo() == tipoFiltro)
                 .toList();
 
-        grid.setItems(listaFiltrada);
+        paginator.setItems(listaFiltrada);
     }
 }

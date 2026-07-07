@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.nomina;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.DiaFeriado;
 import com.agroveterinaria.service.DiaFeriadoService;
 import com.vaadin.flow.component.button.Button;
@@ -27,6 +28,8 @@ public class DiaFeriadoView extends VerticalLayout {
         GridCrud<DiaFeriado> crudFeriados = new GridCrud<>(DiaFeriado.class, new WindowBasedCrudLayout());
         crudFeriados.getGrid().addClassName("feriado-grid");
         crudFeriados.getStyle().set("margin-top", "0");
+        CrudGridPaginator<DiaFeriado> paginator = new CrudGridPaginator<>(10, "feriados");
+        paginator.setRefreshOperation(crudFeriados::refreshGrid);
 
         crudFeriados.getGrid().removeAllColumns();
 
@@ -110,12 +113,13 @@ public class DiaFeriadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.UPDATE, "Editar Feriado");
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Feriado?");
 
-        crudFeriados.setFindAllOperation(diaFeriadoService::findAll);
+        paginator.setSource(diaFeriadoService::findAll);
+        crudFeriados.setFindAllOperation(paginator::pageItems);
         crudFeriados.setAddOperation(diaFeriadoService::save);
         crudFeriados.setUpdateOperation(diaFeriadoService::save);
         crudFeriados.setDeleteOperation(diaFeriadoService::delete);
 
-        add(toolbar, crudFeriados);
+        add(toolbar, paginator, crudFeriados);
     }
 
     private void mostrarError(Exception error) {

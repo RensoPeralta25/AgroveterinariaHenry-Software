@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.nomina;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.PeriodoFiscal;
 import com.agroveterinaria.service.PeriodoFiscalService;
 import com.vaadin.flow.component.button.Button;
@@ -25,10 +26,12 @@ public class PeriodoFiscalView extends VerticalLayout {
 
     private final PeriodoFiscalService periodoFiscalService;
     private final Grid<PeriodoFiscal> gridPeriodos;
+    private final GridPaginator<PeriodoFiscal> paginator;
 
     public PeriodoFiscalView(PeriodoFiscalService periodoFiscalService){
         this.periodoFiscalService = periodoFiscalService;
         this.gridPeriodos = new Grid<>(PeriodoFiscal.class, false);
+        this.paginator = new GridPaginator<>(gridPeriodos, 10, "periodos");
 
         setSizeFull();
         setSpacing(true);
@@ -41,7 +44,7 @@ public class PeriodoFiscalView extends VerticalLayout {
 
         configurarGrid();
 
-        add(btnNuevoPeriodo, gridPeriodos);
+        add(btnNuevoPeriodo, paginator, gridPeriodos);
         actualizarGrid();
 
     }
@@ -52,6 +55,8 @@ public class PeriodoFiscalView extends VerticalLayout {
         gridPeriodos.addColumn(PeriodoFiscal::getFechaCierre).setHeader("Fecha Cierre");
 
         gridPeriodos.addClassName("periodo-grid");
+        gridPeriodos.setWidthFull();
+        gridPeriodos.setHeight("390px");
 
         gridPeriodos.addComponentColumn(periodo -> {
             Span circulo = new Span();
@@ -82,7 +87,7 @@ public class PeriodoFiscalView extends VerticalLayout {
     }
 
     private void actualizarGrid() {
-        gridPeriodos.setItems(periodoFiscalService.findAll());
+        paginator.setItems(periodoFiscalService.findAll());
     }
 
     private void dialogNuevoPeriodo() {

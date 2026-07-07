@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.compra;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Compra;
 import com.agroveterinaria.service.CompraService;
 import com.vaadin.flow.component.UI;
@@ -32,6 +33,7 @@ public class ComprasView extends VerticalLayout {
 
     private final CompraService compraService;
     private final Grid<Compra> gridHistorial;
+    private final GridPaginator<Compra> paginator;
     private final HorizontalLayout toolbar;
 
     @Setter
@@ -52,12 +54,14 @@ public class ComprasView extends VerticalLayout {
         gridHistorial.setSizeFull();
         gridHistorial.addThemeNames("row-stripes");
         gridHistorial.addClassName("compra-grid");
+        gridHistorial.setHeight("390px");
+        paginator = new GridPaginator<>(gridHistorial, 10, "compras");
 
         configurarToolbar();
         configurarGrid();
         actualizarVista();
 
-        add(toolbar, gridHistorial);
+        add(toolbar, paginator, gridHistorial);
     }
 
     private void configurarToolbar() {
@@ -174,6 +178,6 @@ public class ComprasView extends VerticalLayout {
 
     private void actualizarVista() {
         configurarToolbar();
-        gridHistorial.setItems(compraService.listarTodos());
+        paginator.setItems(compraService.listarTodos());
     }
 }

@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.finanzas;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.GastoOperativo;
 import com.agroveterinaria.enums.TipoGasto;
 import com.agroveterinaria.service.GastoOperativoService;
@@ -40,6 +41,7 @@ public class GastosView extends VerticalLayout {
     private static final NumberFormat MONEY_FORMAT = NumberFormat.getCurrencyInstance(Locale.of("es", "DO"));
     private final GastoOperativoService gastoService;
     private final Grid<GastoOperativo> grid = new Grid<>(GastoOperativo.class, false);
+    private final GridPaginator<GastoOperativo> paginator = new GridPaginator<>(grid, 10, "gastos");
 
     public GastosView(GastoOperativoService gastoService) {
         this.gastoService = gastoService;
@@ -62,13 +64,14 @@ public class GastosView extends VerticalLayout {
 
         configurarGrid();
 
-        add(toolbar, grid);
+        add(toolbar, paginator, grid);
         actualizarGrid();
     }
 
     private void configurarGrid() {
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        grid.setSizeFull();
+        grid.setWidthFull();
+        grid.setHeight("390px");
         grid.addClassName("gastos-grid");
 
         grid.addColumn(GastoOperativo::getFecha).setHeader("Fecha").setWidth("120px").setFlexGrow(0).setSortable(true);
@@ -208,6 +211,6 @@ public class GastosView extends VerticalLayout {
     }
 
     private void actualizarGrid() {
-        grid.setItems(gastoService.listarTodos());
+        paginator.setItems(gastoService.listarTodos());
     }
 }

@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.logistica;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.service.DespachoService;
 import com.agroveterinaria.service.EmpleadoService;
@@ -16,7 +17,6 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
@@ -33,7 +33,8 @@ public class GestionDespachosView extends VerticalLayout {
     private final EmpleadoService empleadoService;
     private final LoteService loteService;
     private Grid<DespachoResumenDTO> gridDespachos;
-    private ListDataProvider<DespachoResumenDTO> dataProvider;
+    private GridPaginator<DespachoResumenDTO> paginator;
+    private List<DespachoResumenDTO> despachos = List.of();
 
     private Span lblTotalDespachosVal;
     private Span lblVentasVal;
@@ -75,7 +76,7 @@ public class GestionDespachosView extends VerticalLayout {
         HorizontalLayout filtros = construirFiltros();
         construirGrid();
 
-        add(header, kpis, filtros, gridDespachos);
+        add(header, kpis, filtros, paginator, gridDespachos);
 
         cargarDatos();
     }
@@ -130,9 +131,11 @@ public class GestionDespachosView extends VerticalLayout {
 
     private void construirGrid() {
         gridDespachos = new Grid<>(DespachoResumenDTO.class, false);
-        gridDespachos.setSizeFull();
+        gridDespachos.setWidthFull();
+        gridDespachos.setHeight("390px");
         gridDespachos.addClassName("almacen-grid");
         gridDespachos.addThemeNames("row-stripes");
+        paginator = new GridPaginator<>(gridDespachos, 10, "despachos");
 
         gridDespachos.addColumn(dto -> dto.getCodigo() != null ? dto.getCodigo() : "-")
                 .setHeader("ID Despacho").setFlexGrow(0).setWidth("130px");
@@ -185,13 +188,13 @@ public class GestionDespachosView extends VerticalLayout {
         lblVentasVal.setText(String.valueOf(countVentas));
         lblTransferenciasVal.setText(String.valueOf(countTransferencias));
 
-        dataProvider = new ListDataProvider<>(lista);
-        gridDespachos.setDataProvider(dataProvider);
+        despachos = List.copyOf(lista);
+        paginator.setItems(despachos);
     }
 
     private void filtrarPorTipo(String tipo) {
-        if (dataProvider != null) {
-            dataProvider.setFilter(dto -> tipo.isEmpty() || dto.getTipo().equals(tipo));
-        }
+        paginator.setItems(despachos.stream()
+                .filter(dto -> tipo.isEmpty() || dto.getTipo().equals(tipo))
+                .toList());
     }
 }

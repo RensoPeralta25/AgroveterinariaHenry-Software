@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.vacacion;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.DiaFeriado;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.VacacionEmpleado;
@@ -44,6 +45,8 @@ public class VacacionEmpleadoView extends VerticalLayout {
         GridCrud<VacacionEmpleado> crudVacaciones = new GridCrud<>(VacacionEmpleado.class, new WindowBasedCrudLayout());
         crudVacaciones.getGrid().addClassName("vacacion-grid");
         crudVacaciones.getStyle().set("margin-top", "0");
+        CrudGridPaginator<VacacionEmpleado> paginator = new CrudGridPaginator<>(10, "vacaciones");
+        paginator.setRefreshOperation(crudVacaciones::refreshGrid);
 
         crudVacaciones.getGrid().removeAllColumns();
 
@@ -99,10 +102,10 @@ public class VacacionEmpleadoView extends VerticalLayout {
         buscarVacacion.setValueChangeMode(ValueChangeMode.LAZY);
 
         buscarVacacion.addValueChangeListener(
-                e -> actualizarFiltroGrid(crudVacaciones, buscarVacacion.getValue(), vacacionEmpleadoService)
+                e -> actualizarFiltroGrid(crudVacaciones, paginator, buscarVacacion.getValue(), vacacionEmpleadoService)
         );
 
-        actualizarFiltroGrid(crudVacaciones, "", vacacionEmpleadoService);
+        actualizarFiltroGrid(crudVacaciones, paginator, "", vacacionEmpleadoService);
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarVacacion);
         toolbar.setWidthFull();
@@ -209,7 +212,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
         crudVacaciones.setDeleteOperation(vacacionEmpleadoService::delete);
 
-        add(toolbar, crudVacaciones);
+        add(toolbar, paginator, crudVacaciones);
     }
 
     private void calcularDias(VacacionEmpleado vacacionActual, DatePicker inicio, DatePicker fin, ComboBox<Empleado> comboEmpleado,
@@ -307,15 +310,21 @@ public class VacacionEmpleadoView extends VerticalLayout {
         }
     }
 
-    private void actualizarFiltroGrid(GridCrud<VacacionEmpleado> crud, String busqueda, VacacionEmpleadoService service) {
+    private void actualizarFiltroGrid(
+            GridCrud<VacacionEmpleado> crud,
+            CrudGridPaginator<VacacionEmpleado> paginator,
+            String busqueda,
+            VacacionEmpleadoService service
+    ) {
         String filtroTexto = busqueda == null ? "" : busqueda.toLowerCase().trim();
 
-        crud.setFindAllOperation(() ->
+        paginator.setSource(() ->
                 service.findAll().stream()
                         .filter(v -> v.getEmpleado().getPersona().getNombre().toLowerCase().contains(filtroTexto))
                         .toList()
         );
-        crud.refreshGrid();
+        crud.setFindAllOperation(paginator::pageItems);
+        paginator.reset();
     }
 
     private void mostrarError(Exception error) {

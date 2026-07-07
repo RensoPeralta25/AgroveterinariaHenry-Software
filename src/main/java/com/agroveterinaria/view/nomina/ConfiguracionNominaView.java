@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.nomina;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.ConfiguracionNomina;
 import com.agroveterinaria.service.ConfiguracionNominaService;
 import com.vaadin.flow.component.button.Button;
@@ -31,9 +32,12 @@ public class ConfiguracionNominaView extends VerticalLayout {
         setSpacing(true);
 
         Grid<ConfiguracionNomina> grid = new Grid<>(ConfiguracionNomina.class, false);
+        GridPaginator<ConfiguracionNomina> paginator = new GridPaginator<>(grid, 10, "configuraciones");
         grid.addClassName("configuracion-grid-grid");
         grid.addThemeNames("row-stripes");
         grid.addClassName("configuracion-grid");
+        grid.setWidthFull();
+        grid.setHeight("390px");
 
         grid.addColumn(ConfiguracionNomina::getClave).setHeader("Clave").setFlexGrow(1);
         grid.addColumn(ConfiguracionNomina::getDescripcion).setHeader("Descripción").setFlexGrow(2);
@@ -43,15 +47,15 @@ public class ConfiguracionNominaView extends VerticalLayout {
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnEditar.addClickListener(e -> dialogEditar(config, grid));
+            btnEditar.addClickListener(e -> dialogEditar(config, paginator));
             return btnEditar;
         }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
 
-        grid.setItems(configuracionNominaService.findAll());
-        add(grid);
+        paginator.setItems(configuracionNominaService.findAll());
+        add(paginator, grid);
     }
 
-    private void dialogEditar(ConfiguracionNomina config, Grid<ConfiguracionNomina> grid) {
+    private void dialogEditar(ConfiguracionNomina config, GridPaginator<ConfiguracionNomina> paginator) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Editar — " + config.getDescripcion());
         dialog.setWidth("400px");
@@ -76,7 +80,7 @@ public class ConfiguracionNominaView extends VerticalLayout {
             }
             config.setValor(valorField.getValue());
             configuracionNominaService.actualizar(config);
-            grid.setItems(configuracionNominaService.findAll());
+            paginator.setItems(configuracionNominaService.findAll());
             dialog.close();
             mostrarExito("Configuración actualizada correctamente.");
         });

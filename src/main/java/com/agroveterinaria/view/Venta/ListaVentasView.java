@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.Venta;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
@@ -47,6 +48,7 @@ public class ListaVentasView extends VerticalLayout {
     private final TextField buscar = new TextField();
     private final ComboBox<EstadoVenta> estadoFiltro = new ComboBox<>();
     private final Grid<VentaFila> gridVentas = new Grid<>(VentaFila.class, false);
+    private final GridPaginator<VentaFila> paginator = new GridPaginator<>(gridVentas, 10, "ventas");
 
     private final Span ventasRegistradas = new Span();
     private final Span montoTotal = new Span();
@@ -65,8 +67,7 @@ public class ListaVentasView extends VerticalLayout {
         configurarFiltros();
         configurarGrid();
 
-        add(crearMetricas(), crearToolbar(), gridVentas);
-        expand(gridVentas);
+        add(crearMetricas(), crearToolbar(), paginator, gridVentas);
         actualizarVista();
     }
 
@@ -130,7 +131,8 @@ public class ListaVentasView extends VerticalLayout {
     private void configurarGrid() {
         gridVentas.addClassName("venta-list-grid");
         gridVentas.addThemeNames("row-stripes");
-        gridVentas.setSizeFull();
+        gridVentas.setWidthFull();
+        gridVentas.setHeight("390px");
 
         gridVentas.addColumn(fila -> "#" + fila.venta().getIdVenta())
                 .setHeader("ID")
@@ -310,7 +312,7 @@ public class ListaVentasView extends VerticalLayout {
                 .filter(this::cumpleFiltros)
                 .toList();
 
-        gridVentas.setItems(filas);
+        paginator.setItems(filas);
         actualizarMetricas(filas);
     }
 
