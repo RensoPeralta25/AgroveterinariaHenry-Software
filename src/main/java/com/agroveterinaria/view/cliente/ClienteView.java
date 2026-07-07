@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.cliente;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.cliente.ClienteDetalleDTO;
 import com.agroveterinaria.dto.cliente.ClienteResumenDTO;
 import com.agroveterinaria.entity.Cliente;
@@ -43,6 +44,7 @@ public class ClienteView extends VerticalLayout {
 
     private final ClienteService clienteService;
     private final Grid<ClienteResumenDTO> gridClientes = new Grid<>(ClienteResumenDTO.class, false);
+    private final GridPaginator<ClienteResumenDTO> paginator = new GridPaginator<>(gridClientes, 10, "clientes");
     private final TextField buscarCliente = new TextField();
     private final ComboBox<String> filtroTipoCliente = new ComboBox<>();
     private final VerticalLayout panelDetalle = new VerticalLayout();
@@ -101,12 +103,11 @@ public class ClienteView extends VerticalLayout {
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
         toolbar.expand(buscarCliente);
 
-        VerticalLayout listado = new VerticalLayout(toolbar, gridClientes);
+        VerticalLayout listado = new VerticalLayout(toolbar, paginator, gridClientes);
         listado.addClassName("cliente-list-panel");
         listado.setSizeFull();
         listado.setPadding(false);
         listado.setSpacing(false);
-        listado.expand(gridClientes);
         return listado;
     }
 
@@ -128,7 +129,8 @@ public class ClienteView extends VerticalLayout {
     private void configurarGrid() {
         gridClientes.addClassName("cliente-grid");
         gridClientes.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        gridClientes.setSizeFull();
+        gridClientes.setWidthFull();
+        gridClientes.setHeight("390px");
 
         gridClientes.addComponentColumn(this::crearCeldaCliente)
                 .setHeader("Cliente")
@@ -221,7 +223,7 @@ public class ClienteView extends VerticalLayout {
                 .filter(cliente -> tipo == null || tipo.equals(cliente.tipoCliente()))
                 .toList();
 
-        gridClientes.setItems(clientes);
+        paginator.setItems(clientes);
 
         if (!clientes.isEmpty() && gridClientes.asSingleSelect().getValue() == null) {
             gridClientes.select(clientes.get(0));

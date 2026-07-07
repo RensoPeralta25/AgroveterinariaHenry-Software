@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.producto;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.component.FotoProductoField;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.enums.CategoriaProducto;
@@ -45,6 +46,8 @@ public class ProductoCrudView extends VerticalLayout {
         GridCrud<Producto> crud = new GridCrud<>(Producto.class, crudLayout);
         crud.addClassName("producto-crud");
         crud.getGrid().addClassName("producto-grid");
+        CrudGridPaginator<Producto> paginator = new CrudGridPaginator<>(10, "productos");
+        paginator.setRefreshOperation(crud::refreshGrid);
 
         crud.getGrid().removeAllColumns();
         crud.getGrid().addComponentColumn(producto -> {
@@ -286,14 +289,14 @@ public class ProductoCrudView extends VerticalLayout {
         searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         searchField.setClearButtonVisible(true);
         searchField.setValueChangeMode(ValueChangeMode.LAZY);
-        searchField.addValueChangeListener(e -> crud.refreshGrid());
+        searchField.addValueChangeListener(e -> paginator.reset());
 
         ComboBox<StatusEntidad> statusFilter = new ComboBox<>();
         statusFilter.setPlaceholder("Todos los estados");
         statusFilter.setItems(StatusEntidad.values());
         statusFilter.setItemLabelGenerator(StatusEntidad::getEtiqueta);
         statusFilter.setClearButtonVisible(true);
-        statusFilter.addValueChangeListener(e -> crud.refreshGrid());
+        statusFilter.addValueChangeListener(e -> paginator.reset());
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, searchField, statusFilter);
         toolbar.setWidthFull();
@@ -301,7 +304,7 @@ public class ProductoCrudView extends VerticalLayout {
         toolbar.addClassName("producto-toolbar");
         toolbar.expand(searchField);
 
-        crud.setFindAllOperation(() -> {
+        paginator.setSource(() -> {
             String termino = searchField.getValue().toLowerCase().trim();
             StatusEntidad estadoSeleccionado = statusFilter.getValue();
 
@@ -324,6 +327,7 @@ public class ProductoCrudView extends VerticalLayout {
                     })
                     .toList();
         });
+        crud.setFindAllOperation(paginator::pageItems);
 
         crud.setAddOperation(producto -> {
             validarFraccionamiento(producto);
@@ -341,7 +345,7 @@ public class ProductoCrudView extends VerticalLayout {
         setSizeFull();
         setPadding(true);
         setSpacing(false);
-        add(toolbar, crud);
+        add(toolbar, paginator, crud);
     }
 
 

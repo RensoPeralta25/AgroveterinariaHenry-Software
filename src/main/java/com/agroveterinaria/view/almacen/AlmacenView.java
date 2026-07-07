@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
@@ -58,6 +59,8 @@ public class AlmacenView extends VerticalLayout {
         GridCrud<Almacen> crudAlmacen = new GridCrud<>(Almacen.class, new WindowBasedCrudLayout());
         crudAlmacen.addClassName("almacen-crud");
         crudAlmacen.getGrid().addClassName("almacen-grid");
+        CrudGridPaginator<Almacen> paginator = new CrudGridPaginator<>(10, "almacenes");
+        paginator.setRefreshOperation(crudAlmacen::refreshGrid);
 
         crudAlmacen.getGrid().removeAllColumns();
 
@@ -131,13 +134,13 @@ public class AlmacenView extends VerticalLayout {
         buscarAlmacen.setValueChangeMode(ValueChangeMode.LAZY);
         buscarAlmacen.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
-            crudAlmacen.setFindAllOperation(() ->
+            paginator.setSource(() ->
                     almacenService.listarTodos().stream()
                             .filter(a -> (a.getNombre() != null && a.getNombre().toLowerCase().contains(filtro)) ||
                                     (a.getDireccion() != null && a.getDireccion().toLowerCase().contains(filtro)))
                             .toList()
             );
-            crudAlmacen.refreshGrid();
+            paginator.reset();
         });
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarAlmacen);
@@ -146,12 +149,13 @@ public class AlmacenView extends VerticalLayout {
         toolbar.addClassName("almacen-toolbar");
         toolbar.expand(buscarAlmacen);
 
-        crudAlmacen.setFindAllOperation(almacenService::listarTodos);
+        paginator.setSource(almacenService::listarTodos);
+        crudAlmacen.setFindAllOperation(paginator::pageItems);
         crudAlmacen.setDeleteOperation(almacenService::eliminar);
 
         crudAlmacen.getCrudFormFactory().setCaption(org.vaadin.crudui.crud.CrudOperation.DELETE, "¿Eliminar Almacén?");
 
-        add(toolbar, crudAlmacen);
+        add(toolbar, paginator, crudAlmacen);
     }
 
     private void dialogAlmacen(Almacen almacen, GridCrud<Almacen> crudAlmacen, boolean esNuevo) {

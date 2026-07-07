@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.logistica;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Ruta;
 import com.agroveterinaria.entity.RutaParada;
 import com.agroveterinaria.service.RutaService;
@@ -37,6 +38,7 @@ public class RutaView extends VerticalLayout {
 
     private final RutaService rutaService;
     private final Grid<Ruta> grid = new Grid<>(Ruta.class, false);
+    private final GridPaginator<Ruta> paginator = new GridPaginator<>(grid, 10, "rutas");
 
     public RutaView(RutaService rutaService) {
         this.rutaService = rutaService;
@@ -59,13 +61,14 @@ public class RutaView extends VerticalLayout {
 
         configurarGrid();
 
-        add(toolbar, grid);
+        add(toolbar, paginator, grid);
         actualizarGrid();
     }
 
     private void configurarGrid() {
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        grid.setSizeFull();
+        grid.setWidthFull();
+        grid.setHeight("390px");
         grid.addClassName("ruta-grid");
 
         grid.addColumn(Ruta::getNombre).setHeader("Nombre de la Ruta").setSortable(true).setFlexGrow(2);
@@ -315,7 +318,7 @@ public class RutaView extends VerticalLayout {
     }
 
     private void actualizarGrid() {
-        grid.setItems(rutaService.listarTodos());
+        paginator.setItems(rutaService.listarTodos());
     }
 
     private List<RutaParada> extraerParadasFrecuentes() {

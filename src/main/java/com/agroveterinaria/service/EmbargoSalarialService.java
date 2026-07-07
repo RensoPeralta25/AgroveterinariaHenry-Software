@@ -21,6 +21,10 @@ public class EmbargoSalarialService {
         return embargoSalarialRepository.save(embargo);
     }
 
+    public List<EmbargoSalarial> findAll() {
+        return embargoSalarialRepository.findAll();
+    }
+
     public List<EmbargoSalarial> findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(Empleado empleado) {
         return embargoSalarialRepository.findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(empleado);
     }

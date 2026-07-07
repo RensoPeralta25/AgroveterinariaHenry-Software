@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.AjusteInventario;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Empleado;
@@ -49,6 +50,7 @@ public class AjustesInventarioView extends VerticalLayout {
     private final InventarioService inventarioService;
 
     private Grid<AjusteInventario> gridAuditoria;
+    private GridPaginator<AjusteInventario> paginator;
 
     public AjustesInventarioView(AjusteInventarioService ajusteService, AlmacenService almacenService,
                                  ProductoService productoService, LoteService loteService,
@@ -78,14 +80,16 @@ public class AjustesInventarioView extends VerticalLayout {
         construirGrid();
         actualizarGrid();
 
-        add(toolbar, gridAuditoria);
+        add(toolbar, paginator, gridAuditoria);
     }
 
     private void construirGrid() {
         gridAuditoria = new Grid<>(AjusteInventario.class, false);
-        gridAuditoria.setSizeFull();
+        gridAuditoria.setWidthFull();
+        gridAuditoria.setHeight("390px");
         gridAuditoria.addThemeNames("row-stripes");
         gridAuditoria.addClassName("ajustes-grid");
+        paginator = new GridPaginator<>(gridAuditoria, 10, "ajustes");
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
@@ -112,7 +116,7 @@ public class AjustesInventarioView extends VerticalLayout {
     }
 
     private void actualizarGrid() {
-        gridAuditoria.setItems(ajusteService.listarHistorial());
+        paginator.setItems(ajusteService.listarHistorial());
     }
 
     private void abrirModalNuevoAjuste() {

@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.deduccion;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.EmbargoSalarial;
 import com.agroveterinaria.entity.PrestamoEmpleado;
 import com.agroveterinaria.service.EmbargoSalarialService;
@@ -11,6 +12,8 @@ import com.vaadin.flow.component.tabs.Tabs;
 import org.vaadin.crudui.crud.impl.GridCrud;
 
 public class PrestamoEmbargoView extends VerticalLayout {
+    private static final int ITEMS_POR_PAGINA = 10;
+
     public PrestamoEmbargoView(EmpleadoService empleadoService, PrestamoEmpleadoService prestamoService, EmbargoSalarialService embargoService) {
         setSizeFull();
         setPadding(true);
@@ -33,8 +36,8 @@ public class PrestamoEmbargoView extends VerticalLayout {
         tabs.getStyle().set("border-bottom", "1px solid #e0e0e0");
         tabs.getStyle().set("width", "fit-content");
 
-        VerticalLayout vistaPrestamos = construirVistaPrestamos();
-        VerticalLayout vistaEmbargos = construirVistaEmbargos();
+        VerticalLayout vistaPrestamos = construirVistaPrestamos(prestamoService);
+        VerticalLayout vistaEmbargos = construirVistaEmbargos(embargoService);
 
         vistaEmbargos.setVisible(false);
 
@@ -47,29 +50,37 @@ public class PrestamoEmbargoView extends VerticalLayout {
         add(tabs, vistaPrestamos, vistaEmbargos);
     }
 
-    private VerticalLayout construirVistaPrestamos() {
+    private VerticalLayout construirVistaPrestamos(PrestamoEmpleadoService prestamoService) {
         VerticalLayout layout = new VerticalLayout();
         layout.setSizeFull();
         layout.setPadding(false);
 
         GridCrud<PrestamoEmpleado> crudPrestamo = new GridCrud<>(PrestamoEmpleado.class);
+        CrudGridPaginator<PrestamoEmpleado> paginator = new CrudGridPaginator<>(ITEMS_POR_PAGINA, "prestamos");
+        paginator.setRefreshOperation(crudPrestamo::refreshGrid);
+        paginator.setSource(prestamoService::findAll);
+        crudPrestamo.setFindAllOperation(paginator::pageItems);
         // Aquí configuraremos el Grid de préstamos (columnas, cuotas, balance, etc.)
         // crudPrestamo.getGrid().removeAllColumns(); ...
 
-        layout.add(crudPrestamo);
+        layout.add(paginator, crudPrestamo);
         return layout;
     }
 
-    private VerticalLayout construirVistaEmbargos() {
+    private VerticalLayout construirVistaEmbargos(EmbargoSalarialService embargoService) {
         VerticalLayout layout = new VerticalLayout();
         layout.setSizeFull();
         layout.setPadding(false);
 
         GridCrud<EmbargoSalarial> crudEmbargo = new GridCrud<>(EmbargoSalarial.class);
+        CrudGridPaginator<EmbargoSalarial> paginator = new CrudGridPaginator<>(ITEMS_POR_PAGINA, "embargos");
+        paginator.setRefreshOperation(crudEmbargo::refreshGrid);
+        paginator.setSource(embargoService::findAll);
+        crudEmbargo.setFindAllOperation(paginator::pageItems);
 
 
 
-        layout.add(crudEmbargo);
+        layout.add(paginator, crudEmbargo);
         return layout;
     }
 }

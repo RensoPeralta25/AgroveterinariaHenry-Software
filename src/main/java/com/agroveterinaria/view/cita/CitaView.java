@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.cita;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Cita;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Empleado;
@@ -51,11 +52,8 @@ public class CitaView extends VerticalLayout {
     private final Grid<Cita> grid = new Grid<>(Cita.class, false);
     private final TextField buscar = new TextField();
     private final CitaCalendar calendar;
-    private final Button paginaAnterior = new Button(new Icon(VaadinIcon.CHEVRON_LEFT));
-    private final Button paginaSiguiente = new Button(new Icon(VaadinIcon.CHEVRON_RIGHT));
-    private final Span resumenPaginacion = new Span();
+    private final GridPaginator<Cita> paginator = new GridPaginator<>(grid, CITAS_POR_PAGINA, "citas");
     private List<Cita> citasFiltradas = List.of();
-    private int paginaActual = 0;
 
     public CitaView(
             CitaService citaService,
@@ -88,10 +86,7 @@ public class CitaView extends VerticalLayout {
         buscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscar.setClearButtonVisible(true);
         buscar.setValueChangeMode(ValueChangeMode.LAZY);
-        buscar.addValueChangeListener(event -> {
-            paginaActual = 0;
-            refrescarCitas();
-        });
+        buscar.addValueChangeListener(event -> refrescarCitas());
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNueva, buscar);
         toolbar.addClassName("usuario-toolbar");
@@ -99,10 +94,9 @@ public class CitaView extends VerticalLayout {
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
         toolbar.expand(buscar);
 
-        HorizontalLayout paginacion = crearPaginacion();
         grid.setHeight("390px");
 
-        add(toolbar, calendar, paginacion, grid);
+        add(toolbar, calendar, paginator, grid);
 
         refrescarCitas();
     }
@@ -140,35 +134,6 @@ public class CitaView extends VerticalLayout {
                 .setHeader("Acciones")
                 .setWidth("150px")
                 .setFlexGrow(0);
-    }
-
-    private HorizontalLayout crearPaginacion() {
-        paginaAnterior.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        paginaAnterior.setAriaLabel("Página anterior");
-        paginaAnterior.addClickListener(event -> {
-            if (paginaActual > 0) {
-                paginaActual--;
-                actualizarGridPaginado();
-            }
-        });
-
-        paginaSiguiente.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-        paginaSiguiente.setAriaLabel("Página siguiente");
-        paginaSiguiente.addClickListener(event -> {
-            if (paginaActual < totalPaginas() - 1) {
-                paginaActual++;
-                actualizarGridPaginado();
-            }
-        });
-
-        resumenPaginacion.addClassName("cita-pagination-summary");
-
-        HorizontalLayout paginacion = new HorizontalLayout(resumenPaginacion, paginaAnterior, paginaSiguiente);
-        paginacion.addClassName("cita-pagination");
-        paginacion.setWidthFull();
-        paginacion.setAlignItems(FlexComponent.Alignment.CENTER);
-        paginacion.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
-        return paginacion;
     }
 
     private Component crearEstado(Cita cita) {
@@ -412,34 +377,8 @@ public class CitaView extends VerticalLayout {
                 .sorted(Comparator.comparing(Cita::getFechaHora, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
 
-        int totalPaginas = totalPaginas();
-        if (paginaActual >= totalPaginas) {
-            paginaActual = Math.max(totalPaginas - 1, 0);
-        }
-
-        actualizarGridPaginado();
+        paginator.setItems(citasFiltradas);
         calendar.setCitas(citasFiltradas);
-    }
-
-    private void actualizarGridPaginado() {
-        int total = citasFiltradas.size();
-        int desde = Math.min(paginaActual * CITAS_POR_PAGINA, total);
-        int hasta = Math.min(desde + CITAS_POR_PAGINA, total);
-
-        grid.setItems(citasFiltradas.subList(desde, hasta));
-
-        if (total == 0) {
-            resumenPaginacion.setText("Sin citas para mostrar");
-        } else {
-            resumenPaginacion.setText(String.format("Mostrando %d-%d de %d citas", desde + 1, hasta, total));
-        }
-
-        paginaAnterior.setEnabled(paginaActual > 0);
-        paginaSiguiente.setEnabled(paginaActual < totalPaginas() - 1);
-    }
-
-    private int totalPaginas() {
-        return (int) Math.ceil(citasFiltradas.size() / (double) CITAS_POR_PAGINA);
     }
 
     private String nombreCliente(Cliente cliente) {

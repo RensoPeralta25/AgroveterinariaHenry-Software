@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.cobro;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Cobro;
 import com.agroveterinaria.entity.Empleado;
@@ -46,6 +47,8 @@ public class CobroView extends VerticalLayout {
     private final TextField buscar = new TextField();
     private final Grid<CarteraFila> gridCartera = new Grid<>(CarteraFila.class, false);
     private final Grid<Cobro> gridHistorial = new Grid<>(Cobro.class, false);
+    private final GridPaginator<CarteraFila> carteraPaginator = new GridPaginator<>(gridCartera, 10, "ventas");
+    private final GridPaginator<Cobro> historialPaginator = new GridPaginator<>(gridHistorial, 10, "cobros");
 
     private final Span ventasPendientes = new Span();
     private final Span montoPendiente = new Span();
@@ -131,12 +134,11 @@ public class CobroView extends VerticalLayout {
         toolbar.setWidthFull();
         toolbar.expand(buscar);
 
-        VerticalLayout panel = new VerticalLayout(titulo, toolbar, gridCartera);
+        VerticalLayout panel = new VerticalLayout(titulo, toolbar, carteraPaginator, gridCartera);
         panel.addClassName("cobro-list-panel");
         panel.setPadding(false);
         panel.setSpacing(false);
         panel.setSizeFull();
-        panel.expand(gridCartera);
         return panel;
     }
 
@@ -184,7 +186,7 @@ public class CobroView extends VerticalLayout {
         H3 titulo = new H3("Historial de cobros");
         titulo.addClassName("cobro-panel-title");
 
-        VerticalLayout panel = new VerticalLayout(titulo, gridHistorial);
+        VerticalLayout panel = new VerticalLayout(titulo, historialPaginator, gridHistorial);
         panel.addClassName("cobro-history-panel");
         panel.setPadding(false);
         panel.setSpacing(false);
@@ -195,7 +197,8 @@ public class CobroView extends VerticalLayout {
     private void configurarGridCartera() {
         gridCartera.addClassName("cobro-grid");
         gridCartera.addThemeNames("row-stripes");
-        gridCartera.setSizeFull();
+        gridCartera.setWidthFull();
+        gridCartera.setHeight("390px");
 
         gridCartera.addColumn(fila -> "#" + fila.venta().getIdVenta())
                 .setHeader("Venta")
@@ -329,8 +332,8 @@ public class CobroView extends VerticalLayout {
                 ))
                 .toList();
 
-        gridCartera.setItems(filas);
-        gridHistorial.setItems(cobros);
+        carteraPaginator.setItems(filas);
+        historialPaginator.setItems(cobros);
         actualizarMetricas(filas, cobros);
 
         boolean mantieneSeleccion = filaSeleccionada != null && filas.stream()

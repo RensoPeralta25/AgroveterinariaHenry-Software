@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.proveedor;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.exception.ProveedorOperacionException;
@@ -38,6 +39,8 @@ public class ProveedorView extends VerticalLayout {
         GridCrud<Proveedor> crud = new GridCrud<>(Proveedor.class, crudLayout);
         crud.addClassName("proveedor-crud");
         crud.getGrid().addClassName("usuario-grid");
+        CrudGridPaginator<Proveedor> paginator = new CrudGridPaginator<>(10, "proveedores");
+        paginator.setRefreshOperation(crud::refreshGrid);
 
         configurarGrid(crud);
         configurarFormulario(crud);
@@ -53,14 +56,14 @@ public class ProveedorView extends VerticalLayout {
         searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         searchField.setClearButtonVisible(true);
         searchField.setValueChangeMode(ValueChangeMode.LAZY);
-        searchField.addValueChangeListener(event -> crud.refreshGrid());
+        searchField.addValueChangeListener(event -> paginator.reset());
 
         ComboBox<StatusEntidad> statusFilter = new ComboBox<>();
         statusFilter.setPlaceholder("Todos los estados");
         statusFilter.setItems(StatusEntidad.values());
         statusFilter.setItemLabelGenerator(StatusEntidad::getEtiqueta);
         statusFilter.setClearButtonVisible(true);
-        statusFilter.addValueChangeListener(event -> crud.refreshGrid());
+        statusFilter.addValueChangeListener(event -> paginator.reset());
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, searchField, statusFilter);
         toolbar.setWidthFull();
@@ -68,7 +71,7 @@ public class ProveedorView extends VerticalLayout {
         toolbar.addClassName("producto-toolbar");
         toolbar.expand(searchField);
 
-        crud.setFindAllOperation(() -> {
+        paginator.setSource(() -> {
             String termino = searchField.getValue() != null ? searchField.getValue().toLowerCase().trim() : "";
             StatusEntidad estadoSeleccionado = statusFilter.getValue();
 
@@ -83,12 +86,13 @@ public class ProveedorView extends VerticalLayout {
                             || contiene(etiquetaStatus(proveedor.getStatus()), termino))
                     .toList();
         });
+        crud.setFindAllOperation(paginator::pageItems);
 
         crud.setAddOperation(proveedorService::guardar);
         crud.setUpdateOperation(proveedorService::guardar);
         crud.setDeleteOperation(proveedor -> proveedorService.eliminarPorId(proveedor.getIdProveedor()));
         crud.setSizeFull();
-        add(toolbar, crud);
+        add(toolbar, paginator, crud);
     }
 
     private void configurarGrid(GridCrud<Proveedor> crud) {

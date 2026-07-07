@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.recepcion.RecepcionResumenDTO;
 import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
@@ -13,7 +14,6 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.PageTitle;
 import jakarta.annotation.security.RolesAllowed;
 
@@ -32,7 +32,8 @@ public class GestionRecepcionesView extends VerticalLayout {
     private final RecepcionService recepcionService;
 
     private Grid<RecepcionResumenDTO> gridRecepciones;
-    private ListDataProvider<RecepcionResumenDTO> dataProvider;
+    private GridPaginator<RecepcionResumenDTO> paginator;
+    private List<RecepcionResumenDTO> recepciones = List.of();
 
     private Span lblTotalRecepcionesVal;
     private Span lblComprasVal;
@@ -73,8 +74,7 @@ public class GestionRecepcionesView extends VerticalLayout {
         HorizontalLayout filtros = construirFiltros();
         construirGrid();
 
-        add(header, kpis, filtros, gridRecepciones);
-        expand(gridRecepciones);
+        add(header, kpis, filtros, paginator, gridRecepciones);
 
         cargarDatos();
     }
@@ -125,9 +125,11 @@ public class GestionRecepcionesView extends VerticalLayout {
 
     private void construirGrid() {
         gridRecepciones = new Grid<>(RecepcionResumenDTO.class, false);
-        gridRecepciones.setSizeFull();
+        gridRecepciones.setWidthFull();
+        gridRecepciones.setHeight("390px");
         gridRecepciones.addClassName("almacen-grid");
         gridRecepciones.addThemeNames("row-stripes");
+        paginator = new GridPaginator<>(gridRecepciones, 10, "recepciones");
 
         gridRecepciones.addColumn(dto -> dto.getCodigo() != null ? dto.getCodigo() : "-")
                 .setHeader("Documento").setWidth("120px").setFlexGrow(0);
@@ -183,13 +185,13 @@ public class GestionRecepcionesView extends VerticalLayout {
         lblComprasVal.setText(String.valueOf(countCompras));
         lblTransferenciasVal.setText(String.valueOf(countTransferencias));
 
-        dataProvider = new ListDataProvider<>(todasLasRecepciones);
-        gridRecepciones.setDataProvider(dataProvider);
+        recepciones = List.copyOf(todasLasRecepciones);
+        paginator.setItems(recepciones);
     }
 
     private void filtrarPorTipo(String tipo) {
-        if (dataProvider != null) {
-            dataProvider.setFilter(dto -> tipo.isEmpty() || (dto.getTipo() != null && dto.getTipo().equals(tipo)));
-        }
+        paginator.setItems(recepciones.stream()
+                .filter(dto -> tipo.isEmpty() || (dto.getTipo() != null && dto.getTipo().equals(tipo)))
+                .toList());
     }
 }

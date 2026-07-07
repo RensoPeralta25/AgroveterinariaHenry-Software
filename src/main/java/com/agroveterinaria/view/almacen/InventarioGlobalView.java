@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.inventario.InventarioGlobalDTO;
 import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
@@ -36,6 +37,7 @@ public class InventarioGlobalView extends VerticalLayout {
 
     private final InventarioService inventarioService;
     private Grid<InventarioGlobalDTO> gridGlobal;
+    private GridPaginator<InventarioGlobalDTO> paginator;
     private List<InventarioGlobalDTO> datosOriginales;
 
     public InventarioGlobalView(InventarioService inventarioService) {
@@ -60,13 +62,15 @@ public class InventarioGlobalView extends VerticalLayout {
         construirGridGlobal();
         actualizarDatos();
 
-        add(toolbar, gridGlobal);
+        add(toolbar, paginator, gridGlobal);
     }
 
     private void construirGridGlobal() {
         gridGlobal = new Grid<>(InventarioGlobalDTO.class, false);
-        gridGlobal.setSizeFull();
+        gridGlobal.setWidthFull();
+        gridGlobal.setHeight("390px");
         gridGlobal.addThemeNames("row-stripes");
+        paginator = new GridPaginator<>(gridGlobal, 10, "productos");
 
         gridGlobal.addClassName("almacen-grid");
 
@@ -123,12 +127,12 @@ public class InventarioGlobalView extends VerticalLayout {
 
     private void actualizarDatos() {
         datosOriginales = inventarioService.obtenerInventarioGlobal();
-        gridGlobal.setItems(datosOriginales);
+        paginator.setItems(datosOriginales);
     }
 
     private void filtrarGrid(String filtro) {
         if (filtro == null || filtro.isEmpty()) {
-            gridGlobal.setItems(datosOriginales);
+            paginator.setItems(datosOriginales);
             return;
         }
         String search = filtro.toLowerCase().trim();
@@ -136,7 +140,7 @@ public class InventarioGlobalView extends VerticalLayout {
                 .filter(dto -> dto.getProducto().getNombre().toLowerCase().contains(search) ||
                         dto.getProducto().getCategoria().getEtiqueta().toLowerCase().contains(search))
                 .toList();
-        gridGlobal.setItems(filtrados);
+        paginator.setItems(filtrados);
     }
 
     private void abrirModalDesglose(Producto producto) {

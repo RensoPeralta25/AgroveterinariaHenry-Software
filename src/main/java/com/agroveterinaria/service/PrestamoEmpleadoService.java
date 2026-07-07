@@ -45,6 +45,10 @@ public class PrestamoEmpleadoService {
         return prestamoEmpleadoRepository.save(prestamo);
     }
 
+    public List<PrestamoEmpleado> findAll() {
+        return prestamoEmpleadoRepository.findAll();
+    }
+
     public List<PrestamoEmpleado> findByEmpleadoAndEstado(Empleado empleado) {
         return prestamoEmpleadoRepository.findByEmpleadoAndEstado(empleado, EstadoPrestamo.ACTIVO);
     }

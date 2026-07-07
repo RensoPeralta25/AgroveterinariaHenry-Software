@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.empleado;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.enums.RolEmpleado;
@@ -47,6 +48,8 @@ public class EmpleadoView extends VerticalLayout {
         GridCrud<Empleado> crudEmpleado = new GridCrud<>(Empleado.class, new WindowBasedCrudLayout());
         crudEmpleado.getGrid().addClassName("usuario-grid");
         crudEmpleado.getStyle().set("margin-top", "0");
+        CrudGridPaginator<Empleado> paginator = new CrudGridPaginator<>(10, "empleados");
+        paginator.setRefreshOperation(crudEmpleado::refreshGrid);
 
         crudEmpleado.getGrid().removeAllColumns();
 
@@ -138,13 +141,13 @@ public class EmpleadoView extends VerticalLayout {
         Checkbox chkMostrarInactivos = new Checkbox("Mostrar inactivos");
 
         buscarEmpleado.addValueChangeListener(
-                e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), chkMostrarInactivos.getValue(), empleadoService)
+                e -> actualizarFiltroGrid(crudEmpleado, paginator, buscarEmpleado.getValue(), chkMostrarInactivos.getValue(), empleadoService)
         );
-        chkMostrarInactivos.addValueChangeListener(e -> actualizarFiltroGrid(crudEmpleado, buscarEmpleado.getValue(), e.getValue(),empleadoService));
+        chkMostrarInactivos.addValueChangeListener(e -> actualizarFiltroGrid(crudEmpleado, paginator, buscarEmpleado.getValue(), e.getValue(), empleadoService));
         chkMostrarInactivos.getStyle().set("white-space", "nowrap");
         chkMostrarInactivos.getStyle().set("flex-shrink", "0");
 
-        actualizarFiltroGrid(crudEmpleado, "", false, empleadoService);
+        actualizarFiltroGrid(crudEmpleado, paginator, "", false, empleadoService);
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarEmpleado, chkMostrarInactivos);
         toolbar.setWidthFull();
@@ -264,12 +267,6 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.UPDATE, "Editar Empleado");
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Empleado?");
 
-        crudEmpleado.setFindAllOperation(() ->
-                empleadoService.findAll().stream()
-                        .filter(Empleado::isActivo)
-                        .toList()
-        );
-
         crudEmpleado.setAddOperation(empleado -> {
             try {
                 return empleadoService.save(empleado);
@@ -291,7 +288,7 @@ public class EmpleadoView extends VerticalLayout {
             }
         });
 
-        add(toolbar, crudEmpleado);
+        add(toolbar, paginator, crudEmpleado);
     }
 
     private void dialogBaja(Empleado empleado, GridCrud<Empleado> crudEmpleado, EmpleadoService empleadoService) {
@@ -373,16 +370,23 @@ public class EmpleadoView extends VerticalLayout {
         }
     }
 
-    private void actualizarFiltroGrid(GridCrud<Empleado> crud, String busqueda, boolean mostrarInactivos, EmpleadoService empleadoService) {
+    private void actualizarFiltroGrid(
+            GridCrud<Empleado> crud,
+            CrudGridPaginator<Empleado> paginator,
+            String busqueda,
+            boolean mostrarInactivos,
+            EmpleadoService empleadoService
+    ) {
         String filtroTexto = busqueda == null ? "" : busqueda.toLowerCase().trim();
 
-        crud.setFindAllOperation(() ->
+        paginator.setSource(() ->
                 empleadoService.findAll().stream()
                         .filter(emp -> mostrarInactivos || emp.isActivo())
                         .filter(emp -> emp.getPersona() != null &&
                                 emp.getPersona().getNombre().toLowerCase().contains(filtroTexto))
                         .toList()
         );
-        crud.refreshGrid();
+        crud.setFindAllOperation(paginator::pageItems);
+        paginator.reset();
     }
 }

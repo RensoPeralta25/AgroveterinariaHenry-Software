@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.transporte;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Vehiculo;
 import com.agroveterinaria.enums.EstadoVehiculo;
 import com.agroveterinaria.service.VehiculoService;
@@ -33,6 +34,7 @@ public class VehiculoView extends VerticalLayout {
 
     private final VehiculoService vehiculoService;
     private final Grid<Vehiculo> grid = new Grid<>(Vehiculo.class, false);
+    private final GridPaginator<Vehiculo> paginator = new GridPaginator<>(grid, 10, "vehículos");
 
     public VehiculoView(VehiculoService vehiculoService) {
         this.vehiculoService = vehiculoService;
@@ -52,13 +54,14 @@ public class VehiculoView extends VerticalLayout {
 
         configurarGrid();
 
-        add(toolbar, grid);
+        add(toolbar, paginator, grid);
         actualizarGrid();
     }
 
     private void configurarGrid() {
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        grid.setSizeFull();
+        grid.setWidthFull();
+        grid.setHeight("390px");
         grid.addClassName("vehiculo-grid");
 
         grid.addColumn(Vehiculo::getPlaca).setHeader("Placa").setSortable(true).setFlexGrow(1);
@@ -173,6 +176,6 @@ public class VehiculoView extends VerticalLayout {
     }
 
     private void actualizarGrid() {
-        grid.setItems(vehiculoService.listarTodos());
+        paginator.setItems(vehiculoService.listarTodos());
     }
 }

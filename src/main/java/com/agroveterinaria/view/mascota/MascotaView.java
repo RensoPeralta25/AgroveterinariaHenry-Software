@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.mascota;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Mascota;
 import com.agroveterinaria.enums.TipoAnimal;
@@ -41,6 +42,8 @@ public class MascotaView extends VerticalLayout {
         GridCrud<Mascota> crud = new GridCrud<>(Mascota.class, crudLayout);
         crud.addClassName("mascota-crud");
         crud.getGrid().addClassName("usuario-grid");
+        CrudGridPaginator<Mascota> paginator = new CrudGridPaginator<>(10, "mascotas");
+        paginator.setRefreshOperation(crud::refreshGrid);
 
         configurarGrid(crud);
         configurarFormulario(crud, clienteService);
@@ -55,14 +58,14 @@ public class MascotaView extends VerticalLayout {
         buscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscar.setClearButtonVisible(true);
         buscar.setValueChangeMode(ValueChangeMode.LAZY);
-        buscar.addValueChangeListener(event -> crud.refreshGrid());
+        buscar.addValueChangeListener(event -> paginator.reset());
 
         ComboBox<TipoAnimal> tipoFilter = new ComboBox<>();
         tipoFilter.setPlaceholder("Todos los tipos");
         tipoFilter.setItems(TipoAnimal.values());
         tipoFilter.setItemLabelGenerator(this::labelTipoAnimal);
         tipoFilter.setClearButtonVisible(true);
-        tipoFilter.addValueChangeListener(event -> crud.refreshGrid());
+        tipoFilter.addValueChangeListener(event -> paginator.reset());
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNueva, buscar, tipoFilter);
         toolbar.addClassName("usuario-toolbar");
@@ -70,7 +73,7 @@ public class MascotaView extends VerticalLayout {
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.expand(buscar);
 
-        crud.setFindAllOperation(() -> {
+        paginator.setSource(() -> {
             String termino = buscar.getValue() != null ? buscar.getValue().trim().toLowerCase() : "";
             TipoAnimal tipoSeleccionado = tipoFilter.getValue();
 
@@ -84,12 +87,13 @@ public class MascotaView extends VerticalLayout {
                             || contiene(nombreCliente(mascota.getCliente()), termino))
                     .toList();
         });
+        crud.setFindAllOperation(paginator::pageItems);
         crud.setAddOperation(mascotaService::save);
         crud.setUpdateOperation(mascotaService::save);
         crud.setDeleteOperation(mascotaService::delete);
 
         crud.setSizeFull();
-        add(toolbar, crud);
+        add(toolbar, paginator, crud);
         expand(crud);
     }
 
