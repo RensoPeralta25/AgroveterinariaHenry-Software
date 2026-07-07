@@ -78,4 +78,25 @@ public class InventarioService {
         return inventarioRepository.findLotesConStock(almacen, producto);
     }
 
+    @Transactional
+    public void sumarStock(Almacen almacen, Lote lote, BigDecimal cantidadASumar) {
+        if (cantidadASumar == null || cantidadASumar.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cantidad a sumar al inventario debe ser mayor a cero.");
+        }
+
+        Optional<Inventario> inventarioOpt = inventarioRepository.findByAlmacenAndLote(almacen, lote);
+
+        if (inventarioOpt.isPresent()) {
+            Inventario inventario = inventarioOpt.get();
+            inventario.setCantidadActual(inventario.getCantidadActual().add(cantidadASumar));
+            inventarioRepository.save(inventario);
+        } else {
+            Inventario nuevoInventario = new Inventario();
+            nuevoInventario.setAlmacen(almacen);
+            nuevoInventario.setLote(lote);
+            nuevoInventario.setCantidadActual(cantidadASumar);
+            inventarioRepository.save(nuevoInventario);
+        }
+    }
+
 }
