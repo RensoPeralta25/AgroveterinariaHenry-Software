@@ -10,12 +10,22 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface VentaRepository extends JpaRepository<Venta, Long> {
     @EntityGraph(attributePaths = {"cliente.persona"})
     List<Venta> findByEstadoAndLlevaDespachoTrue(EstadoVenta estado);
 
     @EntityGraph(attributePaths = {"cobros"})
+    List<Venta> findConCobrosByEstado(EstadoVenta estado);
+
+    @EntityGraph(attributePaths = {
+            "detallesVentas",
+            "detallesVentas.producto",
+            "detallesVentas.lote"
+    })
+    Optional<Venta> findVentaConDetallesByIdVenta(Long idVenta);
+
     List<Venta> findByEstado(EstadoVenta estado);
 
     long countByEstado(EstadoVenta estado);

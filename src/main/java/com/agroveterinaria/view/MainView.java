@@ -14,6 +14,8 @@ import com.agroveterinaria.view.almacen.GestionRecepcionesView;
 import com.agroveterinaria.view.almacen.InventarioGlobalView;
 import com.agroveterinaria.view.compra.ComprasView;
 import com.agroveterinaria.view.compra.RegistroCompraView;
+import com.agroveterinaria.view.devolucion.DevolucionesView;
+import com.agroveterinaria.view.devolucion.RegistroDevolucionView;
 import com.agroveterinaria.view.empleado.EmpleadoView;
 import com.agroveterinaria.service.*;
 import com.agroveterinaria.view.cita.CitaView;
@@ -105,7 +107,8 @@ public class MainView extends Div {
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService) {
+            PeriodoFiscalService periodoFiscalService,
+            DevolucionVentaService devolucionVentaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -117,7 +120,8 @@ public class MainView extends Div {
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
-                gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
+                gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
+                devolucionVentaService);
       
         VerticalLayout mainPanel = createMainPanel(securityService);
 
@@ -169,7 +173,8 @@ public class MainView extends Div {
             NominaService nominaService,
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
-            PeriodoFiscalService periodoFiscalService
+            PeriodoFiscalService periodoFiscalService,
+            DevolucionVentaService devolucionVentaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -210,6 +215,7 @@ public class MainView extends Div {
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
+        Button devolucionesBtn = createSubmenuButton(VaadinIcon.RECYCLE, "Devoluciones");
         Button almacenButton = createMenuButton(VaadinIcon.STOCK, "Almacén e Inventario");
         Button logisticaButton = createMenuButton(VaadinIcon.ROAD, "Logística");
         Button inventarioGlobalBtn = createSubmenuButton(VaadinIcon.GLOBE, "Inventario Global");
@@ -234,7 +240,7 @@ public class MainView extends Div {
         logisticaSubmenu.setSpacing(false);
         logisticaSubmenu.setVisible(false);
 
-        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton);
+        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton, devolucionesBtn);
         ventasSubmenu.addClassName("sidebar-submenu");
         ventasSubmenu.setPadding(false);
         ventasSubmenu.setSpacing(false);
@@ -263,6 +269,7 @@ public class MainView extends Div {
         registrarVentaButton.setEnabled(esAdmin || esCajero);
         listaVentasButton.setEnabled(esAdmin || esCajero);
         cobrosButton.setEnabled(esAdmin || esCajero);
+        devolucionesBtn.setEnabled(esAdmin || esCajero);
 
         mascotasButton.setEnabled(esAdmin || esVeterinario);
         citasButton.setEnabled(esAdmin || esVeterinario);
@@ -544,6 +551,39 @@ public class MainView extends Div {
                     VaadinIcon.MONEY,
                     new CobroView(ventaService)
             );
+            ventasButton.addClassName("menu-button-active");
+        });
+
+        class NavegadorDevoluciones {
+            void mostrarHistorial() {
+                DevolucionesView vistaHistorial = new DevolucionesView(
+                        devolucionVentaService,
+                        authContext,
+                        this::mostrarRegistro
+                );
+                showModule(devolucionesBtn, "Gestión de Ventas", "Devoluciones",
+                        "Consulta de notas de crédito y devoluciones de mercancía emitidas.", VaadinIcon.RECYCLE,
+                        vistaHistorial);
+            }
+
+            void mostrarRegistro() {
+                RegistroDevolucionView vistaRegistro = new RegistroDevolucionView(
+                        ventaService,
+                        almacenService,
+                        devolucionVentaService,
+                        securityService,
+                        this::mostrarHistorial
+                );
+                showModule(devolucionesBtn, "Gestión de Ventas", "Registrar Devolución de Venta",
+                        "Ingreso físico al inventario de productos devueltos por el cliente.", VaadinIcon.PLUS,
+                        vistaRegistro);
+            }
+        }
+
+        NavegadorDevoluciones navDevoluciones = new NavegadorDevoluciones();
+        devolucionesBtn.addClickListener(e -> {
+            ventasSubmenu.setVisible(true);
+            navDevoluciones.mostrarHistorial();
             ventasButton.addClassName("menu-button-active");
         });
 

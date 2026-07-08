@@ -1,9 +1,6 @@
 package com.agroveterinaria.service;
 
-import com.agroveterinaria.entity.DetalleDevVenta;
-import com.agroveterinaria.entity.DevolucionVenta;
-import com.agroveterinaria.entity.NotaDeCredito;
-import com.agroveterinaria.entity.NotaDeCredito;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoDevolucion;
 import com.agroveterinaria.repository.DetalleDevVentaRepository;
 import com.agroveterinaria.repository.DevolucionVentaRepository;
@@ -13,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class DevolucionVentaService {
@@ -32,6 +30,10 @@ public class DevolucionVentaService {
         this.notaCreditoRepository = notaCreditoRepository;
     }
 
+    @Transactional(readOnly = true)
+    public List<DevolucionVenta> listarTodas() {
+        return devolucionRepository.findAllConRelaciones();
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public DevolucionVenta registrarDevolucion(DevolucionVenta devolucion, boolean generarNotaCredito) {
@@ -88,5 +90,40 @@ public class DevolucionVentaService {
         devolucion.setFechaHora(LocalDateTime.now());
 
         return devolucionRepository.save(devolucion);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DetalleDevVenta> obtenerDetallesDeDevolucion(Long idDevolucionVenta) {
+        if (idDevolucionVenta == null) {
+            return List.of();
+        }
+        return detalleDevRepository.findByDevolucionVentaIdDevolucionVenta(idDevolucionVenta);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void anularDevolucionManual(Long idDevolucionVenta) {
+        DevolucionVenta devolucion = devolucionRepository.findById(idDevolucionVenta)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró la devolución con ID: " + idDevolucionVenta));
+
+        if (devolucion.getEstado() == EstadoDevolucion.ANULADA) {
+            throw new IllegalStateException("Esta devolución ya se encuentra anulada.");
+        }
+
+        for (DetalleDevVenta detalle : devolucion.getDetalles()) {
+            inventarioService.restarStock(
+                    detalle.getAlmacenEntrada(),
+                    detalle.getLote(),
+                    detalle.getCantidadDevuelta()
+            );
+        }
+
+        if (devolucion.getNotaDeCredito() != null) {
+            NotaDeCredito nota = devolucion.getNotaDeCredito();
+            devolucion.setNotaDeCredito(null);
+            notaCreditoRepository.delete(nota);
+        }
+
+        devolucion.setEstado(EstadoDevolucion.ANULADA);
+        devolucionRepository.save(devolucion);
     }
 }

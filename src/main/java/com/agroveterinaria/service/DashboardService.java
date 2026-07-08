@@ -103,7 +103,7 @@ public class DashboardService {
     }
 
     private BigDecimal calcularBalancePendiente() {
-        return ventaRepository.findByEstado(EstadoVenta.PENDIENTE).stream()
+        return ventaRepository.findConCobrosByEstado(EstadoVenta.PENDIENTE).stream()
                 .map(this::calcularBalanceVenta)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
