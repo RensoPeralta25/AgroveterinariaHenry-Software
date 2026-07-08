@@ -99,4 +99,26 @@ public class InventarioService {
         }
     }
 
+    @Transactional
+    public void restarStock(Almacen almacen, Lote lote, BigDecimal cantidadARestar) {
+        if (cantidadARestar == null || cantidadARestar.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cantidad a restar del inventario debe ser mayor a cero.");
+        }
+
+        Inventario inventario = inventarioRepository.findByAlmacenAndLote(almacen, lote)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Inconsistencia grave: No existe un registro de inventario en el almacén " +
+                                almacen.getNombre() + " para el lote especificado."));
+
+        if (inventario.getCantidadActual().compareTo(cantidadARestar) < 0) {
+            throw new IllegalStateException(
+                    "No se puede anular la devolución. El stock actual (" + inventario.getCantidadActual() +
+                            ") es menor que la cantidad que se intenta retirar (" + cantidadARestar +
+                            ") debido a movimientos de venta o picking posteriores.");
+        }
+
+        inventario.setCantidadActual(inventario.getCantidadActual().subtract(cantidadARestar));
+        inventarioRepository.save(inventario);
+    }
+
 }

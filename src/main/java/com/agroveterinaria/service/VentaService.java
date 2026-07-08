@@ -472,6 +472,20 @@ public class VentaService {
         return valor == null ? "" : valor.trim();
     }
 
+    @Transactional(readOnly = true)
+    public List<Venta> findByEstado(EstadoVenta estado) {
+        if (estado == null) {
+            return List.of();
+        }
+        return ventaRepository.findByEstado(estado);
+    }
+
+    @Transactional(readOnly = true)
+    public Venta obtenerVentaConDetalles(Long idVenta) {
+        if (idVenta == null) return null;
+        return ventaRepository.findVentaConDetallesByIdVenta(idVenta).orElse(null);
+    }
+
     public record SolicitudVenta(
             ClienteVentaRequest cliente,
             Long idVendedor,
