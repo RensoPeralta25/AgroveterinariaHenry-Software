@@ -30,6 +30,7 @@ import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
+import com.agroveterinaria.view.producto.ServicioCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
 import com.agroveterinaria.view.Venta.ListaVentasView;
 import com.agroveterinaria.view.Venta.VentaView;
@@ -202,6 +203,7 @@ public class MainView extends Div {
 
         Button inicioButton = createMenuButton(VaadinIcon.HOME, "Inicio");
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
+        Button serviciosButton = createMenuButton(VaadinIcon.STETHOSCOPE, "Servicios");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
         Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
         Button empleadosButton = createSubmenuButton(VaadinIcon.GROUP, "Empleados");
@@ -275,6 +277,7 @@ public class MainView extends Div {
         citasButton.setEnabled(esAdmin || esVeterinario);
 
         productosButton.setEnabled(esAdmin);
+        serviciosButton.setEnabled(esAdmin);
         proveedoresButton.setEnabled(esAdmin);
         usuariosButton.setEnabled(esAdmin);
         recursosHumanosButton.setEnabled(esAdmin);
@@ -317,6 +320,15 @@ public class MainView extends Div {
                 "Inventario, precios y presentaciones",
                 VaadinIcon.PACKAGE,
                 new ProductoCrudView(productoService)
+        ));
+
+        serviciosButton.addClickListener(event -> showModule(
+                serviciosButton,
+                "Gestión de Servicios",
+                "Catálogo de Servicios",
+                "Tarifas de consultas, procedimientos y servicios veterinarios",
+                VaadinIcon.STETHOSCOPE,
+                new ServicioCrudView(productoService)
         ));
 
         proveedoresButton.addClickListener(event -> showModule(
@@ -621,6 +633,7 @@ public class MainView extends Div {
                 logisticaButton,
                 logisticaSubmenu,
                 productosButton,
+                serviciosButton,
                 proveedoresButton,
                 usuariosButton,
                 recursosHumanosButton,
