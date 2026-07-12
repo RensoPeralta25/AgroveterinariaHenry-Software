@@ -98,7 +98,7 @@ public class FotoProductoField extends CustomField<byte[]> {
                 .set("border-radius", "8px")
                 .set("margin-top", "8px");
 
-        H2 titulo = new H2("Foto del producto");
+        H2 titulo = new H2("Foto");
         titulo.getStyle().set("margin", "0").set("font-size", "1.2em");
 
         Div contenidoFoto = new Div();

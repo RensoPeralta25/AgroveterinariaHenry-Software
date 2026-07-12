@@ -168,7 +168,9 @@ public class LoteView extends VerticalLayout {
 
         ComboBox<Producto> cbProducto = new ComboBox<>("Producto");
         cbProducto.setWidthFull();
-        cbProducto.setItems(productoService.listarTodosActivos());
+        cbProducto.setItems(productoService.listarTodosActivos().stream()
+                .filter(p -> p.getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .toList());
         cbProducto.setItemLabelGenerator(Producto::getNombre);
         cbProducto.setValue(lote.getProducto());
 

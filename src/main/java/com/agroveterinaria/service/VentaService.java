@@ -1,6 +1,7 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.*;
+import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.repository.*;
@@ -106,93 +107,111 @@ public class VentaService {
         for (LineaVentaRequest linea : solicitud.lineas()) {
             Producto producto = productoRepository.findById(linea.idProducto())
                     .orElseThrow(() -> new IllegalArgumentException("Uno de los productos seleccionados no existe."));
-            Almacen almacen = almacenRepository.findById(linea.idAlmacen())
-                    .orElseThrow(() -> new IllegalArgumentException("El almacén origen no es válido."));
 
             BigDecimal cantidadPedida = normalizarCantidad(linea.cantidad());
             BigDecimal precioUnitario = seleccionarPrecio(producto, cantidadPedida);
             BigDecimal impuestoBase = normalizarMonto(linea.impuesto());
 
-            if (linea.idLote() != null) {
-                Lote lote = loteRepository.findById(linea.idLote())
-                        .orElseThrow(() -> new IllegalArgumentException("Lote no válido."));
-
-                if (!llevaDespacho) {
-                    Inventario inv = inventarioRepository.findByAlmacenAndLote(almacen, lote)
-                            .orElseThrow(() -> new IllegalArgumentException("No hay registro de inventario para el lote " + lote.getNumeroLote()));
-
-                    if (inv.getCantidadActual().compareTo(cantidadPedida) < 0) {
-                        throw new IllegalArgumentException("Stock físico insuficiente para entrega inmediata del lote " + lote.getNumeroLote());
-                    }
-                    inv.setCantidadActual(inv.getCantidadActual().subtract(cantidadPedida));
-                    inventarioRepository.save(inv);
-                }
-
+            if (producto.getCategoria() == CategoriaProducto.SERVICIO) {
                 DetalleVenta detalle = new DetalleVenta();
                 detalle.setProducto(producto);
                 detalle.setCantidad(cantidadPedida);
                 detalle.setPrecioUnitarioVenta(precioUnitario);
                 detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
-                detalle.setAlmacen(almacen);
-                detalle.setLote(lote);
+                detalle.setAlmacen(null);
+                detalle.setLote(null);
 
                 detalles.add(detalle);
             }
             else {
-                BigDecimal cantidadPendientePorAsignar = cantidadPedida;
+                if (linea.idAlmacen() == null) {
+                    throw new IllegalArgumentException("El almacén origen es obligatorio para el producto físico: " + producto.getNombre());
+                }
 
-                List<Inventario> inventarioDisponible = inventarioRepository
-                        .findByAlmacenAndProductoOrderByLote_FechaVencimientoAsc(almacen, producto).stream()
-                        .filter(inv -> inv.getCantidadActual().compareTo(BigDecimal.ZERO) > 0)
-                        .toList();
+                Almacen almacen = almacenRepository.findById(linea.idAlmacen())
+                        .orElseThrow(() -> new IllegalArgumentException("El almacén origen no es válido."));
 
-                for (Inventario inv : inventarioDisponible) {
-                    if (cantidadPendientePorAsignar.compareTo(BigDecimal.ZERO) <= 0) break;
-
-                    BigDecimal cantidadATomar = cantidadPendientePorAsignar.min(inv.getCantidadActual());
+                if (linea.idLote() != null) {
+                    Lote lote = loteRepository.findById(linea.idLote())
+                            .orElseThrow(() -> new IllegalArgumentException("Lote no válido."));
 
                     if (!llevaDespacho) {
-                        inv.setCantidadActual(inv.getCantidadActual().subtract(cantidadATomar));
+                        Inventario inv = inventarioRepository.findByAlmacenAndLote(almacen, lote)
+                                .orElseThrow(() -> new IllegalArgumentException("No hay registro de inventario para el lote " + lote.getNumeroLote()));
+
+                        if (inv.getCantidadActual().compareTo(cantidadPedida) < 0) {
+                            throw new IllegalArgumentException("Stock físico insuficiente para entrega inmediata del lote " + lote.getNumeroLote());
+                        }
+                        inv.setCantidadActual(inv.getCantidadActual().subtract(cantidadPedida));
                         inventarioRepository.save(inv);
                     }
 
-                    BigDecimal proporcion = cantidadATomar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                    BigDecimal impuestoProporcional = impuestoBase.multiply(proporcion);
+                    DetalleVenta detalle = new DetalleVenta();
+                    detalle.setProducto(producto);
+                    detalle.setCantidad(cantidadPedida);
+                    detalle.setPrecioUnitarioVenta(precioUnitario);
+                    detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
+                    detalle.setAlmacen(almacen);
+                    detalle.setLote(lote);
 
-                    DetalleVenta detalleFraccionado = new DetalleVenta();
-                    detalleFraccionado.setProducto(producto);
-                    detalleFraccionado.setCantidad(cantidadATomar);
-                    detalleFraccionado.setPrecioUnitarioVenta(precioUnitario);
-                    detalleFraccionado.setImpuesto(impuestoProporcional.setScale(4, RoundingMode.HALF_UP));
-                    detalleFraccionado.setAlmacen(almacen);
-                    detalleFraccionado.setLote(inv.getLote());
-
-                    detalles.add(detalleFraccionado);
-                    cantidadPendientePorAsignar = cantidadPendientePorAsignar.subtract(cantidadATomar);
+                    detalles.add(detalle);
                 }
+                else {
+                    BigDecimal cantidadPendientePorAsignar = cantidadPedida;
 
-                if (cantidadPendientePorAsignar.compareTo(BigDecimal.ZERO) > 0) {
+                    List<Inventario> inventarioDisponible = inventarioRepository
+                            .findByAlmacenAndProductoOrderByLote_FechaVencimientoAsc(almacen, producto).stream()
+                            .filter(inv -> inv.getCantidadActual().compareTo(BigDecimal.ZERO) > 0)
+                            .toList();
 
-                    if (!llevaDespacho) {
-                        throw new IllegalArgumentException(
-                                "No hay stock físico suficiente para entrega inmediata de: "
-                                        + producto.getNombre() + ". Faltan " + cantidadPendientePorAsignar
-                                        + " unidades. Si el cliente esperará a que llegue, marque 'Lleva Despacho'."
-                        );
+                    for (Inventario inv : inventarioDisponible) {
+                        if (cantidadPendientePorAsignar.compareTo(BigDecimal.ZERO) <= 0) break;
+
+                        BigDecimal cantidadATomar = cantidadPendientePorAsignar.min(inv.getCantidadActual());
+
+                        if (!llevaDespacho) {
+                            inv.setCantidadActual(inv.getCantidadActual().subtract(cantidadATomar));
+                            inventarioRepository.save(inv);
+                        }
+
+                        BigDecimal proporcion = cantidadATomar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
+                        BigDecimal impuestoProporcional = impuestoBase.multiply(proporcion);
+
+                        DetalleVenta detalleFraccionado = new DetalleVenta();
+                        detalleFraccionado.setProducto(producto);
+                        detalleFraccionado.setCantidad(cantidadATomar);
+                        detalleFraccionado.setPrecioUnitarioVenta(precioUnitario);
+                        detalleFraccionado.setImpuesto(impuestoProporcional.setScale(4, RoundingMode.HALF_UP));
+                        detalleFraccionado.setAlmacen(almacen);
+                        detalleFraccionado.setLote(inv.getLote());
+
+                        detalles.add(detalleFraccionado);
+                        cantidadPendientePorAsignar = cantidadPendientePorAsignar.subtract(cantidadATomar);
                     }
 
-                    BigDecimal proporcionRestante = cantidadPendientePorAsignar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                    BigDecimal impuestoRestante = impuestoBase.multiply(proporcionRestante);
+                    if (cantidadPendientePorAsignar.compareTo(BigDecimal.ZERO) > 0) {
 
-                    DetalleVenta detallePendiente = new DetalleVenta();
-                    detallePendiente.setProducto(producto);
-                    detallePendiente.setCantidad(cantidadPendientePorAsignar);
-                    detallePendiente.setPrecioUnitarioVenta(precioUnitario);
-                    detallePendiente.setImpuesto(impuestoRestante.setScale(4, RoundingMode.HALF_UP));
-                    detallePendiente.setAlmacen(almacen);
-                    detallePendiente.setLote(null);
+                        if (!llevaDespacho) {
+                            throw new IllegalArgumentException(
+                                    "No hay stock físico suficiente para entrega inmediata de: "
+                                            + producto.getNombre() + ". Faltan " + cantidadPendientePorAsignar
+                                            + " unidades. Si el cliente esperará a que llegue, marque 'Lleva Despacho'."
+                            );
+                        }
 
-                    detalles.add(detallePendiente);
+                        BigDecimal proporcionRestante = cantidadPendientePorAsignar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
+                        BigDecimal impuestoRestante = impuestoBase.multiply(proporcionRestante);
+
+                        DetalleVenta detallePendiente = new DetalleVenta();
+                        detallePendiente.setProducto(producto);
+                        detallePendiente.setCantidad(cantidadPendientePorAsignar);
+                        detallePendiente.setPrecioUnitarioVenta(precioUnitario);
+                        detallePendiente.setImpuesto(impuestoRestante.setScale(4, RoundingMode.HALF_UP));
+                        detallePendiente.setAlmacen(almacen);
+                        detallePendiente.setLote(null);
+
+                        detalles.add(detallePendiente);
+                    }
                 }
             }
         }

@@ -33,7 +33,6 @@ public class DetalleVenta {
     @JoinColumn(name = "id_producto", nullable = false)
     private Producto producto;
 
-    @NotNull
     @ManyToOne(optional = false)
     @JoinColumn(name = "id_almacen", nullable = false)
     private Almacen almacen;

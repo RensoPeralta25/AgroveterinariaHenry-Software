@@ -2,6 +2,7 @@ package com.agroveterinaria.view.Venta;
 
 import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.agroveterinaria.entity.*;
+import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.*;
@@ -262,9 +263,19 @@ public class VentaView extends VerticalLayout {
         };
 
         producto.addValueChangeListener(e -> {
-            actualizarLotes.run();
             Producto p = e.getValue();
             if (p != null) {
+                boolean esServicio = p.getCategoria() == CategoriaProducto.SERVICIO;
+
+                cbAlmacen.setEnabled(!esServicio);
+                chkLoteAutomatico.setEnabled(!esServicio);
+                cbLote.setEnabled(!esServicio && !chkLoteAutomatico.getValue());
+
+                if (esServicio) {
+                    cbAlmacen.clear();
+                    cbLote.clear();
+                }
+
                 cantidad.configurarProducto(
                         p.getContenidoPorEmpaque(),
                         p.getPermiteFraccionamiento(),
@@ -273,7 +284,10 @@ public class VentaView extends VerticalLayout {
                 cantidad.setValue(BigDecimal.ONE);
             } else {
                 cantidad.clear();
+                cbAlmacen.setEnabled(true);
+                chkLoteAutomatico.setEnabled(true);
             }
+            actualizarLotes.run();
         });
         cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
 
@@ -303,12 +317,14 @@ public class VentaView extends VerticalLayout {
         gridLineas.addColumn(linea -> linea.getProducto().getNombre())
                 .setHeader("Producto")
                 .setFlexGrow(1);
-        gridLineas.addColumn(linea -> linea.getAlmacen() != null ? linea.getAlmacen().getNombre() : "-")
-                .setHeader("Almacén")
-                .setWidth("150px")
-                .setFlexGrow(0);
-        gridLineas.addColumn(linea -> linea.getLote() != null ? linea.getLote().getNumeroLote() : "Auto (PEPS)")
-                .setHeader("Lote").setWidth("100px").setFlexGrow(0);
+        gridLineas.addColumn(linea -> {
+            if (linea.getProducto().getCategoria() == com.agroveterinaria.enums.CategoriaProducto.SERVICIO) return "N/A";
+            return linea.getAlmacen() != null ? linea.getAlmacen().getNombre() : "-";
+        }).setHeader("Almacén").setWidth("150px").setFlexGrow(0);
+        gridLineas.addColumn(linea -> {
+            if (linea.getProducto().getCategoria() == com.agroveterinaria.enums.CategoriaProducto.SERVICIO) return "N/A";
+            return linea.getLote() != null ? linea.getLote().getNumeroLote() : "Auto (PEPS)";
+        }).setHeader("Lote").setWidth("100px").setFlexGrow(0);
         gridLineas.addColumn(linea -> FormatoInventarioUtil.formatearCantidad(
                         linea.getCantidad(),
                         linea.getProducto().getContenidoPorEmpaque(),
@@ -365,12 +381,14 @@ public class VentaView extends VerticalLayout {
     }
 
     private void agregarLinea() {
-        if (producto.getValue() == null) {
-            mostrarError("Debes seleccionar un producto.");
+        Producto prodSeleccionado = producto.getValue();
+        if (prodSeleccionado == null) {
+            mostrarError("Debes seleccionar un producto o servicio.");
             return;
         }
-        if (cbAlmacen.getValue() == null) {
-            mostrarError("Debes seleccionar el almacén de origen.");
+        boolean esServicio = prodSeleccionado.getCategoria() == com.agroveterinaria.enums.CategoriaProducto.SERVICIO;
+        if (!esServicio && cbAlmacen.getValue() == null) {
+            mostrarError("Debes seleccionar el almacén de origen para los productos físicos.");
             return;
         }
         if (cantidad.getValue() == null || cantidad.getValue().compareTo(BigDecimal.ZERO) <= 0) {
@@ -439,7 +457,7 @@ public class VentaView extends VerticalLayout {
                                 linea.getProducto().getIdProducto(),
                                 linea.getCantidad(),
                                 linea.getImpuesto(),
-                                linea.getAlmacen().getIdAlmacen(),
+                                linea.getAlmacen() != null ? linea.getAlmacen().getIdAlmacen() : null,
                                 linea.getLote() != null ? linea.getLote().getIdLote() : null
                         ))
                         .toList()
