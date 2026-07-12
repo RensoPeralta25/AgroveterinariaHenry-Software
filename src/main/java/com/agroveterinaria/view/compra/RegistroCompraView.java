@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.Compra;
 import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
+import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.exception.ProveedorOperacionException;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.CompraService;
@@ -205,11 +206,15 @@ public class RegistroCompraView extends VerticalLayout {
         txtBuscarProducto.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
             gridProductos.setItems(productoService.listarTodos().stream()
-                    .filter(p -> p.getNombre().toLowerCase().contains(filtro) && p.getStatus() == StatusEntidad.ACTIVO)
+                    .filter(p -> p.getNombre().toLowerCase().contains(filtro))
+                    .filter(p -> p.getStatus() == StatusEntidad.ACTIVO)
+                    .filter(p -> p.getCategoria() != CategoriaProducto.SERVICIO)
                     .toList());
         });
         gridProductos.setItems(productoService.listarTodos().stream()
-                .filter(p -> p.getStatus() == StatusEntidad.ACTIVO).toList());
+                .filter(p -> p.getStatus() == StatusEntidad.ACTIVO)
+                .filter(p -> p.getCategoria() != CategoriaProducto.SERVICIO)
+                .toList());
 
         Button btnAgregar = new Button("Agregar producto a la compra", new Icon(VaadinIcon.ARROW_RIGHT));
         btnAgregar.setWidthFull();
