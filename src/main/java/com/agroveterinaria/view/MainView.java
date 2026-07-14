@@ -119,13 +119,14 @@ public class MainView extends Div {
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService);
       
-        VerticalLayout mainPanel = createMainPanel(securityService);
-
-        HorizontalLayout shell = new HorizontalLayout(sidebar, mainPanel);
+        HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
         shell.setSizeFull();
         shell.setSpacing(false);
         shell.setPadding(false);
+
+        VerticalLayout mainPanel = createMainPanel(securityService, shell);
+        shell.add(mainPanel);
         shell.expand(mainPanel);
 
         add(shell);
@@ -611,12 +612,28 @@ public class MainView extends Div {
         return sidebar;
     }
 
-    private VerticalLayout createMainPanel(SecurityService securityService) {
+    private VerticalLayout createMainPanel(SecurityService securityService, HorizontalLayout shell) {
         moduleTitle.addClassName("module-title");
 
         Button collapseButton = new Button(VaadinIcon.ANGLE_LEFT.create());
         collapseButton.addClassName("collapse-button");
         collapseButton.setAriaLabel("Contraer menú");
+        collapseButton.getElement().setProperty("title", "Ocultar menú lateral");
+        collapseButton.addClickListener(event -> {
+            boolean sidebarCollapsed = shell.getClassNames().contains("sidebar-collapsed");
+
+            if (sidebarCollapsed) {
+                shell.removeClassName("sidebar-collapsed");
+                collapseButton.setIcon(VaadinIcon.ANGLE_LEFT.create());
+                collapseButton.setAriaLabel("Contraer menú");
+                collapseButton.getElement().setProperty("title", "Ocultar menú lateral");
+            } else {
+                shell.addClassName("sidebar-collapsed");
+                collapseButton.setIcon(VaadinIcon.ANGLE_RIGHT.create());
+                collapseButton.setAriaLabel("Expandir menú");
+                collapseButton.getElement().setProperty("title", "Mostrar menú lateral");
+            }
+        });
 
         Button avatarButton = new Button();
         avatarButton.addClassName("user-avatar-button");
