@@ -71,6 +71,8 @@ public class VentaView extends VerticalLayout {
     private final CantidadFraccionadaField cantidad = new CantidadFraccionadaField();
     private final BigDecimalField impuesto = new BigDecimalField("Impuesto");
     private final BigDecimalField descuento = new BigDecimalField("Descuento");
+    private final BigDecimalField descuentoPorcentaje = new BigDecimalField("Descuento (%)");
+    private boolean calculandoDescuento = false;
     private final BigDecimalField montoPagado = new BigDecimalField("Monto pagado");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
 
@@ -139,7 +141,9 @@ public class VentaView extends VerticalLayout {
         ventaFila.setWidthFull();
         ventaFila.expand(vendedor);
 
-        HorizontalLayout pagoFila = new HorizontalLayout(descuento, montoPagado, metodoPago, llevaDespacho);
+        HorizontalLayout pagoFila = new HorizontalLayout(descuentoPorcentaje, descuento, montoPagado, metodoPago, llevaDespacho);
+        descuentoPorcentaje.setWidth("130px");
+        descuento.setWidth("150px");
         pagoFila.setWidthFull();
         pagoFila.setAlignItems(FlexComponent.Alignment.END);
 
@@ -239,7 +243,15 @@ public class VentaView extends VerticalLayout {
 
         tipoCliente.setItems(clienteService.findTiposCliente());
         tipoCliente.setItemLabelGenerator(TipoCliente::getNombreTipoCliente);
-        tipoCliente.addValueChangeListener(event -> actualizarResumen());
+        tipoCliente.addValueChangeListener(event -> {
+            TipoCliente tc = event.getValue();
+            if (tc != null && tc.getDescuento() != null) {
+                descuentoPorcentaje.setValue(tc.getDescuento());
+            } else {
+                descuentoPorcentaje.setValue(BigDecimal.ZERO);
+            }
+            actualizarResumen();
+        });
 
         vendedor.setItems(empleadoService.findVendedores());
         vendedor.setItemLabelGenerator(this::nombreEmpleado);
@@ -339,10 +351,42 @@ public class VentaView extends VerticalLayout {
         impuesto.setValue(BigDecimal.ZERO);
         impuesto.setPrefixComponent(new Span("RD$"));
 
+        descuentoPorcentaje.setValue(BigDecimal.ZERO);
+        descuentoPorcentaje.setSuffixComponent(new Span("%"));
+        descuentoPorcentaje.setValueChangeMode(ValueChangeMode.EAGER);
         descuento.setValue(BigDecimal.ZERO);
         descuento.setPrefixComponent(new Span("RD$"));
         descuento.setValueChangeMode(ValueChangeMode.EAGER);
-        descuento.addValueChangeListener(event -> actualizarResumen());
+        descuentoPorcentaje.addValueChangeListener(e -> {
+            if (calculandoDescuento) return;
+            calculandoDescuento = true;
+
+            BigDecimal subtotalActual = obtenerSubtotalActual();
+            BigDecimal porc = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
+
+            BigDecimal montoAbsoluto = subtotalActual.multiply(porc).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            descuento.setValue(montoAbsoluto);
+
+            actualizarResumen();
+            calculandoDescuento = false;
+        });
+        descuento.addValueChangeListener(e -> {
+            if (calculandoDescuento) return;
+            calculandoDescuento = true;
+
+            BigDecimal subtotalActual = obtenerSubtotalActual();
+            BigDecimal montoAbs = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
+
+            if (subtotalActual.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal porcCalculado = montoAbs.multiply(new BigDecimal("100")).divide(subtotalActual, 2, RoundingMode.HALF_UP);
+                descuentoPorcentaje.setValue(porcCalculado);
+            } else {
+                descuentoPorcentaje.setValue(BigDecimal.ZERO);
+            }
+
+            actualizarResumen();
+            calculandoDescuento = false;
+        });
 
         montoPagado.setValue(BigDecimal.ZERO);
         montoPagado.setPrefixComponent(new Span("RD$"));
@@ -373,16 +417,16 @@ public class VentaView extends VerticalLayout {
 
         if (EstrategiaPrecioVenta.TODO_PRECIO_EMPAQUE == estrategia) {
             BigDecimal precioUnidadProporcional = precioEmpaque.divide(factor, 6, RoundingMode.HALF_UP);
-            cantidadResultante = monto.divide(precioUnidadProporcional, 2, RoundingMode.DOWN);
+            cantidadResultante = monto.divide(precioUnidadProporcional, 4, RoundingMode.HALF_UP);
 
         } else if (EstrategiaPrecioVenta.TODO_PRECIO_FRACCION == estrategia) {
-            cantidadResultante = monto.divide(precioFraccion, 2, RoundingMode.DOWN);
+            cantidadResultante = monto.divide(precioFraccion, 4, RoundingMode.HALF_UP);
 
         } else {
             BigDecimal[] division = monto.divideAndRemainder(precioEmpaque);
             BigDecimal cajasTotales = division[0];
             BigDecimal residuoDinero = division[1];
-            BigDecimal unidadesSueltas = residuoDinero.divide(precioFraccion, 2, RoundingMode.DOWN);
+            BigDecimal unidadesSueltas = residuoDinero.divide(precioFraccion, 4, RoundingMode.HALF_UP);
 
             cantidadResultante = cajasTotales.multiply(factor).add(unidadesSueltas);
         }
@@ -472,7 +516,7 @@ public class VentaView extends VerticalLayout {
                     producto.getValue(),
                     cbAlmacen.getValue(),
                     cbLote.getValue(),
-                    cantidad.getValue().setScale(2, RoundingMode.HALF_UP),
+                    cantidad.getValue().setScale(4, RoundingMode.HALF_UP),
                     impuesto.getValue() != null ? impuesto.getValue().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO,
                     estrategiaPrecio.getValue() != null ? estrategiaPrecio.getValue() : EstrategiaPrecioVenta.NORMAL.getEtiqueta()
             );
@@ -540,6 +584,14 @@ public class VentaView extends VerticalLayout {
 
     private void refrescarLineas() {
         gridLineas.setItems(lineas);
+        if (!calculandoDescuento) {
+            calculandoDescuento = true;
+            BigDecimal subtotalActual = obtenerSubtotalActual();
+            BigDecimal porc = descuentoPorcentaje.getValue() != null ? descuentoPorcentaje.getValue() : BigDecimal.ZERO;
+            BigDecimal montoAbsoluto = subtotalActual.multiply(porc).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            descuento.setValue(montoAbsoluto);
+            calculandoDescuento = false;
+        }
         actualizarResumen();
     }
 
@@ -581,6 +633,7 @@ public class VentaView extends VerticalLayout {
         fechaVencimientoPago.clear();
         llevaDespacho.setValue(false);
         descuento.setValue(BigDecimal.ZERO);
+        descuentoPorcentaje.setValue(BigDecimal.ZERO);
         montoPagado.setValue(BigDecimal.ZERO);
         metodoPago.clear();
         producto.clear();
@@ -616,6 +669,12 @@ public class VentaView extends VerticalLayout {
 
     private String formatMoney(BigDecimal value) {
         return MONEY_FORMAT.format(value != null ? value : BigDecimal.ZERO);
+    }
+
+    private BigDecimal obtenerSubtotalActual() {
+        return lineas.stream()
+                .map(LineaVentaForm::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static class LineaVentaForm {
