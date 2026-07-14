@@ -161,6 +161,7 @@ public class VentaView extends VerticalLayout {
         cbLote.setWidth("130px");
         impuesto.setWidth("90px");
         chkLoteAutomatico.getStyle().set("padding-bottom", "10px");
+        cantidad.getStyle().set("margin-bottom", "-8px");
 
         Button guardar = new Button("Registrar venta", new Icon(VaadinIcon.CHECK), event -> registrarVenta());
         guardar.addClassName("btn-nuevo");
@@ -278,7 +279,7 @@ public class VentaView extends VerticalLayout {
         modoIngreso.addValueChangeListener(e -> {
             boolean porMonto = "Monto (RD$)".equals(e.getValue());
             montoIngresado.setVisible(porMonto);
-            cantidad.setReadOnly(porMonto);
+            cantidad.setEnabled(!porMonto);
             if (porMonto) montoIngresado.focus();
             calcularCantidadDesdeMonto();
         });
