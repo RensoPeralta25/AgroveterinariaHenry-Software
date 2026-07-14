@@ -109,7 +109,8 @@ public class MainView extends Div {
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
             PeriodoFiscalService periodoFiscalService,
-            DevolucionVentaService devolucionVentaService) {
+            DevolucionVentaService devolucionVentaService,
+            TransporteService transporteService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -122,7 +123,7 @@ public class MainView extends Div {
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
-                devolucionVentaService);
+                devolucionVentaService, transporteService);
       
         VerticalLayout mainPanel = createMainPanel(securityService);
 
@@ -175,7 +176,8 @@ public class MainView extends Div {
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
             PeriodoFiscalService periodoFiscalService,
-            DevolucionVentaService devolucionVentaService
+            DevolucionVentaService devolucionVentaService,
+            TransporteService transporteService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -502,7 +504,7 @@ public class MainView extends Div {
                     "Gestión de Despachos",
                     "Control de salida de mercancía en vehículos de la empresa.",
                     VaadinIcon.OUTBOX,
-                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService)
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService, transporteService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
