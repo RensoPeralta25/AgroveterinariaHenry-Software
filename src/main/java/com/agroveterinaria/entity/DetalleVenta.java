@@ -33,8 +33,8 @@ public class DetalleVenta {
     @JoinColumn(name = "id_producto", nullable = false)
     private Producto producto;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "id_almacen", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "id_almacen")
     private Almacen almacen;
 
     @ManyToOne
@@ -47,8 +47,8 @@ public class DetalleVenta {
     private BigDecimal cantidad;
 
     @NotNull
-    @Digits(integer = 12, fraction = 2, message = "El precio unitario solo puede tener hasta 2 decimales")
-    @Column(name = "precio_unitario_venta", nullable = false, precision = 12, scale = 2)
+    @Digits(integer = 8, fraction = 6, message = "El precio unitario solo puede tener hasta 6 decimales")
+    @Column(name = "precio_unitario_venta", nullable = false, precision = 14, scale = 6)
     private BigDecimal precioUnitarioVenta;
 
     @NotNull

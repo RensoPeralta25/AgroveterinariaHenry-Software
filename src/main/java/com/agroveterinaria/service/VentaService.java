@@ -3,6 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstadoVenta;
+import com.agroveterinaria.enums.EstrategiaPrecioVenta;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.repository.*;
 import org.springframework.stereotype.Service;
@@ -109,7 +110,7 @@ public class VentaService {
                     .orElseThrow(() -> new IllegalArgumentException("Uno de los productos seleccionados no existe."));
 
             BigDecimal cantidadPedida = normalizarCantidad(linea.cantidad());
-            BigDecimal precioUnitario = seleccionarPrecio(producto, cantidadPedida);
+            BigDecimal precioUnitario = seleccionarPrecio(producto, cantidadPedida, linea.estrategia());
             BigDecimal impuestoBase = normalizarMonto(linea.impuesto());
 
             if (producto.getCategoria() == CategoriaProducto.SERVICIO) {
@@ -237,7 +238,7 @@ public class VentaService {
             DetalleVenta detalle = new DetalleVenta();
             detalle.setProducto(producto);
             detalle.setCantidad(cantidad);
-            detalle.setPrecioUnitarioVenta(seleccionarPrecio(producto, cantidad));
+            detalle.setPrecioUnitarioVenta(seleccionarPrecio(producto, cantidad, linea.estrategia()));
             detalle.setImpuesto(impuesto.setScale(4, RoundingMode.HALF_UP));
             subtotal = subtotal.add(detalle.calcularSubtotal());
         }
@@ -451,15 +452,43 @@ public class VentaService {
         }
     }
 
-    private BigDecimal seleccionarPrecio(Producto producto, BigDecimal cantidad) {
-        boolean ventaFraccionada = Boolean.TRUE.equals(producto.getPermiteFraccionamiento())
-                && cantidad.stripTrailingZeros().scale() > 0;
-
-        BigDecimal precio = ventaFraccionada ? producto.getPrecioFraccion() : producto.getPrecioEmpaque();
-        if (precio == null) {
-            throw new IllegalArgumentException("El producto " + producto.getNombre() + " no tiene precio configurado para esta venta.");
+    private BigDecimal seleccionarPrecio(Producto producto, BigDecimal cantidad, EstrategiaPrecioVenta estrategia) {
+        if (!Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
+            return producto.getPrecioEmpaque().setScale(2, RoundingMode.HALF_UP);
         }
-        return precio.setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal factor = producto.getContenidoPorEmpaque();
+        if (factor == null || factor.compareTo(BigDecimal.ONE) <= 0) {
+            return producto.getPrecioEmpaque().setScale(2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal precioEmp = producto.getPrecioEmpaque();
+        BigDecimal precioFracc = producto.getPrecioFraccion() != null ? producto.getPrecioFraccion() : precioEmp.divide(factor, 4, RoundingMode.HALF_UP);
+
+        BigDecimal subtotalSinImpuesto = BigDecimal.ZERO;
+
+        if (estrategia == null) {
+            estrategia = EstrategiaPrecioVenta.NORMAL;
+        }
+
+        switch (estrategia) {
+            case TODO_PRECIO_EMPAQUE:
+                BigDecimal precioUnidadProporcional = precioEmp.divide(factor, 6, RoundingMode.HALF_UP);
+                subtotalSinImpuesto = cantidad.multiply(precioUnidadProporcional);
+                break;
+            case TODO_PRECIO_FRACCION:
+                subtotalSinImpuesto = cantidad.multiply(precioFracc);
+                break;
+            case NORMAL:
+            default:
+                BigDecimal[] division = cantidad.divideAndRemainder(factor);
+                BigDecimal cajas = division[0];
+                BigDecimal unidadesSueltas = division[1];
+                subtotalSinImpuesto = cajas.multiply(precioEmp).add(unidadesSueltas.multiply(precioFracc));
+                break;
+        }
+
+        return subtotalSinImpuesto.divide(cantidad, 6, RoundingMode.HALF_UP);
     }
 
     private EstadoVenta calcularEstado(BigDecimal total, BigDecimal montoPagado) {
@@ -533,7 +562,8 @@ public class VentaService {
             BigDecimal cantidad,
             BigDecimal impuesto,
             Long idAlmacen,
-            Long idLote
+            Long idLote,
+            EstrategiaPrecioVenta estrategia
     ) {
     }
 
