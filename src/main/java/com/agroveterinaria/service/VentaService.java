@@ -499,7 +499,7 @@ public class VentaService {
         if (cantidad == null || cantidad.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser mayor que cero.");
         }
-        return cantidad.setScale(2, RoundingMode.HALF_UP);
+        return cantidad.setScale(4, RoundingMode.HALF_UP);
     }
 
     private BigDecimal normalizarMonto(BigDecimal monto) {

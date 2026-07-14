@@ -42,8 +42,8 @@ public class DetalleVenta {
     private Lote lote;
 
     @NotNull
-    @Digits(integer = 12, fraction = 2, message = "La cantidad solo puede tener hasta 2 decimales")
-    @Column(name = "cantidad", nullable = false, precision = 12, scale = 2)
+    @Digits(integer = 10, fraction = 4, message = "La cantidad solo puede tener hasta 4 decimales")
+    @Column(name = "cantidad", nullable = false, precision = 14, scale = 4)
     private BigDecimal cantidad;
 
     @NotNull
