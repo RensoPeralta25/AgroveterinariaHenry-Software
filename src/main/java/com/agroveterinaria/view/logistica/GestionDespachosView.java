@@ -2,10 +2,9 @@ package com.agroveterinaria.view.logistica;
 
 import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
-import com.agroveterinaria.service.DespachoService;
-import com.agroveterinaria.service.EmpleadoService;
-import com.agroveterinaria.service.LoteService;
-import com.agroveterinaria.service.VehiculoService;
+import com.agroveterinaria.entity.Despacho;
+import com.agroveterinaria.entity.Transporte;
+import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
@@ -32,6 +31,7 @@ public class GestionDespachosView extends VerticalLayout {
     private final VehiculoService vehiculoService;
     private final EmpleadoService empleadoService;
     private final LoteService loteService;
+    private final TransporteService transporteService;
     private Grid<DespachoResumenDTO> gridDespachos;
     private GridPaginator<DespachoResumenDTO> paginator;
     private List<DespachoResumenDTO> despachos = List.of();
@@ -43,11 +43,13 @@ public class GestionDespachosView extends VerticalLayout {
     public GestionDespachosView(DespachoService despachoService,
                                 VehiculoService vehiculoService,
                                 EmpleadoService empleadoService,
-                                LoteService loteService) {
+                                LoteService loteService,
+                                TransporteService transporteService) {
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
         this.loteService = loteService;
+        this.transporteService = transporteService;
 
         setSizeFull();
         setPadding(true);
@@ -169,13 +171,38 @@ public class GestionDespachosView extends VerticalLayout {
                 .setHeader("Estado").setFlexGrow(1);
 
         gridDespachos.addComponentColumn(dto -> {
+            HorizontalLayout acciones = new HorizontalLayout();
+            acciones.setSpacing(false);
+
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnVer.addClickListener(e -> {
                 Notification.show("Abrir modal para el despacho " + dto.getCodigo());
             });
-            return btnVer;
-        }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
+            acciones.add(btnVer);
+
+            boolean esVenta = "Venta".equals(dto.getTipo());
+            boolean noLiquidado = dto.getEstado() != null && !dto.getEstado().equalsIgnoreCase("COMPLETADO");
+
+            if (esVenta && noLiquidado) {
+                Button btnLiquidar = new Button(new Icon(VaadinIcon.INVOICE));
+                btnLiquidar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+                btnLiquidar.setTooltipText("Liquidar Retorno del Chofer");
+
+                btnLiquidar.addClickListener(e -> {
+                    Despacho despacho = despachoService.buscarPorIdConTransporte(dto.getIdDespacho()).orElse(null);
+                    if (despacho != null) {
+                        Transporte transporte = despacho.getTransporte();
+                        LiquidarRutaDialog dialog = new LiquidarRutaDialog(transporte, despachoService, this::cargarDatos);
+                        dialog.open();
+                    }
+                });
+
+                acciones.add(btnLiquidar);
+            }
+
+            return acciones;
+        }).setHeader("Acciones").setWidth("140px").setFlexGrow(0);
     }
 
     private void cargarDatos() {
