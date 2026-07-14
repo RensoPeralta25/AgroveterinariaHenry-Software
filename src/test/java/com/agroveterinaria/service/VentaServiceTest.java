@@ -1,11 +1,7 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.*;
-import com.agroveterinaria.enums.CategoriaProducto;
-import com.agroveterinaria.enums.EstadoVenta;
-import com.agroveterinaria.enums.MetodoPago;
-import com.agroveterinaria.enums.StatusEntidad;
-import com.agroveterinaria.enums.UnidadEmpaque;
+import com.agroveterinaria.enums.*;
 import com.agroveterinaria.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,8 +81,8 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenRechazaCantidadCeroONegativa() {
-        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", "0.00", 1L, 1L)));
-        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", "0.00", 1L, 1L)));
+        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
+        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadCero));
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadNegativa));
@@ -123,7 +119,7 @@ class VentaServiceTest {
         VentaService.ResumenVenta resumen = ventaService.calcularResumen(solicitud(
                 "25.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(new BigDecimal("354.00"), resumen.subtotal());
@@ -173,13 +169,13 @@ class VentaServiceTest {
         VentaService.ResumenVenta pagoParcial = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         VentaService.ResumenVenta pagoTotal = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(EstadoVenta.PENDIENTE, pagoParcial.estado());
@@ -196,7 +192,7 @@ class VentaServiceTest {
         VentaService.SolicitudVenta solicitud = solicitud(
                 "0.00",
                 "355.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         );
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(solicitud));
@@ -212,8 +208,8 @@ class VentaServiceTest {
                 "0.00",
                 "514.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L),
-                        linea(200L, "2.00", "0.00", 1L, 1L)
+                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(200L, "2.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -238,7 +234,7 @@ class VentaServiceTest {
         ventaService.registrarVenta(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         ArgumentCaptor<Venta> ventaCaptor = ArgumentCaptor.forClass(Venta.class);
@@ -329,8 +325,8 @@ class VentaServiceTest {
                 "50.00",
                 "804.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L),
-                        linea(300L, "1.00", "0.00", 1L, 1L)
+                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(300L, "1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -376,8 +372,8 @@ class VentaServiceTest {
         );
     }
 
-    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, String impuesto, Long idAlmacen, Long idLote) {
-        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), bd(impuesto), idAlmacen, idLote);
+    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, String impuesto, Long idAlmacen, Long idLote, EstrategiaPrecioVenta estrategia) {
+        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), bd(impuesto), idAlmacen, idLote, estrategia);
     }
 
     private Producto producto(Long idProducto, CategoriaProducto categoria, String precioEmpaque) {

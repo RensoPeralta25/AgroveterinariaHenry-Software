@@ -530,8 +530,8 @@ public class VentaView extends VerticalLayout {
                                 linea.getCantidad(),
                                 linea.getImpuesto(),
                                 linea.getAlmacen() != null ? linea.getAlmacen().getIdAlmacen() : null,
-                                linea.getLote() != null ? linea.getLote().getIdLote() : null
-
+                                linea.getLote() != null ? linea.getLote().getIdLote() : null,
+                                linea.getEstrategiaPrecio()
                         ))
                         .toList()
         );
