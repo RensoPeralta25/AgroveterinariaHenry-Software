@@ -25,9 +25,11 @@ public class CorridaNomina {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idCorrida;
 
+    @NotNull(message = "El período es obligatorio")
     @Enumerated(EnumType.STRING)
     private PeriodoNomina periodo;
 
+    @NotNull(message = "La fecha de emisión es obligatoria")
     private LocalDate fechaEmision;
 
     @Enumerated(EnumType.STRING)

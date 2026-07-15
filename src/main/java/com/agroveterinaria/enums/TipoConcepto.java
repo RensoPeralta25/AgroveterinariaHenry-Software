@@ -18,8 +18,7 @@ public enum TipoConcepto {
     ANTICIPO_SALARIO,
     PRESTAMO_EMPRESA,
     AUSENCIAS_NO_PAGADAS,
-    EMBARGO_SALARIAL,
-    OTRAS_DEDUCCIONES;
+    EMBARGO_SALARIAL;
 
     public boolean esIngreso() {
         return this == SALARIO_BASE || this == HORAS_EXTRAS ||

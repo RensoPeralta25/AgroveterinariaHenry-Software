@@ -28,6 +28,7 @@ import com.agroveterinaria.view.logistica.GestionDespachosView;
 import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
+import com.agroveterinaria.view.nomina.AnticipoSalarioView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.producto.ServicioCrudView;
@@ -109,6 +110,7 @@ public class MainView extends Div {
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
             PeriodoFiscalService periodoFiscalService,
+            AnticipoSalarioService anticipoSalarioService),
             DevolucionVentaService devolucionVentaService,
             TransporteService transporteService) {
         this.authContext = authContext;
@@ -123,7 +125,7 @@ public class MainView extends Div {
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
-                devolucionVentaService, transporteService);
+                anticipoSalarioService, devolucionVentaService, transporteService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -177,6 +179,7 @@ public class MainView extends Div {
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
             PeriodoFiscalService periodoFiscalService,
+            AnticipoSalarioService anticipoSalarioService,
             DevolucionVentaService devolucionVentaService,
             TransporteService transporteService
     ) {
@@ -217,6 +220,7 @@ public class MainView extends Div {
         Button recursosHumanosButton = createMenuButton(VaadinIcon.INVOICE, "Recursos Humanos");
         Button nominaButton = createSubmenuButton(VaadinIcon.INVOICE, "Nómina");
         Button vacacionesButton = createSubmenuButton(VaadinIcon.FLIGHT_TAKEOFF, "Vacaciones");
+        Button anticiposButton = createSubmenuButton(VaadinIcon.MONEY_WITHDRAW, "Anticipos");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -251,7 +255,7 @@ public class MainView extends Div {
         ventasSubmenu.setSpacing(false);
         ventasSubmenu.setVisible(false);
 
-        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton);
+        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton, anticiposButton);
         recursosHumanosSubMenu.addClassName("sidebar-submenu");
         recursosHumanosSubMenu.setPadding(false);
         recursosHumanosSubMenu.setSpacing(false);
@@ -287,6 +291,7 @@ public class MainView extends Div {
         empleadosButton.setEnabled(esAdmin);
         nominaButton.setEnabled(esAdmin);
         vacacionesButton.setEnabled(esAdmin);
+        anticiposButton.setEnabled(esAdmin);
 
         boolean accesoAlmacen = esAdmin || esAsistente;
 
@@ -625,6 +630,19 @@ public class MainView extends Div {
                     "Programación y registro de descansos del personal",
                     VaadinIcon.FLIGHT_TAKEOFF,
                     new VacacionEmpleadoView(vacacionEmpleadoService, empleadoService, diaFeriadoService, configuracionNominaService)
+            );
+            recursosHumanosButton.addClassName("menu-button-active");
+        });
+
+        anticiposButton.addClickListener(event -> {
+            recursosHumanosSubMenu.setVisible(true);
+            showModule(
+                    anticiposButton,
+                    "Gestión de Anticipos",
+                    "Panel de Anticipos",
+                    "Administración y registro de anticipos de salario a empleados",
+                    VaadinIcon.MONEY_WITHDRAW,
+                    new AnticipoSalarioView(anticipoSalarioService, empleadoService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });

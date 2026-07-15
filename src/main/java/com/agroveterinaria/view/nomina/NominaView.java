@@ -32,6 +32,7 @@ import org.vaadin.crudui.crud.impl.GridCrud;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -131,14 +132,14 @@ public class NominaView extends VerticalLayout {
         gridCorridas.setWidthFull();
         gridCorridas.setHeight("390px");
 
-        gridCorridas.addColumn(CorridaNomina::getIdCorrida)
-                .setHeader("ID").setSortable(true).setWidth("70px").setFlexGrow(0);
-
         gridCorridas.addColumn(c -> c.getFechaEmision().toString())
-                .setHeader("Fecha emisión").setWidth("140px").setFlexGrow(0);
+                .setHeader("Fecha emisión").setWidth("140px").setFlexGrow(0).setSortable(true);
 
-        gridCorridas.addColumn(CorridaNomina::getPeriodo)
+        gridCorridas.addColumn(c -> c.getPeriodo().getDescripcion())
                 .setHeader("Período").setWidth("110px").setFlexGrow(0);
+
+        gridCorridas.addColumn(c -> c.getTipo().getDescripcion())
+                .setHeader("Tipo").setWidth("150px").setFlexGrow(0);
 
         gridCorridas.addColumn(CorridaNomina::getCantidadEmpleados)
                 .setHeader("Empleados").setWidth("110px").setFlexGrow(0);
@@ -146,20 +147,40 @@ public class NominaView extends VerticalLayout {
         gridCorridas.addColumn(c -> "RD$ " + formatearMonto(c.getTotalGeneral()))
                 .setHeader("Total neto").setFlexGrow(1);
 
-        gridCorridas.addColumn(CorridaNomina::getEstado)
-                .setHeader("Estado").setWidth("120px").setFlexGrow(0);
+        gridCorridas.addComponentColumn(corrida -> {
+            Span circulo = new Span();
+            circulo.getStyle().set("width", "10px");
+            circulo.getStyle().set("height", "10px");
+            circulo.getStyle().set("border-radius", "50%");
+            circulo.getStyle().set("display", "inline-block");
+
+            boolean esAprobada = corrida.getEstado() == EstadoCorrida.APROBADA;
+
+            circulo.getStyle().set("background-color", esAprobada ? "#2e7d32" : "#f59e0b");
+
+            Span texto = new Span(corrida.getEstado().getDescripcion());
+            texto.getStyle().set("color", esAprobada ? "#2e7d32" : "#f59e0b");
+            texto.getStyle().set("font-weight", "500");
+
+            HorizontalLayout layoutEstado = new HorizontalLayout(circulo, texto);
+            layoutEstado.setAlignItems(Alignment.CENTER);
+            layoutEstado.setSpacing(true);
+
+            return layoutEstado;
+        }).setHeader("Estado").setWidth("120px").setFlexGrow(0);
 
         gridCorridas.addComponentColumn(corrida -> {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addClassName("btn-accion-editar");
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, paginator, false));
+            btnVer.addClickListener(e -> dialogResultadoCorrida(corrida, paginator, false));
 
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEditar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
-            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, gridCorridas, paginator, true));
+            btnEditar.setVisible(corrida.getTipo() == TipoCorrida.ORDINARIA);
+            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, paginator, true));
 
             Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK));
             btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -184,7 +205,7 @@ public class NominaView extends VerticalLayout {
 
         Button btnGenerar = new Button("Nueva corrida", new Icon(VaadinIcon.PLUS));
         btnGenerar.addClassName("btn-nuevo");
-        btnGenerar.addClickListener(e -> dialogGeneracion(gridCorridas, paginator));
+        btnGenerar.addClickListener(e -> dialogGeneracion(paginator));
 
         ComboBox<TipoCorrida> filtroTipo = new ComboBox<>();
         filtroTipo.setPlaceholder("Filtrar por Tipo...");
@@ -206,7 +227,7 @@ public class NominaView extends VerticalLayout {
         return layout;
     }
 
-    private void dialogGeneracion(Grid<CorridaNomina> gridCorridas, GridPaginator<CorridaNomina> paginator) {
+    private void dialogGeneracion(GridPaginator<CorridaNomina> paginator) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Nueva corrida de nómina");
         dialog.setWidth("450px");
@@ -242,6 +263,8 @@ public class NominaView extends VerticalLayout {
             TipoCorrida tipo = event.getValue();
             cmbPeriodoFiscal.setVisible(tipo == TipoCorrida.BONIFICACION);
             cmbEmpleado.setVisible(tipo == TipoCorrida.VACACIONES_ANTICIPADAS);
+
+            cmbPeriodo.setVisible(tipo == TipoCorrida.ORDINARIA);
 
             if (tipo == TipoCorrida.BONIFICACION || tipo == TipoCorrida.REGALIA_PASCUAL) {
                 cmbPeriodo.setValue(PeriodoNomina.MES);
@@ -289,7 +312,7 @@ public class NominaView extends VerticalLayout {
 
                 dialog.close();
                 refrescarGrid(paginator);
-                dialogResultadoCorrida(corrida, gridCorridas, paginator, true);
+                dialogResultadoCorrida(corrida, paginator, true);
 
             } catch (Exception ex) {
                 mostrarError(ex.getMessage());
@@ -324,16 +347,21 @@ public class NominaView extends VerticalLayout {
 
         NumberField ausencias = new NumberField("Ausencias no pagadas (días)");
         ausencias.setMin(0);
+
+        LocalDate fechaCorrida = nomina.getCorrida().getFechaEmision();
+
+        int maxDias;
+        if (nomina.getCorrida().getPeriodo() == PeriodoNomina.MES) {
+            maxDias = fechaCorrida.lengthOfMonth();
+        } else {
+            maxDias = (fechaCorrida.getDayOfMonth() <= 15) ? 15 : (fechaCorrida.lengthOfMonth() - 15);
+        }
+        ausencias.setMax(maxDias);
+
         ausencias.setStep(0.5);
         ausencias.setPlaceholder("0");
         ausencias.setWidthFull();
         ausencias.setValue(obtenerCantidadConcepto(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS));
-
-        BigDecimalField anticipo = crearCampoMoneda("Anticipo de salario");
-        anticipo.setValue(obtenerMontoConcepto(nomina, TipoConcepto.ANTICIPO_SALARIO));
-
-        BigDecimalField otrosDescuentos = crearCampoMoneda("Otros descuentos");
-        otrosDescuentos.setValue(obtenerMontoConcepto(nomina, TipoConcepto.OTRAS_DEDUCCIONES));
 
         FormLayout formIngresos = new FormLayout(horasExtras, comisionesRegulares, comisionesExtraordinarias, dietasYViaticos);
         formIngresos.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
@@ -343,7 +371,7 @@ public class NominaView extends VerticalLayout {
         seccionIngresos.addClassNames("caja-novedades", "seccion-ingresos");
         seccionIngresos.setPadding(false);
 
-        FormLayout formDeducciones = new FormLayout(ausencias, anticipo, otrosDescuentos);
+        FormLayout formDeducciones = new FormLayout(ausencias);
         formDeducciones.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1),
                 new FormLayout.ResponsiveStep("300px", 2));
 
@@ -371,11 +399,10 @@ public class NominaView extends VerticalLayout {
             agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_REGULARES, "Comisiones Regulares", comisionesRegulares.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS, "Comisiones Extraordinarias", comisionesExtraordinarias.getValue(), 1.0);
             agregarOActualizarNovedad(nomina, TipoConcepto.DIETAS_Y_VIATICOS, "Dietas y viáticos", dietasYViaticos.getValue(), 1.0);
-            agregarOActualizarNovedad(nomina, TipoConcepto.ANTICIPO_SALARIO, "Anticipo de salario", anticipo.getValue(), 1.0);
-            agregarOActualizarNovedad(nomina, TipoConcepto.OTRAS_DEDUCCIONES, "Otros descuentos", otrosDescuentos.getValue(), 1.0);
 
             if (ausencias.getValue() != null && ausencias.getValue() > 0) {
-                BigDecimal valorDia = nomina.getEmpleado().getSalario().divide(BigDecimal.valueOf(30), 2, java.math.RoundingMode.HALF_UP);
+                BigDecimal divisorOficial = configuracionNominaService.getDivisorMensualDiario();
+                BigDecimal valorDia = nomina.getEmpleado().getSalario().divide(divisorOficial, 2, java.math.RoundingMode.HALF_UP);
                 BigDecimal montoAusencia = valorDia.multiply(BigDecimal.valueOf(ausencias.getValue()));
                 agregarOActualizarNovedad(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS, "Ausencias no pagadas", montoAusencia, ausencias.getValue());
             } else {
@@ -396,7 +423,6 @@ public class NominaView extends VerticalLayout {
 
     private void dialogResultadoCorrida(
             CorridaNomina corrida,
-            Grid<CorridaNomina> gridCorridas,
             GridPaginator<CorridaNomina> paginator,
             boolean esModoEdicion
     ) {
@@ -428,7 +454,17 @@ public class NominaView extends VerticalLayout {
         }
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Resultado — " + corrida.getPeriodo() + " " + corrida.getFechaEmision());
+
+        String tituloDialog;
+
+        if (corrida.getTipo() == TipoCorrida.ORDINARIA) {
+            tituloDialog = "Resultado — " + corrida.getTipo().getDescripcion() + " | " +
+                    corrida.getPeriodo().getDescripcion() + " " + corrida.getFechaEmision();
+        } else {
+            tituloDialog = "Resultado — " + corrida.getTipo().getDescripcion() + " | " + corrida.getFechaEmision();
+        }
+
+        dialog.setHeaderTitle(tituloDialog);
         dialog.setWidth("85vw");
         dialog.setMaxWidth("850px");
 
@@ -450,7 +486,7 @@ public class NominaView extends VerticalLayout {
 
             HorizontalLayout acciones = new HorizontalLayout(btnVer);
 
-            if (esModoEdicion) {
+            if (esModoEdicion && corrida.getTipo() == TipoCorrida.ORDINARIA) {
                 Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
                 btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
                 btnEditar.addClickListener(e -> dialogFormularioNovedades(nomina, gridNominas));

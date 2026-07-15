@@ -155,4 +155,40 @@ public class ConfiguracionNominaService {
                 .map(BigDecimal::intValue)
                 .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_PAGO_VACACIONES_SENIOR'."));
     }
+
+    public BigDecimal getSalarioMinimoLegal() {
+        return obtenerValor("SALARIO_MINIMO_LEGAL");
+    }
+
+    public BigDecimal getAnticipoPorcentajeMaximoMonto() {
+        return obtenerValor("ANTICIPO_PORCENTAJE_MAXIMO_MONTO");
+    }
+
+    public BigDecimal getAnticipoPorcentajeMinimoMonto() {
+        return obtenerValor("ANTICIPO_PORCENTAJE_MINIMO_MONTO");
+    }
+
+    public BigDecimal getAnticipoDivisorMaximoCuota() {
+        return obtenerValor("ANTICIPO_DIVISOR_MAXIMO_CUOTA");
+    }
+
+    public int getAnticipoPlazoMaximoMeses() {
+        return obtenerValor("ANTICIPO_PLAZO_MAXIMO_MESES").intValue();
+    }
+
+    public BigDecimal getAnticipoRiesgoAltoMultiplicador() {
+        return obtenerValor("ANTICIPO_RIESGO_ALTO_MULTIPLICADOR");
+    }
+
+    public BigDecimal getAnticipoRiesgoAltoPorcentaje() {
+        return obtenerValor("ANTICIPO_RIESGO_ALTO_PORCENTAJE");
+    }
+
+    public BigDecimal getAnticipoRiesgoMedioMultiplicador() {
+        return obtenerValor("ANTICIPO_RIESGO_MEDIO_MULTIPLICADOR");
+    }
+
+    public BigDecimal getAnticipoRiesgoMedioPorcentaje() {
+        return obtenerValor("ANTICIPO_RIESGO_MEDIO_PORCENTAJE");
+    }
 }

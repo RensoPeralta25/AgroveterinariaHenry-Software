@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.*;
+import com.agroveterinaria.repository.AnticipoSalarioRepository;
 import com.agroveterinaria.repository.CorridaNominaRepository;
 import com.agroveterinaria.repository.DetalleNominaRepository;
 import jakarta.annotation.security.RolesAllowed;
@@ -32,6 +33,7 @@ public class CorridaNominaService {
     private final ConfiguracionNominaService configuracionNominaService;
     private final DiaFeriadoService diaFeriadoService;
     private final PeriodoFiscalService periodoFiscalService;
+    private final AnticipoSalarioRepository anticipoSalarioRepository;
 
     public List<CorridaNomina> findAllConNominas() {
         return corridaRepository.findAllConNominas();
@@ -144,6 +146,31 @@ public class CorridaNominaService {
                     .map(DetalleNomina::getMonto)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+            BigDecimal totalDescontadoAnticipo = nomina.getDetalles().stream()
+                    .filter(d -> d.getTipo() == TipoConcepto.ANTICIPO_SALARIO)
+                    .map(DetalleNomina::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (totalDescontadoAnticipo.compareTo(BigDecimal.ZERO) > 0) {
+                List<AnticipoSalario> anticipos = anticipoSalarioRepository.findByEmpleadoIdEmpleadoAndEstado(nomina.getEmpleado().getIdEmpleado(), EstadoAnticipo.APROBADO);
+                BigDecimal remanenteCobrado = totalDescontadoAnticipo;
+
+                for (AnticipoSalario anticipo : anticipos) {
+                    if (remanenteCobrado.compareTo(BigDecimal.ZERO) <= 0) break;
+
+                    BigDecimal abonoAlAnticipo = remanenteCobrado.min(anticipo.getSaldoPendiente());
+                    anticipo.setMontoDescontado(anticipo.getMontoDescontado().add(abonoAlAnticipo));
+                    anticipo.setSaldoPendiente(anticipo.getSaldoPendiente().subtract(abonoAlAnticipo));
+                    remanenteCobrado = remanenteCobrado.subtract(abonoAlAnticipo);
+
+                    if (anticipo.getSaldoPendiente().compareTo(BigDecimal.ZERO) <= 0) {
+                        anticipo.setSaldoPendiente(BigDecimal.ZERO);
+                        anticipo.setEstado(EstadoAnticipo.SALDADO);
+                    }
+                    anticipoSalarioRepository.save(anticipo);
+                }
+            }
+
             if (totalDescontado.compareTo(BigDecimal.ZERO) > 0) {
                 List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(nomina.getEmpleado());
                 BigDecimal remanenteCobrado = totalDescontado;
@@ -168,8 +195,7 @@ public class CorridaNominaService {
             if (tienePagoVacaciones) {
                 List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(nomina.getEmpleado());
                 for (VacacionEmpleado vacacion : vacacionesNoPagadas) {
-                    vacacion.setPagado(true);
-                    vacacionEmpleadoService.save(vacacion);
+                    vacacionEmpleadoService.marcarComoPagada(vacacion);
                 }
             }
         }
@@ -199,7 +225,29 @@ public class CorridaNominaService {
         }
     }
 
-    private void cobrarPrestamosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
+    private BigDecimal calcularNetoDisponibleTemporal(Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
+        BigDecimal totalDeduccionesPrevias = detalles.stream()
+                .filter(d -> d.getTipo() != TipoConcepto.SALARIO_BASE &&
+                        d.getTipo() != TipoConcepto.COMISIONES_REGULARES &&
+                        d.getTipo() != TipoConcepto.PAGO_VACACIONES &&
+                        d.getTipo() != TipoConcepto.SUELDO_13 &&
+                        d.getTipo() != TipoConcepto.BONIFICACIONES)
+                .map(DetalleNomina::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal netoReal = totalDevengado.subtract(totalDeduccionesPrevias);
+        BigDecimal salarioMinimo = configuracionNominaService.getSalarioMinimoLegal();
+
+        BigDecimal disponibleParaDeudas = netoReal.subtract(salarioMinimo);
+
+        if (disponibleParaDeudas.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return disponibleParaDeudas;
+    }
+
+    private void cobrarPrestamosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
         List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(empleado);
         for (PrestamoEmpleado prestamo : prestamos) {
             BigDecimal montoACobrar = prestamo.getCuotaPeriodica().min(prestamo.getBalancePendiente());
@@ -239,12 +287,58 @@ public class CorridaNominaService {
                     }
                 }
             }
-            
+
             if (montoADescontar.compareTo(BigDecimal.ZERO) > 0) {
                 detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
                         embargo.getTipo().getDescripcion() + ": " + embargo.getEntidadDemandante(), montoADescontar, 1.0));
 
                 totalEmbargado = totalEmbargado.add(montoADescontar);
+            }
+        }
+    }
+
+    private void cobrarAnticiposActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
+        List<AnticipoSalario> anticipos = anticipoSalarioRepository.findByEmpleadoIdEmpleadoAndEstado(empleado.getIdEmpleado(), EstadoAnticipo.APROBADO);
+
+        for (AnticipoSalario anticipo : anticipos) {
+            if (anticipo.getSaldoPendiente().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            BigDecimal disponibleParaDeudas = calcularNetoDisponibleTemporal(detalles, totalDevengado);
+            if (disponibleParaDeudas.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal totalDeduccionesPrevias = detalles.stream()
+                    .filter(d -> d.getTipo() != TipoConcepto.SALARIO_BASE &&
+                            d.getTipo() != TipoConcepto.COMISIONES_REGULARES &&
+                            d.getTipo() != TipoConcepto.PAGO_VACACIONES &&
+                            d.getTipo() != TipoConcepto.SUELDO_13 &&
+                            d.getTipo() != TipoConcepto.BONIFICACIONES)
+                    .map(DetalleNomina::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal netoReal = totalDevengado.subtract(totalDeduccionesPrevias);
+            BigDecimal salarioMinimo = configuracionNominaService.getSalarioMinimoLegal();
+
+            BigDecimal limiteRiesgoAlto = salarioMinimo.multiply(configuracionNominaService.getAnticipoRiesgoAltoMultiplicador());
+            BigDecimal limiteRiesgoMedio = salarioMinimo.multiply(configuracionNominaService.getAnticipoRiesgoMedioMultiplicador());
+
+            BigDecimal limiteCuotaPorBanda;
+
+            if (netoReal.compareTo(limiteRiesgoAlto) <= 0) {
+                limiteCuotaPorBanda = netoReal.multiply(configuracionNominaService.getAnticipoRiesgoAltoPorcentaje());
+            } else if (netoReal.compareTo(limiteRiesgoMedio) <= 0) {
+                limiteCuotaPorBanda = netoReal.multiply(configuracionNominaService.getAnticipoRiesgoMedioPorcentaje());
+            } else {
+                limiteCuotaPorBanda = anticipo.getCuotaDescuento();
+            }
+            
+            BigDecimal montoACobrar = anticipo.getCuotaDescuento()
+                    .min(anticipo.getSaldoPendiente())
+                    .min(limiteCuotaPorBanda)
+                    .min(disponibleParaDeudas);
+
+            if (montoACobrar.compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.ANTICIPO_SALARIO,
+                        "Descuento Automático Anticipo", montoACobrar, 1.0));
             }
         }
     }
@@ -343,8 +437,6 @@ public class CorridaNominaService {
                             "Vacaciones Ordinarias (" + vacacion.getCantidadDiasAPagar() + " días pagados)", montoVacacion, 1.0));
 
                     totalDevengado = totalDevengado.add(montoVacacion);
-                    
-                    vacacionEmpleadoService.marcarComoPagada(vacacion);
                 }
             }
         }
@@ -369,7 +461,8 @@ public class CorridaNominaService {
         }
 
         cobrarEmbargosActivos(empleado, nomina, detalles);
-        cobrarPrestamosActivos(empleado, nomina, detalles);
+        cobrarPrestamosActivos(empleado, nomina, detalles, totalDevengado);
+        cobrarAnticiposActivos(empleado, nomina, detalles, totalDevengado);
     }
 
     private void procesarRegaliaPascual(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, LocalDate fechaCorrida) {
@@ -463,8 +556,6 @@ public class CorridaNominaService {
                         "Anticipo Vacaciones (" + vacacion.getCantidadDiasDescanso() + " días)", montoVacacion, 1.0));
 
                 totalDevengado = totalDevengado.add(montoVacacion);
-
-                vacacionEmpleadoService.marcarComoPagada(vacacion);
             }
         }
 

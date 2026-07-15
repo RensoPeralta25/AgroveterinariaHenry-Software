@@ -22,6 +22,6 @@ public interface NominaRepository extends JpaRepository<Nomina, Long> {
 
     boolean existsByEmpleado(Empleado empleado);
 
-    @Query("SELECT DISTINCT n.empleado.IdEmpleado FROM Nomina n")
+    @Query("SELECT DISTINCT n.empleado.idEmpleado FROM Nomina n")
     Set<Long> findIdsEmpleadosConHistorial();
 }
