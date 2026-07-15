@@ -18,6 +18,8 @@ public class VacacionEmpleadoService {
     private final VacacionEmpleadoRepository vacacionEmpleadoRepository;
 
     public VacacionEmpleado save(VacacionEmpleado vacacionEmpleado){
+        validarFechasUnicas(vacacionEmpleado);
+
         LocalDate hoy = LocalDate.now();
 
         if (vacacionEmpleado.getFechaInicio().isBefore(hoy)) {
@@ -34,6 +36,8 @@ public class VacacionEmpleadoService {
     }
 
     public VacacionEmpleado update(VacacionEmpleado vacacionModificada){
+        validarFechasUnicas(vacacionModificada);
+
         LocalDate hoy = LocalDate.now();
         VacacionEmpleado original = vacacionEmpleadoRepository.findById(vacacionModificada.getId())
                 .orElseThrow(() -> new IllegalArgumentException("La vacación no existe."));
@@ -62,6 +66,18 @@ public class VacacionEmpleadoService {
     public void marcarComoPagada(VacacionEmpleado vacacion) {
         vacacion.setPagado(true);
         vacacionEmpleadoRepository.save(vacacion);
+    }
+
+    private void validarFechasUnicas(VacacionEmpleado vacacion) {
+        boolean existe = vacacionEmpleadoRepository.existeInterseccionFechas(
+                vacacion.getEmpleado(),
+                vacacion.getFechaInicio(),
+                vacacion.getFechaFin(),
+                vacacion.getId()
+        );
+        if (existe) {
+            throw new IllegalStateException("Error: El empleado ya tiene vacaciones registradas en este rango de fechas.");
+        }
     }
 
     public List<VacacionEmpleado> findAll(){

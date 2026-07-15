@@ -31,6 +31,7 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 
 public class VacacionEmpleadoView extends VerticalLayout {
@@ -130,18 +131,28 @@ public class VacacionEmpleadoView extends VerticalLayout {
         buscarVacacion.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscarVacacion.setValueChangeMode(ValueChangeMode.LAZY);
 
-        buscarVacacion.addValueChangeListener(
-                e -> actualizarFiltroGrid(crudVacaciones, paginator, buscarVacacion.getValue(), vacacionEmpleadoService)
+        ComboBox<String> filtroEstado = new ComboBox<>();
+        filtroEstado.setPlaceholder("Estado de pago");
+        filtroEstado.setItems("Todas", "Pendientes", "Pagadas");
+        filtroEstado.setValue("Todas"); // Valor por defecto
+        filtroEstado.setWidth("180px");
+
+        buscarVacacion.addValueChangeListener(e ->
+                actualizarFiltroGrid(crudVacaciones, paginator, buscarVacacion.getValue(), filtroEstado.getValue(), vacacionEmpleadoService)
         );
 
-        actualizarFiltroGrid(crudVacaciones, paginator, "", vacacionEmpleadoService);
+        filtroEstado.addValueChangeListener(e ->
+                actualizarFiltroGrid(crudVacaciones, paginator, buscarVacacion.getValue(), filtroEstado.getValue(), vacacionEmpleadoService)
+        );
 
-        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarVacacion);
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarVacacion, filtroEstado);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
         toolbar.expand(buscarVacacion);
         toolbar.getStyle().set("margin-bottom", "0");
         toolbar.getStyle().set("padding-top", "10px");
+
+        actualizarFiltroGrid(crudVacaciones, paginator, "", "Todas", vacacionEmpleadoService);
 
         DefaultCrudFormFactory<VacacionEmpleado> formFactory = (DefaultCrudFormFactory<VacacionEmpleado>) crudVacaciones.getCrudFormFactory();
         formFactory.setUseBeanValidation(true);
@@ -177,6 +188,12 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
         formFactory.setFieldCreationListener("empleado", field -> {
             field.setRequiredIndicatorVisible(false);
+            if (this.vacacionActual != null && this.vacacionActual.getId() != null) {
+                combo.setReadOnly(true);
+            } else {
+                combo.setReadOnly(false);
+                combo.setEnabled(true);
+            }
         });
 
         formFactory.setFieldCreationListener("fechaInicio", field -> {
@@ -343,13 +360,21 @@ public class VacacionEmpleadoView extends VerticalLayout {
             GridCrud<VacacionEmpleado> crud,
             CrudGridPaginator<VacacionEmpleado> paginator,
             String busqueda,
+            String estadoFiltro,
             VacacionEmpleadoService service
     ) {
         String filtroTexto = busqueda == null ? "" : busqueda.toLowerCase().trim();
 
+        boolean aplicarFiltroEstado = estadoFiltro != null && !estadoFiltro.equals("Todas");
+        boolean buscarPagadas = "Pagadas".equals(estadoFiltro);
+
         paginator.setSource(() ->
                 service.findAll().stream()
                         .filter(v -> v.getEmpleado().getPersona().getNombre().toLowerCase().contains(filtroTexto))
+                        .filter(v -> !aplicarFiltroEstado || v.isPagado() == buscarPagadas)
+                        .sorted(Comparator
+                                .comparing(VacacionEmpleado::isPagado)
+                                .thenComparing(VacacionEmpleado::getFechaInicio, Comparator.reverseOrder()))
                         .toList()
         );
         crud.setFindAllOperation(paginator::pageItems);

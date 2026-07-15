@@ -24,12 +24,24 @@ public interface VacacionEmpleadoRepository extends JpaRepository<VacacionEmplea
     boolean existsByEmpleado(Empleado empleado);
 
     @Query("SELECT COALESCE(SUM(v.cantidadDiasDescanso), 0) FROM VacacionEmpleado v " +
-            "WHERE v.empleado.IdEmpleado = :empleadoId " +
+            "WHERE v.empleado.idEmpleado = :empleadoId " +
             "AND v.fechaInicio >= :inicioAniversario " +
             "AND v.fechaInicio < :finAniversario")
     int sumDiasDisfrutadosEnPeriodo(
             @Param("empleadoId") Long empleadoId,
             @Param("inicioAniversario") LocalDate inicioAniversario,
             @Param("finAniversario") LocalDate finAniversario
+    );
+
+    @Query("SELECT COUNT(v) > 0 FROM VacacionEmpleado v " +
+            "WHERE v.empleado = :empleado " +
+            "AND v.fechaInicio <= :fin " +
+            "AND v.fechaFin >= :inicio " +
+            "AND (:id IS NULL OR v.id != :id)")
+    boolean existeInterseccionFechas(
+            @Param("empleado") Empleado empleado,
+            @Param("inicio") LocalDate inicio,
+            @Param("fin") LocalDate fin,
+            @Param("id") Long id
     );
 }
