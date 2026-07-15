@@ -127,4 +127,15 @@ public class CantidadFraccionadaField extends CustomField<BigDecimal> {
             txtUnidades.setValue(divisionYResiduo[1]);
         }
     }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        if (txtCajas != null) {
+            txtCajas.setEnabled(enabled);
+        }
+        if (txtUnidades != null) {
+            txtUnidades.setEnabled(enabled);
+        }
+    }
 }

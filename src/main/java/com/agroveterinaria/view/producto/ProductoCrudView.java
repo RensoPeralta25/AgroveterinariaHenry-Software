@@ -32,7 +32,9 @@ import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
 import java.math.RoundingMode;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
@@ -160,7 +162,10 @@ public class ProductoCrudView extends VerticalLayout {
 
         formFactory.setFieldProvider("categoria", producto -> {
             ComboBox<CategoriaProducto> combo = new ComboBox<>();
-            combo.setItems(CategoriaProducto.values());
+            List<CategoriaProducto> categoriasFisicas = Arrays.stream(CategoriaProducto.values())
+                    .filter(categoria -> categoria != CategoriaProducto.SERVICIO)
+                    .toList();
+            combo.setItems(categoriasFisicas);
             combo.setItemLabelGenerator(CategoriaProducto::getEtiqueta);
             return combo;
         });
@@ -309,6 +314,7 @@ public class ProductoCrudView extends VerticalLayout {
             StatusEntidad estadoSeleccionado = statusFilter.getValue();
 
             return backend.listarTodos().stream()
+                    .filter(producto -> producto.getCategoria() != CategoriaProducto.SERVICIO)
                     .filter(producto -> {
                         if (estadoSeleccionado != null && producto.getStatus() != estadoSeleccionado) {
                             return false;

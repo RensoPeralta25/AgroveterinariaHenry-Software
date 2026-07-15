@@ -22,7 +22,7 @@ public class DetalleDevVenta {
     private Long idDetalleDevVenta;
 
     @NotNull(message = "La cantidad devuelta es obligatoria")
-    @Digits(integer = 12, fraction = 2, message = "La cantidad debe corresponder a un formato decimal válido")
+    @Digits(integer = 14, fraction = 4, message = "La cantidad debe corresponder a un formato decimal válido")
     @Column(name = "cantidad_devuelta", nullable = false)
     private BigDecimal cantidadDevuelta;
 

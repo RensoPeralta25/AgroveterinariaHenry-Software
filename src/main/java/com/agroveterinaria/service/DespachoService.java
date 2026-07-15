@@ -2,17 +2,21 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.dto.despacho.LineaDespachoDTO;
+import com.agroveterinaria.dto.recepcion.GastoOperativoUI;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoTransporte;
 import com.agroveterinaria.enums.EstadoVenta;
+import com.agroveterinaria.enums.TipoGasto;
 import com.agroveterinaria.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class DespachoService {
@@ -23,15 +27,22 @@ public class DespachoService {
     private final TransporteRepository transporteRepository;
     private final DetalleDespachoRepository detalleDespachoRepository;
     private final InventarioRepository inventarioRepository;
+    private final GastoOperativoRepository gastoOperativoRepository;
     private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    public DespachoService(DespachoRepository despachoRepository, TransferenciaRepository transferenciaRepository, VentaRepository ventaRepository, TransporteRepository transporteRepository, DetalleDespachoRepository detalleDespachoRepository, InventarioRepository inventarioRepository) {
+    public DespachoService(DespachoRepository despachoRepository, TransferenciaRepository transferenciaRepository, VentaRepository ventaRepository, TransporteRepository transporteRepository, DetalleDespachoRepository detalleDespachoRepository, InventarioRepository inventarioRepository, GastoOperativoRepository gastoOperativoRepository) {
         this.despachoRepository = despachoRepository;
         this.transferenciaRepository = transferenciaRepository;
         this.ventaRepository = ventaRepository;
         this.transporteRepository = transporteRepository;
         this.detalleDespachoRepository = detalleDespachoRepository;
         this.inventarioRepository = inventarioRepository;
+        this.gastoOperativoRepository = gastoOperativoRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Despacho> buscarPorIdConTransporte(Long idDespacho) {
+        return despachoRepository.findByIdWithFullTransporte(idDespacho);
     }
 
     @Transactional(readOnly = true)
@@ -251,5 +262,35 @@ public class DespachoService {
 
         ventaRepository.save(venta);
         return despachoRepository.save(despacho);
+    }
+
+    @Transactional
+    public void liquidarViaje(Long idTransporte, List<GastoOperativoUI> gastosUI) {
+        Transporte transporte = transporteRepository.findById(idTransporte)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el registro de transporte."));
+
+        if (transporte.getEstado() == EstadoTransporte.COMPLETADO) {
+            throw new IllegalStateException("Este transporte ya fue liquidado.");
+        }
+
+        for (GastoOperativoUI dto : gastosUI) {
+            if (dto.getMonto() != null && dto.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                GastoOperativo gasto = new GastoOperativo();
+                gasto.setTipoGasto(TipoGasto.VARIABLE);
+                gasto.setFecha(LocalDate.now());
+                gasto.setMonto(dto.getMonto());
+                gasto.setNotas(dto.getNotas() != null && !dto.getNotas().isBlank()
+                        ? "Ruta Transporte #" + transporte.getIdTransporte() + " - " + dto.getNotas()
+                        : "Ruta Transporte #" + transporte.getIdTransporte());
+
+                GastoOperativo gastoGuardado = gastoOperativoRepository.save(gasto);
+                transporte.addGasto(gastoGuardado);
+            }
+        }
+
+        transporte.setEstado(EstadoTransporte.COMPLETADO);
+        transporte.setFechaHoraLlegada(LocalDateTime.now());
+
+        transporteRepository.save(transporte);
     }
 }

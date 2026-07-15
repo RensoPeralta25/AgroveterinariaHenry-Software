@@ -136,7 +136,9 @@ public class AjustesInventarioView extends VerticalLayout {
         cbAlmacen.setWidthFull();
 
         ComboBox<Producto> cbProducto = new ComboBox<>("Producto");
-        cbProducto.setItems(productoService.listarTodosActivos());
+        cbProducto.setItems(productoService.listarTodosActivos().stream()
+                .filter(p -> p.getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .toList());
         cbProducto.setItemLabelGenerator(Producto::getNombre);
         cbProducto.setWidthFull();
 
