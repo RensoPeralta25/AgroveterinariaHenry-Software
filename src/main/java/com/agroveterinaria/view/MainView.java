@@ -110,7 +110,7 @@ public class MainView extends Div {
             VacacionEmpleadoService vacacionEmpleadoService,
             DiaFeriadoService diaFeriadoService,
             PeriodoFiscalService periodoFiscalService,
-            AnticipoSalarioService anticipoSalarioService),
+            AnticipoSalarioService anticipoSalarioService,
             DevolucionVentaService devolucionVentaService,
             TransporteService transporteService) {
         this.authContext = authContext;
