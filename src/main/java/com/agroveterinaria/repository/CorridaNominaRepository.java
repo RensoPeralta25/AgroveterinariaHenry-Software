@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface CorridaNominaRepository extends JpaRepository<CorridaNomina, Long> {
 
@@ -40,4 +41,8 @@ public interface CorridaNominaRepository extends JpaRepository<CorridaNomina, Lo
     boolean existsByEstado(EstadoCorrida estado);
 
     boolean existsByPeriodoAndFechaEmisionAndTipo(PeriodoNomina periodo, LocalDate fechaEmision, TipoCorrida tipo);
+
+    Optional<CorridaNomina> findTopByPeriodoAndEstadoAndTipoOrderByFechaEmisionDesc(PeriodoNomina periodoNomina, EstadoCorrida estadoCorrida, TipoCorrida tipoCorrida);
+
+    boolean existsByTipoAndFechaEmisionBetween(TipoCorrida tipoCorrida, LocalDate localDate, LocalDate localDate1);
 }

@@ -12,11 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -24,6 +27,10 @@ import java.util.Set;
 @Transactional
 @RolesAllowed("ADMINISTRADOR")
 public class CorridaNominaService {
+    private static final BigDecimal FACTOR_QUINCENA = new BigDecimal("2");
+    private static final BigDecimal FACTOR_SEMANAL = BigDecimal.valueOf(52)
+            .divide(BigDecimal.valueOf(12), 4, RoundingMode.HALF_UP);
+
     private final CorridaNominaRepository corridaRepository;
     private final DetalleNominaRepository detalleNominaRepository;
     private final VacacionEmpleadoService vacacionEmpleadoService;
@@ -150,6 +157,39 @@ public class CorridaNominaService {
                     .filter(d -> d.getTipo() == TipoConcepto.ANTICIPO_SALARIO)
                     .map(DetalleNomina::getMonto)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalDevengado = nomina.getDetalles().stream()
+                    .filter(d -> d.getTipo().esIngreso())
+                    .map(DetalleNomina::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalDeducciones = nomina.getDetalles().stream()
+                    .filter(d -> !d.getTipo().esIngreso())
+                    .map(DetalleNomina::getMonto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal netoReal = totalDevengado.subtract(totalDeducciones);
+
+            if (netoReal.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException("El sueldo neto del empleado "
+                        + nomina.getEmpleado().getPersona().getNombre() + " no puede ser negativo (RD$ " + netoReal + ").");
+            }
+
+            double diasAusencias = nomina.getDetalles().stream()
+                    .filter(d -> d.getTipo() == TipoConcepto.AUSENCIAS_NO_PAGADAS)
+                    .map(d -> d.getCantidad().doubleValue())
+                    .findFirst().orElse(0.0);
+
+            int maxDiasPermitidos = switch (corrida.getPeriodo()) {
+                case MES -> corrida.getFechaEmision().lengthOfMonth();
+                case SEMANAL -> 7;
+                case QUINCENA -> (corrida.getFechaEmision().getDayOfMonth() <= 15) ? 15 : (corrida.getFechaEmision().lengthOfMonth() - 15);
+            };
+
+            if (diasAusencias > maxDiasPermitidos) {
+                throw new IllegalStateException("Las ausencias de "
+                        + nomina.getEmpleado().getPersona().getNombre() + " (" + diasAusencias + " días) superan el límite del período (" + maxDiasPermitidos + " días).");
+            }
 
             if (totalDescontadoAnticipo.compareTo(BigDecimal.ZERO) > 0) {
                 List<AnticipoSalario> anticipos = anticipoSalarioRepository.findByEmpleadoIdEmpleadoAndEstado(nomina.getEmpleado().getIdEmpleado(), EstadoAnticipo.APROBADO);
@@ -388,6 +428,9 @@ public class CorridaNominaService {
                 inicioPeriodo = fechaEmision.withDayOfMonth(16);
                 finPeriodo = fechaEmision.withDayOfMonth(fechaEmision.lengthOfMonth());
             }
+        } else if (periodo == PeriodoNomina.SEMANAL) {
+            inicioPeriodo = fechaEmision.minusDays(6);
+            finPeriodo = fechaEmision;
         } else {
             inicioPeriodo = fechaEmision.withDayOfMonth(1);
             finPeriodo = fechaEmision.withDayOfMonth(fechaEmision.lengthOfMonth());
@@ -395,7 +438,9 @@ public class CorridaNominaService {
 
         BigDecimal salarioDelPeriodo = empleado.getSalario();
         if (periodo == PeriodoNomina.QUINCENA) {
-            salarioDelPeriodo = salarioDelPeriodo.divide(new BigDecimal("2"), 2, java.math.RoundingMode.HALF_UP);
+            salarioDelPeriodo = salarioDelPeriodo.divide(FACTOR_QUINCENA, 2, RoundingMode.HALF_UP);
+        } else if (periodo == PeriodoNomina.SEMANAL) {
+            salarioDelPeriodo = salarioDelPeriodo.divide(FACTOR_SEMANAL, 2, RoundingMode.HALF_UP);
         }
 
         List<VacacionEmpleado> vacaciones = vacacionEmpleadoService.encontrarVacacionesEnPeriodo(empleado, inicioPeriodo, finPeriodo);
@@ -633,8 +678,9 @@ public class CorridaNominaService {
 
         if (periodoRequerido == PeriodoNomina.MES) {
             boolean existeQuincena = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, inicioMes, finMes);
-            if (existeQuincena) {
-                throw new IllegalStateException("No puede generar una nómina mensual porque ya existen quincenas procesadas en este mes.");
+            boolean existeSemanal = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.SEMANAL, inicioMes, finMes);
+            if (existeQuincena || existeSemanal) {
+                throw new IllegalStateException("No puede generar una nómina mensual porque ya existen quincenas o semanas procesadas en este mes.");
             }
 
         } else if (periodoRequerido == PeriodoNomina.QUINCENA) {
@@ -654,6 +700,53 @@ public class CorridaNominaService {
                 boolean existeQ2 = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, mitadMes.plusDays(1), finMes);
                 if (existeQ2) {
                     throw new IllegalStateException("La segunda quincena de este mes ya fue generada.");
+                }
+            }
+
+            LocalDate inicioQ = (fecha.getDayOfMonth() <= 15) ? inicioMes : mitadMes.plusDays(1);
+            LocalDate finQ = (fecha.getDayOfMonth() <= 15) ? mitadMes : finMes;
+            boolean existeSemanal = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(TipoCorrida.ORDINARIA, PeriodoNomina.SEMANAL, inicioQ, finQ);
+            if (existeSemanal) {
+                throw new IllegalStateException("Existen cortes semanales generados en esta quincena. Borre los semanales para procesar vía quincena.");
+            }
+        } else if (periodoRequerido == PeriodoNomina.SEMANAL) {
+            LocalDate inicioQ = (fecha.getDayOfMonth() <= 15) ? inicioMes : mitadMes.plusDays(1);
+            LocalDate finQ = (fecha.getDayOfMonth() <= 15) ? mitadMes : finMes;
+            boolean existeQuincena = corridaRepository.existsByTipoAndPeriodoAndFechaEmisionBetween(
+                    TipoCorrida.ORDINARIA, PeriodoNomina.QUINCENA, inicioQ, finQ);
+            if(existeQuincena) {
+                throw new IllegalStateException("No puede generar nómina semanal porque la quincena correspondiente ya fue procesada.");
+            }
+
+            Optional<CorridaNomina> ultimaCorridaOpt = corridaRepository.findTopByPeriodoAndEstadoAndTipoOrderByFechaEmisionDesc(
+                    PeriodoNomina.SEMANAL, EstadoCorrida.APROBADA, TipoCorrida.ORDINARIA);
+
+            boolean tratarComoArranque = false;
+
+            if (ultimaCorridaOpt.isPresent()) {
+                LocalDate fechaUltimaEmision = ultimaCorridaOpt.get().getFechaEmision();
+                LocalDate fechaEsperada = fechaUltimaEmision.plusDays(7);
+
+                if (!fecha.equals(fechaEsperada)) {
+                    boolean huboCambioModalidad = corridaRepository.existsByTipoAndFechaEmisionBetween(
+                            TipoCorrida.ORDINARIA, fechaUltimaEmision.plusDays(1), fecha.minusDays(1)
+                    );
+
+                    if (huboCambioModalidad) {
+                        tratarComoArranque = true;
+                    } else {
+                        throw new IllegalStateException("La última nómina semanal se emitió el "
+                                + fechaUltimaEmision + ". La siguiente corrida debe emitirse exactamente el "
+                                + fechaEsperada + ".");
+                    }
+                }
+            } else {
+                tratarComoArranque = true;
+            }
+
+            if (tratarComoArranque) {
+                if (fecha.getDayOfMonth() > 7) {
+                    throw new IllegalStateException("Al iniciar (o reiniciar) la modalidad semanal, la primera corrida del mes debe emitirse dentro de los primeros 7 días (del 1 al 7).");
                 }
             }
         }

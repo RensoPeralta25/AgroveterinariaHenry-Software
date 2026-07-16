@@ -48,9 +48,14 @@ public class ConfiguracionNominaService {
         return base.multiply(porcentaje).setScale(2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal calcularISR(BigDecimal devengadoMensual, PeriodoNomina periodo) {
-        int divisor = periodo == PeriodoNomina.MES ? 12 : 24;
-        BigDecimal devengadoAnual = devengadoMensual.multiply(BigDecimal.valueOf(divisor));
+    public BigDecimal calcularISR(BigDecimal devengadoPeriodo, PeriodoNomina periodo) {
+        int divisor = switch (periodo) {
+            case MES -> 12;
+            case QUINCENA -> 24;
+            case SEMANAL -> 52;
+        };
+
+        BigDecimal devengadoAnual = devengadoPeriodo.multiply(BigDecimal.valueOf(divisor));
 
         BigDecimal tramo1Limite = obtenerValor("ISR_TRAMO_1_LIMITE");
         BigDecimal tramo2Limite = obtenerValor("ISR_TRAMO_2_LIMITE");
@@ -65,13 +70,10 @@ public class ConfiguracionNominaService {
 
         if (devengadoAnual.compareTo(tramo1Limite) <= 0) {
             isrAnual = BigDecimal.ZERO;
-
         } else if (devengadoAnual.compareTo(tramo2Limite) <= 0) {
             isrAnual = devengadoAnual.subtract(tramo1Limite).multiply(tramo1Pct).setScale(2, RoundingMode.HALF_UP);
-
         } else if (devengadoAnual.compareTo(tramo3Limite) <= 0) {
             isrAnual = tramo2Base.add(devengadoAnual.subtract(tramo2Limite).multiply(tramo2Pct)).setScale(2, RoundingMode.HALF_UP);
-
         } else {
             isrAnual = tramo3Base.add(devengadoAnual.subtract(tramo3Limite).multiply(tramo3Pct)).setScale(2, RoundingMode.HALF_UP);
         }
