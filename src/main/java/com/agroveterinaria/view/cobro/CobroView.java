@@ -8,6 +8,7 @@ import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.enums.MetodoPago;
+import com.agroveterinaria.service.CuentaBancariaTransferenciaPdfService;
 import com.agroveterinaria.service.VentaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -15,6 +16,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
@@ -28,7 +30,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.server.StreamResource;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
@@ -44,6 +48,7 @@ public class CobroView extends VerticalLayout {
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
     private final VentaService ventaService;
+    private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
     private final TextField buscar = new TextField();
     private final Grid<CarteraFila> gridCartera = new Grid<>(CarteraFila.class, false);
     private final Grid<Cobro> gridHistorial = new Grid<>(Cobro.class, false);
@@ -67,8 +72,12 @@ public class CobroView extends VerticalLayout {
 
     private CarteraFila filaSeleccionada;
 
-    public CobroView(VentaService ventaService) {
+    public CobroView(
+            VentaService ventaService,
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService
+    ) {
         this.ventaService = ventaService;
+        this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -163,7 +172,7 @@ public class CobroView extends VerticalLayout {
         registrar.setWidthFull();
         registrar.addClickListener(event -> registrarCobro());
 
-        VerticalLayout panel = new VerticalLayout(titulo, resumen, monto, metodoPago, registrar);
+        VerticalLayout panel = new VerticalLayout(titulo, resumen, monto, metodoPago, crearDescargaCuentaBancaria(), registrar);
         panel.addClassName("cobro-form-panel");
         panel.setPadding(false);
         panel.setSpacing(true);
@@ -247,13 +256,32 @@ public class CobroView extends VerticalLayout {
         monto.setEnabled(false);
         monto.setWidthFull();
 
-        metodoPago.setItems(MetodoPago.EFECTIVO);
+        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
         metodoPago.setValue(MetodoPago.EFECTIVO);
         metodoPago.setEnabled(false);
         metodoPago.setWidthFull();
 
         registrar.setEnabled(false);
+    }
+
+    private Anchor crearDescargaCuentaBancaria() {
+        StreamResource resource = new StreamResource("cuenta-bancaria-transferencia.pdf", () ->
+                new ByteArrayInputStream(cuentaBancariaTransferenciaPdfService.generarCuentaBancariaPdf()));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        Button descargar = new Button("Cuenta bancaria", new Icon(VaadinIcon.MONEY));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setWidthFull();
+        descargar.setAriaLabel("Descargar datos de cuenta bancaria");
+        descargar.setTooltipText("Descargar datos de cuenta bancaria");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.setWidthFull();
+        anchor.add(descargar);
+        return anchor;
     }
 
     private void configurarGridHistorial() {

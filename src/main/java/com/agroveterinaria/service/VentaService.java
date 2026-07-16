@@ -385,8 +385,8 @@ public class VentaService {
     }
 
     private void validarMetodoPagoDisponible(MetodoPago metodoPago) {
-        if (metodoPago != MetodoPago.EFECTIVO) {
-            throw new IllegalArgumentException("Por ahora solo se aceptan pagos en efectivo.");
+        if (metodoPago != MetodoPago.EFECTIVO && metodoPago != MetodoPago.TRANSFERENCIA) {
+            throw new IllegalArgumentException("Por ahora solo se aceptan pagos en efectivo o transferencia bancaria.");
         }
     }
 
