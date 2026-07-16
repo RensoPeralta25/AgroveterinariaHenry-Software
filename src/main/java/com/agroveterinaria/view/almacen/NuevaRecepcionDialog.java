@@ -68,7 +68,8 @@ public class NuevaRecepcionDialog extends Dialog {
         this.recepcionService = recepcionService;
         this.alGuardarExitosamente = alGuardarExitosamente;
 
-        setWidth("1350px");
+        setWidth("95vw");
+        setMaxWidth("2000px");
         setCloseOnOutsideClick(false);
 
         H3 titulo = new H3("Procesar Nueva Recepción (Entrada)");
@@ -147,7 +148,10 @@ public class NuevaRecepcionDialog extends Dialog {
         gridRecepcion.addThemeNames("row-stripes");
         gridRecepcion.setHeight("400px");
 
-        gridRecepcion.addColumn(item -> item.getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
+        gridRecepcion.addColumn(item -> item.getProducto().getNombre())
+                .setHeader("Producto")
+                .setWidth("180px")
+                .setFlexGrow(2);
 
         gridRecepcion.addComponentColumn(item -> {
             Producto prod = item.getProducto();
@@ -207,7 +211,7 @@ public class NuevaRecepcionDialog extends Dialog {
             txtJustificacion.setEnabled(tieneMerma);
             txtJustificacion.addValueChangeListener(e -> item.setJustificacionMerma(e.getValue()));
             return txtJustificacion;
-        }).setHeader("Justificación").setFlexGrow(2);
+        }).setHeader("Justificación").setWidth("160px").setFlexGrow(1);
 
         gridRecepcion.addColumn(item -> {
             BigDecimal disponible = calcularRestanteTotal(itemsFisicos, item);
@@ -219,7 +223,7 @@ public class NuevaRecepcionDialog extends Dialog {
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
                     false
             );
-        }).setHeader("Pendiente Global").setWidth("160px").setFlexGrow(0);
+        }).setHeader("Pendiente Global").setWidth("130px").setFlexGrow(0);
 
         gridRecepcion.addComponentColumn(item -> {
             ComboBox<Almacen> cbAlmacen = new ComboBox<>();
@@ -230,7 +234,7 @@ public class NuevaRecepcionDialog extends Dialog {
             if (item.getDetalleTransferencia() != null) cbAlmacen.setReadOnly(true);
             else cbAlmacen.addValueChangeListener(e -> item.setAlmacenDestino(e.getValue()));
             return cbAlmacen;
-        }).setHeader("Almacén Destino").setFlexGrow(2);
+        }).setHeader("Almacén Destino").setWidth("220px").setFlexGrow(2);
 
         gridRecepcion.addComponentColumn(item -> {
             ComboBox<Lote> cbLote = new ComboBox<>();
@@ -267,7 +271,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 });
             }
             return cbLote;
-        }).setHeader("No. Lote").setFlexGrow(1).setWidth("120px");
+        }).setHeader("No. Lote").setWidth("140px").setFlexGrow(1);
 
         gridRecepcion.addComponentColumn(item -> {
             DatePicker dpVencimiento = new DatePicker();
@@ -285,7 +289,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 });
             }
             return dpVencimiento;
-        }).setHeader("Vencimiento").setFlexGrow(1).setWidth("130px");
+        }).setHeader("Vencimiento").setFlexGrow(0).setWidth("150px");
 
         gridRecepcion.addComponentColumn(item -> {
             if (item.getDetalleTransferencia() != null) return new Span("-");
