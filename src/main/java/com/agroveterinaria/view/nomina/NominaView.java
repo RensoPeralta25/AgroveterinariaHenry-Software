@@ -353,6 +353,8 @@ public class NominaView extends VerticalLayout {
         int maxDias;
         if (nomina.getCorrida().getPeriodo() == PeriodoNomina.MES) {
             maxDias = fechaCorrida.lengthOfMonth();
+        } else if (nomina.getCorrida().getPeriodo() == PeriodoNomina.SEMANAL) {
+            maxDias = 7;
         } else {
             maxDias = (fechaCorrida.getDayOfMonth() <= 15) ? 15 : (fechaCorrida.lengthOfMonth() - 15);
         }
@@ -389,6 +391,12 @@ public class NominaView extends VerticalLayout {
         btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         btnGuardar.addClickListener(e -> {
+            if (ausencias.getValue() != null && ausencias.getValue() > maxDias) {
+                mostrarError("La cantidad de ausencias (" + ausencias.getValue()
+                        + ") excede el límite máximo de " + maxDias + " días para este período.");
+                return;
+            }
+
             if (horasExtras.getValue() != null && horasExtras.getValue() > 0) {
                 BigDecimal montoHoras = configuracionNominaService.calcularHorasExtras(horasExtras.getValue());
                 agregarOActualizarNovedad(nomina, TipoConcepto.HORAS_EXTRAS, "Horas extras", montoHoras, horasExtras.getValue());

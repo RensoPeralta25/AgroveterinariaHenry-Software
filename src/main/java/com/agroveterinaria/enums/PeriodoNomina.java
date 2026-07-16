@@ -2,7 +2,8 @@ package com.agroveterinaria.enums;
 
 public enum PeriodoNomina {
     MES("Mensual"),
-    QUINCENA("Quincenal");
+    QUINCENA("Quincenal"),
+    SEMANAL("Semanal");
 
     private final String descripcion;
 
