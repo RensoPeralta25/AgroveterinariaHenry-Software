@@ -13,6 +13,7 @@ import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -197,33 +198,140 @@ public class RutaView extends VerticalLayout {
 
         NumberField numLatitud = new NumberField("Latitud");
         numLatitud.setPlaceholder("Ej. 19.451");
-        numLatitud.setWidth("130px");
+        numLatitud.setWidth("110px");
 
         NumberField numLongitud = new NumberField("Longitud");
         numLongitud.setPlaceholder("Ej. -70.692");
-        numLongitud.setWidth("130px");
+        numLongitud.setWidth("110px");
+
+        Button btnToggleMapa = new Button(new Icon(VaadinIcon.MAP_MARKER));
+        btnToggleMapa.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        btnToggleMapa.setTooltipText("Seleccionar en mapa");
+        btnToggleMapa.getStyle().set("margin-bottom", "3px");
+
+        Span mapHint = new Span("Haz clic en el mapa para fijar las coordenadas de la nueva parada:");
+        mapHint.getStyle().set("font-size", "13px").set("color", "gray");
+        mapHint.setVisible(false);
+
+        com.vaadin.flow.component.html.Div mapContainer = new com.vaadin.flow.component.html.Div();
+        mapContainer.setWidthFull();
+        mapContainer.setHeight("250px");
+        mapContainer.setVisible(false);
+        mapContainer.getStyle()
+                .set("border-radius", "8px")
+                .set("border", "1px solid #e0e0e0")
+                .set("z-index", "1")
+                .set("margin-top", "10px");
+
+        double latInicial = 19.428239;
+        double lngInicial = -70.629731;
+
+        mapContainer.addAttachListener(evt -> {
+            String jsCode =
+                    "const el = this;" +
+                            "const lat = $0;" +
+                            "const lng = $1;" +
+                            "const latField = $2;" +
+                            "const lngField = $3;" +
+                            "function initMap() {" +
+                            "  if(el._leaflet_map) return;" +
+                            "  const map = L.map(el).setView([lat, lng], 13);" +
+                            "  el._leaflet_map = map;" +
+                            "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {" +
+                            "    attribution: '© OpenStreetMap'" +
+                            "  }).addTo(map);" +
+                            "  const marker = L.marker([lat, lng]).addTo(map);" +
+                            "  el._leaflet_marker = marker;" +
+                            "  setTimeout(() => map.invalidateSize(), 300);" +
+                            "  map.on('click', function(e) {" +
+                            "    marker.setLatLng(e.latlng);" +
+                            "    latField.value = e.latlng.lat.toFixed(6);" +
+                            "    lngField.value = e.latlng.lng.toFixed(6);" +
+                            "    latField.dispatchEvent(new Event('change'));" +
+                            "    lngField.dispatchEvent(new Event('change'));" +
+                            "  });" +
+                            "}" +
+                            "if (!window.L) {" +
+                            "  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);" +
+                            "  const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = initMap; document.head.appendChild(script);" +
+                            "} else {" +
+                            "  initMap();" +
+                            "}";
+            mapContainer.getElement().executeJs(jsCode, latInicial, lngInicial, numLatitud.getElement(), numLongitud.getElement());
+        });
+
+        btnToggleMapa.addClickListener(e -> {
+            boolean hacerVisible = !mapContainer.isVisible();
+            mapContainer.setVisible(hacerVisible);
+            mapHint.setVisible(hacerVisible);
+
+            btnToggleMapa.setIcon(hacerVisible ? new Icon(VaadinIcon.CHEVRON_UP) : new Icon(VaadinIcon.MAP_MARKER));
+            if (hacerVisible) {
+                mapContainer.getElement().executeJs(
+                        "if (this._leaflet_map) { " +
+                                "  setTimeout(() => { this._leaflet_map.invalidateSize(); }, 150); " +
+                                "}"
+                );
+            }
+        });
+
+        numLatitud.addValueChangeListener(e -> {
+            if (e.isFromClient() && numLatitud.getValue() != null && numLongitud.getValue() != null) {
+                mapContainer.getElement().executeJs(
+                        "if(this._leaflet_map) { this._leaflet_map.setView([$0, $1]); this._leaflet_marker.setLatLng([$0, $1]); }",
+                        numLatitud.getValue(), numLongitud.getValue()
+                );
+            }
+        });
+
+        numLongitud.addValueChangeListener(e -> {
+            if (e.isFromClient() && numLatitud.getValue() != null && numLongitud.getValue() != null) {
+                mapContainer.getElement().executeJs(
+                        "if(this._leaflet_map) { this._leaflet_map.setView([$0, $1]); this._leaflet_marker.setLatLng([$0, $1]); }",
+                        numLatitud.getValue(), numLongitud.getValue()
+                );
+            }
+        });
 
         cbSugerirParada.addValueChangeListener(e -> {
             RutaParada seleccionada = e.getValue();
             if (seleccionada != null) {
-                numLatitud.setValue(seleccionada.getLatitud());
-                numLongitud.setValue(seleccionada.getLongitud());
+                if (seleccionada.getLatitud() != null) {
+                    numLatitud.setValue(seleccionada.getLatitud());
+                }
+                if (seleccionada.getLongitud() != null) {
+                    numLongitud.setValue(seleccionada.getLongitud());
+                }
+
+                if (seleccionada.getLatitud() != null && seleccionada.getLongitud() != null) {
+                    mapContainer.getElement().executeJs(
+                            "if(this._leaflet_map) { this._leaflet_map.setView([$0, $1]); this._leaflet_marker.setLatLng([$0, $1]); }",
+                            seleccionada.getLatitud(), seleccionada.getLongitud()
+                    );
+                }
             }
         });
 
         cbSugerirParada.addCustomValueSetListener(e -> {
             String nuevaDireccion = e.getDetail();
+
+            Double latActual = numLatitud.getValue();
+            Double lngActual = numLongitud.getValue();
+
             RutaParada temporal = new RutaParada();
             temporal.setDireccion(nuevaDireccion);
+
+            temporal.setLatitud(latActual);
+            temporal.setLongitud(lngActual);
+
             cbSugerirParada.setValue(temporal);
-            numLatitud.clear();
-            numLongitud.clear();
-            numLatitud.focus();
+
         });
 
         Button btnAgregarParada = new Button(new Icon(VaadinIcon.PLUS));
         btnAgregarParada.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
         btnAgregarParada.getStyle().set("margin-bottom", "3px");
+        btnAgregarParada.setTooltipText("Añadir Parada");
 
         btnAgregarParada.addClickListener(ev -> {
             if (cbSugerirParada.getValue() != null && cbSugerirParada.getValue().getDireccion() != null) {
@@ -245,7 +353,7 @@ public class RutaView extends VerticalLayout {
             }
         });
 
-        HorizontalLayout filaCamposParada = new HorizontalLayout(cbSugerirParada, numLatitud, numLongitud, btnAgregarParada);
+        HorizontalLayout filaCamposParada = new HorizontalLayout(cbSugerirParada, numLatitud, numLongitud, btnToggleMapa, btnAgregarParada);
         filaCamposParada.setWidthFull();
         filaCamposParada.setAlignItems(FlexComponent.Alignment.END);
 
@@ -266,7 +374,7 @@ public class RutaView extends VerticalLayout {
         HorizontalLayout filaTiempo = new HorizontalLayout(txtHoras, txtMinutos);
         filaTiempo.setWidthFull();
 
-        VerticalLayout form = new VerticalLayout(txtNombre, txtDistancia, filaTiempo, tituloParadas, gridParadas, filaCamposParada);
+        VerticalLayout form = new VerticalLayout(txtNombre, txtDistancia, filaTiempo, tituloParadas, gridParadas, filaCamposParada, mapHint, mapContainer);
         form.setPadding(false);
 
         Button btnGuardar = new Button("Guardar", e -> {
