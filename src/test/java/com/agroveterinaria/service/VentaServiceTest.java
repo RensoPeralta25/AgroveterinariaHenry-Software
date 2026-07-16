@@ -131,7 +131,7 @@ class VentaServiceTest {
     }
 
     @Test
-    void metodosDePagoDisponiblesEstanModeladosPeroSoloEfectivoEstaHabilitado() {
+    void efectivoYTransferenciaEstanHabilitadosComoMetodosDePago() {
         assertTrue(List.of(MetodoPago.values()).containsAll(List.of(
                 MetodoPago.EFECTIVO,
                 MetodoPago.TARJETA,
@@ -141,14 +141,16 @@ class VentaServiceTest {
 
         Venta venta = venta(cliente, "1000.00");
 
+        when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Cobro cobroTransferencia = ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"));
+
+        assertEquals(MetodoPago.TRANSFERENCIA, cobroTransferencia.getMetodoPago());
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.TARJETA, new BigDecimal("100.00"))
         );
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.NOTA_CREDITO, new BigDecimal("100.00"))
-        );
-        assertThrows(IllegalArgumentException.class, () ->
-                ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"))
         );
     }
 
@@ -340,6 +342,16 @@ class VentaServiceTest {
     private void prepararVenta(Producto... productos) {
         when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(empleadoRepository.findById(10L)).thenReturn(Optional.of(vendedor));
+
+        Almacen almacen = almacen(1L);
+        Lote lote = lote(1L);
+        Inventario inventario = inventario(almacen, lote, "1000.00");
+
+        when(almacenRepository.findById(1L)).thenReturn(Optional.of(almacen));
+        when(loteRepository.findById(1L)).thenReturn(Optional.of(lote));
+        when(inventarioRepository.findByAlmacenAndLote(any(Almacen.class), any(Lote.class)))
+                .thenReturn(Optional.of(inventario));
+
         for (Producto producto : productos) {
             when(productoRepository.findById(producto.getIdProducto())).thenReturn(Optional.of(producto));
         }
@@ -348,6 +360,28 @@ class VentaServiceTest {
             venta.setIdVenta(55L);
             return venta;
         });
+    }
+
+    private Almacen almacen(Long idAlmacen) {
+        Almacen almacen = new Almacen();
+        almacen.setIdAlmacen(idAlmacen);
+        almacen.setNombre("Almacen prueba");
+        return almacen;
+    }
+
+    private Lote lote(Long idLote) {
+        Lote lote = new Lote();
+        lote.setIdLote(idLote);
+        lote.setNumeroLote("L-001");
+        return lote;
+    }
+
+    private Inventario inventario(Almacen almacen, Lote lote, String cantidadActual) {
+        Inventario inventario = new Inventario();
+        inventario.setAlmacen(almacen);
+        inventario.setLote(lote);
+        inventario.setCantidadActual(bd(cantidadActual));
+        return inventario;
     }
 
     private VentaService.SolicitudVenta solicitud(List<VentaService.LineaVentaRequest> lineas) {

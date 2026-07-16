@@ -16,6 +16,7 @@ import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -28,7 +29,9 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import com.vaadin.flow.server.StreamResource;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
@@ -47,6 +50,7 @@ public class VentaView extends VerticalLayout {
     private final ProductoService productoService;
     private final AlmacenService almacenService;
     private final LoteService loteService;
+    private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
 
     private final ComboBox<Cliente> clienteExistente = new ComboBox<>("Buscar cliente");
     private final TextField cedulaCliente = new TextField("Cedula");
@@ -92,7 +96,8 @@ public class VentaView extends VerticalLayout {
             EmpleadoService empleadoService,
             ProductoService productoService,
             AlmacenService almacenService,
-            LoteService loteService
+            LoteService loteService,
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService
     ) {
         this.ventaService = ventaService;
         this.clienteService = clienteService;
@@ -100,6 +105,7 @@ public class VentaView extends VerticalLayout {
         this.productoService = productoService;
         this.almacenService = almacenService;
         this.loteService = loteService;
+        this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -174,7 +180,7 @@ public class VentaView extends VerticalLayout {
         Button limpiar = new Button("Limpiar", new Icon(VaadinIcon.REFRESH), event -> limpiarFormulario());
         limpiar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-        HorizontalLayout acciones = new HorizontalLayout(guardar, limpiar);
+        HorizontalLayout acciones = new HorizontalLayout(crearDescargaCuentaBancaria(), guardar, limpiar);
         acciones.setWidthFull();
         acciones.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
@@ -393,8 +399,25 @@ public class VentaView extends VerticalLayout {
         montoPagado.setValueChangeMode(ValueChangeMode.EAGER);
         montoPagado.addValueChangeListener(event -> actualizarResumen());
 
-        metodoPago.setItems(MetodoPago.EFECTIVO);
+        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
+    }
+
+    private Anchor crearDescargaCuentaBancaria() {
+        StreamResource resource = new StreamResource("cuenta-bancaria-transferencia.pdf", () ->
+                new ByteArrayInputStream(cuentaBancariaTransferenciaPdfService.generarCuentaBancariaPdf()));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        Button descargar = new Button("Cuenta bancaria", new Icon(VaadinIcon.MONEY));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setAriaLabel("Descargar datos de cuenta bancaria");
+        descargar.setTooltipText("Descargar datos de cuenta bancaria");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.add(descargar);
+        return anchor;
     }
 
     private void calcularCantidadDesdeMonto() {

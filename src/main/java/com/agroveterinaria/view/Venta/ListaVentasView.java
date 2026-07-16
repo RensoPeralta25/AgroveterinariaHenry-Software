@@ -6,6 +6,7 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.EstadoVenta;
+import com.agroveterinaria.service.CuentaBancariaTransferenciaPdfService;
 import com.agroveterinaria.service.FacturaVentaPdfService;
 import com.agroveterinaria.service.VentaService;
 import com.vaadin.flow.component.button.Button;
@@ -45,6 +46,7 @@ public class ListaVentasView extends VerticalLayout {
 
     private final VentaService ventaService;
     private final FacturaVentaPdfService facturaVentaPdfService;
+    private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
     private final TextField buscar = new TextField();
     private final ComboBox<EstadoVenta> estadoFiltro = new ComboBox<>();
     private final Grid<VentaFila> gridVentas = new Grid<>(VentaFila.class, false);
@@ -55,9 +57,14 @@ public class ListaVentasView extends VerticalLayout {
     private final Span montoCobrado = new Span();
     private final Span balancePendiente = new Span();
 
-    public ListaVentasView(VentaService ventaService, FacturaVentaPdfService facturaVentaPdfService) {
+    public ListaVentasView(
+            VentaService ventaService,
+            FacturaVentaPdfService facturaVentaPdfService,
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService
+    ) {
         this.ventaService = ventaService;
         this.facturaVentaPdfService = facturaVentaPdfService;
+        this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -120,7 +127,7 @@ public class ListaVentasView extends VerticalLayout {
         refrescar.setAriaLabel("Refrescar lista de ventas");
         refrescar.setTooltipText("Refrescar lista de ventas");
 
-        HorizontalLayout toolbar = new HorizontalLayout(buscar, estadoFiltro, refrescar);
+        HorizontalLayout toolbar = new HorizontalLayout(buscar, estadoFiltro, crearDescargaCuentaBancaria(), refrescar);
         toolbar.addClassName("venta-list-toolbar");
         toolbar.setWidthFull();
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
@@ -189,12 +196,48 @@ public class ListaVentasView extends VerticalLayout {
             detalle.setAriaLabel("Ver detalle de venta");
             detalle.setTooltipText("Ver detalle");
 
-            HorizontalLayout acciones = new HorizontalLayout(detalle, crearDescargaPdf(fila));
+            HorizontalLayout acciones = new HorizontalLayout(detalle, crearDescargaPdf(fila), crearDescargaCuentaBancariaIcono());
             acciones.setPadding(false);
             acciones.setSpacing(false);
             acciones.setAlignItems(FlexComponent.Alignment.CENTER);
             return acciones;
-        }).setHeader("Opciones").setWidth("135px").setFlexGrow(0);
+        }).setHeader("Opciones").setWidth("170px").setFlexGrow(0);
+    }
+
+    private Anchor crearDescargaCuentaBancaria() {
+        StreamResource resource = recursoCuentaBancaria();
+
+        Button descargar = new Button("Cuenta bancaria", new Icon(VaadinIcon.MONEY));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setAriaLabel("Descargar datos de cuenta bancaria");
+        descargar.setTooltipText("Descargar datos de cuenta bancaria");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.add(descargar);
+        return anchor;
+    }
+
+    private Anchor crearDescargaCuentaBancariaIcono() {
+        StreamResource resource = recursoCuentaBancaria();
+
+        Button descargar = new Button(new Icon(VaadinIcon.MONEY));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setAriaLabel("Descargar datos de cuenta bancaria");
+        descargar.setTooltipText("Descargar datos de cuenta bancaria");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.add(descargar);
+        return anchor;
+    }
+
+    private StreamResource recursoCuentaBancaria() {
+        StreamResource resource = new StreamResource("cuenta-bancaria-transferencia.pdf", () ->
+                new ByteArrayInputStream(cuentaBancariaTransferenciaPdfService.generarCuentaBancariaPdf()));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+        return resource;
     }
 
     private Anchor crearDescargaPdf(VentaFila fila) {

@@ -104,6 +104,7 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService,
             DashboardService dashboardService,
             GastoOperativoService gastoOperativoService,
             NominaService nominaService,
@@ -123,7 +124,8 @@ public class MainView extends Div {
                 clienteService, citaService, mascotaService, personaService, ventaService, corridaNominaService,
                 detalleNominaService, configuracionNominaService, almacenService, inventarioService,
                 ajusteInventarioService, loteService, securityService, compraService, recepcionService,
-                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService, dashboardService,
+                despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService,
+                cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
                 anticipoSalarioService, devolucionVentaService, transporteService);
       
@@ -173,6 +175,7 @@ public class MainView extends Div {
             VehiculoService vehiculoService,
             RutaService rutaService,
             FacturaVentaPdfService facturaVentaPdfService,
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService,
             DashboardService dashboardService,
             GastoOperativoService gastoOperativoService,
             NominaService nominaService,
@@ -543,7 +546,8 @@ public class MainView extends Div {
                     "Registrar Venta",
                     "Registro de clientes, productos y descuentos de venta",
                     VaadinIcon.CART,
-                    new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService)
+                    new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService,
+                            cuentaBancariaTransferenciaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -556,7 +560,7 @@ public class MainView extends Div {
                     "Lista de Ventas",
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
-                    new ListaVentasView(ventaService, facturaVentaPdfService)
+                    new ListaVentasView(ventaService, facturaVentaPdfService, cuentaBancariaTransferenciaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -569,7 +573,7 @@ public class MainView extends Div {
                     "Panel de Cobros",
                     "Cartera pendiente, aplicación de pagos e historial de movimientos",
                     VaadinIcon.MONEY,
-                    new CobroView(ventaService)
+                    new CobroView(ventaService, cuentaBancariaTransferenciaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
