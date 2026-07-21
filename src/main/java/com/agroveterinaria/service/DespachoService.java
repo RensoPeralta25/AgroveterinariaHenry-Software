@@ -87,7 +87,7 @@ public class DespachoService {
 
     @Transactional(readOnly = true)
     public List<Venta> obtenerVentasPendientes() {
-        return ventaRepository.findByEstadoAndLlevaDespachoTrue(com.agroveterinaria.enums.EstadoVenta.PENDIENTE);
+        return ventaRepository.findVentasConMercanciaPendienteDeDespacho();
     }
 
     @Transactional(readOnly = true)
@@ -256,11 +256,6 @@ public class DespachoService {
             }
         }
 
-        if (!quedaMercanciaPendiente) {
-            venta.setEstado(EstadoVenta.CERRADA);
-        }
-
-        ventaRepository.save(venta);
         return despachoRepository.save(despacho);
     }
 
