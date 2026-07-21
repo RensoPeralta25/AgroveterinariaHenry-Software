@@ -98,6 +98,7 @@ public class VentaService {
         venta.setEstado(estado);
         venta.setComprobanteFiscal(valorNormalizado(solicitud.comprobanteFiscal()));
         venta.setAplicaDescuentoVenta(resumen.descuento().compareTo(BigDecimal.ZERO) > 0);
+        venta.setCostoEnvio(normalizarMonto(solicitud.costoEnvio()));
 
         boolean llevaDespacho = Boolean.TRUE.equals(solicitud.llevaDespacho());
         venta.setLlevaDespacho(llevaDespacho);
@@ -244,11 +245,13 @@ public class VentaService {
         }
 
         BigDecimal descuento = normalizarMonto(solicitud.descuento());
+        BigDecimal costoEnvio = normalizarMonto(solicitud.costoEnvio());
+
         if (descuento.compareTo(subtotal) > 0) {
             throw new IllegalArgumentException("El descuento no puede ser mayor que el subtotal.");
         }
 
-        BigDecimal total = subtotal.subtract(descuento).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = subtotal.add(costoEnvio).subtract(descuento).setScale(2, RoundingMode.HALF_UP);
         BigDecimal montoPagado = normalizarMonto(solicitud.montoPagado());
         if (montoPagado.compareTo(total) > 0) {
             throw new IllegalArgumentException("El monto pagado no puede ser mayor que el total.");
@@ -540,6 +543,7 @@ public class VentaService {
             Boolean llevaDespacho,
             LocalDate fechaVencimientoPago,
             String comprobanteFiscal,
+            BigDecimal costoEnvio,
             BigDecimal descuento,
             BigDecimal montoPagado,
             MetodoPago metodoPago,

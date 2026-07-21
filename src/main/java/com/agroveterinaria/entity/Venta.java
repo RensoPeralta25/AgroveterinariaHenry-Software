@@ -71,6 +71,11 @@ public class Venta {
     @Column(name = "fecha_vencimiento_pago")
     private LocalDateTime fechaVencimientoPago;
 
+    @NotNull
+    @Digits(integer = 12, fraction = 2, message = "El costo de envío solo puede tener hasta 2 decimales")
+    @Column(name = "costo_envio", nullable = false, precision = 12, scale = 2)
+    private BigDecimal costoEnvio = BigDecimal.ZERO;
+
     public void agregarDetalle(DetalleVenta detalle) {
         if (detalle == null) {
             return;

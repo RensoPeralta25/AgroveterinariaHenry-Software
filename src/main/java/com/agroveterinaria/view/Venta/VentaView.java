@@ -80,6 +80,9 @@ public class VentaView extends VerticalLayout {
     private final BigDecimalField montoPagado = new BigDecimalField("Monto pagado");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
 
+    private final BigDecimalField costoEnvio = new BigDecimalField("Costo envío");
+    private final Span transporteResumen = new Span(formatMoney(BigDecimal.ZERO));
+
     private final Grid<LineaVentaForm> gridLineas = new Grid<>(LineaVentaForm.class, false);
     private final List<LineaVentaForm> lineas = new ArrayList<>();
 
@@ -147,7 +150,7 @@ public class VentaView extends VerticalLayout {
         ventaFila.setWidthFull();
         ventaFila.expand(vendedor);
 
-        HorizontalLayout pagoFila = new HorizontalLayout(descuentoPorcentaje, descuento, montoPagado, metodoPago, llevaDespacho);
+        HorizontalLayout pagoFila = new HorizontalLayout(descuentoPorcentaje, descuento, costoEnvio, montoPagado, metodoPago, llevaDespacho);
         descuentoPorcentaje.setWidth("130px");
         descuento.setWidth("150px");
         pagoFila.setWidthFull();
@@ -216,6 +219,7 @@ public class VentaView extends VerticalLayout {
         resumen.add(
                 titulo,
                 filaResumen("Subtotal", subtotal),
+                filaResumen("Transporte", transporteResumen),
                 filaResumen("Descuento", descuentoResumen),
                 filaResumen("Total", total),
                 filaResumen("Pagado", pagado),
@@ -401,6 +405,21 @@ public class VentaView extends VerticalLayout {
 
         metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
+
+
+        costoEnvio.setValue(BigDecimal.ZERO);
+        costoEnvio.setPrefixComponent(new Span("RD$"));
+        costoEnvio.setEnabled(false);
+        costoEnvio.setValueChangeMode(ValueChangeMode.EAGER);
+        costoEnvio.addValueChangeListener(event -> actualizarResumen());
+
+        llevaDespacho.addValueChangeListener(event -> {
+            boolean lleva = event.getValue();
+            costoEnvio.setEnabled(lleva);
+            if (!lleva) {
+                costoEnvio.setValue(BigDecimal.ZERO);
+            }
+        });
     }
 
     private Anchor crearDescargaCuentaBancaria() {
@@ -589,6 +608,7 @@ public class VentaView extends VerticalLayout {
                 llevaDespacho.getValue(),
                 fechaVencimientoPago.getValue(),
                 comprobanteFiscal.getValue(),
+                costoEnvio.getValue(),
                 descuento.getValue(),
                 montoPagado.getValue(),
                 metodoPago.getValue(),
@@ -638,13 +658,20 @@ public class VentaView extends VerticalLayout {
             balance.setText(formatMoney(resumen.balancePendiente()));
             estado.setText(resumen.estado().getEtiqueta());
         } catch (Exception ignored) {
-            subtotal.setText(formatMoney(lineas.stream()
-                    .map(LineaVentaForm::getSubtotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)));
-            descuentoResumen.setText(formatMoney(BigDecimal.ZERO));
-            total.setText(subtotal.getText());
-            pagado.setText(formatMoney(BigDecimal.ZERO));
-            balance.setText(subtotal.getText());
+            BigDecimal sub = lineas.stream().map(LineaVentaForm::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal envio = costoEnvio.getValue() != null ? costoEnvio.getValue() : BigDecimal.ZERO;
+            BigDecimal desc = descuento.getValue() != null ? descuento.getValue() : BigDecimal.ZERO;
+
+            subtotal.setText(formatMoney(sub));
+            transporteResumen.setText(formatMoney(envio));
+            descuentoResumen.setText(formatMoney(desc));
+
+            BigDecimal totalMatematico = sub.add(envio).subtract(desc);
+            total.setText(formatMoney(totalMatematico));
+
+            BigDecimal pag = montoPagado.getValue() != null ? montoPagado.getValue() : BigDecimal.ZERO;
+            pagado.setText(formatMoney(pag));
+            balance.setText(formatMoney(totalMatematico.subtract(pag)));
             estado.setText("Pendiente");
         }
     }
