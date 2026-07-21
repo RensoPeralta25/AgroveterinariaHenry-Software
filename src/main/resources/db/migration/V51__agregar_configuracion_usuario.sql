@@ -1,0 +1,5 @@
+ALTER TABLE persona
+    ADD COLUMN apellido VARCHAR(100) NOT NULL DEFAULT '';
+
+ALTER TABLE usuario
+    ADD COLUMN foto_perfil BYTEA;

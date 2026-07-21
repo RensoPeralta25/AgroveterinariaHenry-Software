@@ -32,6 +32,6 @@ public class Inventario {
     private Lote lote;
 
     //representación en las unidad de medida de la fracción si se se permite el fraccionamiento, sino pues la unidad del completo
-    @Column(name = "cantidad_actual", nullable = false, precision = 12, scale = 2)
+    @Column(name = "cantidad_actual", nullable = false, precision = 14, scale = 4)
     private BigDecimal cantidadActual;
 }

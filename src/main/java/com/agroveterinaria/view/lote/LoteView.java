@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.lote;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Lote;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.service.LoteService;
@@ -51,6 +52,8 @@ public class LoteView extends VerticalLayout {
         GridCrud<Lote> crudLote = new GridCrud<>(Lote.class, new WindowBasedCrudLayout());
         crudLote.addClassName("lote-crud");
         crudLote.getGrid().addClassName("almacen-grid");
+        CrudGridPaginator<Lote> paginator = new CrudGridPaginator<>(10, "lotes");
+        paginator.setRefreshOperation(crudLote::refreshGrid);
 
         crudLote.getGrid().removeAllColumns();
 
@@ -126,13 +129,13 @@ public class LoteView extends VerticalLayout {
         buscarLote.setValueChangeMode(ValueChangeMode.LAZY);
         buscarLote.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
-            crudLote.setFindAllOperation(() ->
+            paginator.setSource(() ->
                     loteService.listarTodos().stream()
                             .filter(l -> (l.getNumeroLote() != null && l.getNumeroLote().toLowerCase().contains(filtro)) ||
                                     (l.getProducto() != null && l.getProducto().getNombre().toLowerCase().contains(filtro)))
                             .toList()
             );
-            crudLote.refreshGrid();
+            paginator.reset();
         });
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarLote);
@@ -141,12 +144,13 @@ public class LoteView extends VerticalLayout {
         toolbar.addClassName("almacen-toolbar");
         toolbar.expand(buscarLote);
 
-        crudLote.setFindAllOperation(loteService::listarTodos);
+        paginator.setSource(loteService::listarTodos);
+        crudLote.setFindAllOperation(paginator::pageItems);
         crudLote.setDeleteOperation(loteService::eliminar);
 
         crudLote.getCrudFormFactory().setCaption(org.vaadin.crudui.crud.CrudOperation.DELETE, "¿Eliminar Lote?");
 
-        add(toolbar, crudLote);
+        add(toolbar, paginator, crudLote);
     }
 
 
@@ -164,7 +168,9 @@ public class LoteView extends VerticalLayout {
 
         ComboBox<Producto> cbProducto = new ComboBox<>("Producto");
         cbProducto.setWidthFull();
-        cbProducto.setItems(productoService.listarTodosActivos());
+        cbProducto.setItems(productoService.listarTodosActivos().stream()
+                .filter(p -> p.getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .toList());
         cbProducto.setItemLabelGenerator(Producto::getNombre);
         cbProducto.setValue(lote.getProducto());
 

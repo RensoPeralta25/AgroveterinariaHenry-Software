@@ -28,5 +28,9 @@ public class Usuario {
     @Column(name = "password", nullable = false)
     private String password;
 
-}
+    @Column(name = "foto_perfil")
+    private byte[] fotoPerfil;
 
+    private boolean activo = true;
+
+}

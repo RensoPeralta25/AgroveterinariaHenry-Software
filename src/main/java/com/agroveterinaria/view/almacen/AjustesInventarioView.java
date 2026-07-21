@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.AjusteInventario;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Empleado;
@@ -9,13 +10,14 @@ import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.TipoAjuste;
 import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
+import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -30,9 +32,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 @CssImport(value = "./sorter-styles.css", themeFor = "vaadin-grid-sorter")
@@ -50,6 +50,7 @@ public class AjustesInventarioView extends VerticalLayout {
     private final InventarioService inventarioService;
 
     private Grid<AjusteInventario> gridAuditoria;
+    private GridPaginator<AjusteInventario> paginator;
 
     public AjustesInventarioView(AjusteInventarioService ajusteService, AlmacenService almacenService,
                                  ProductoService productoService, LoteService loteService,
@@ -79,14 +80,16 @@ public class AjustesInventarioView extends VerticalLayout {
         construirGrid();
         actualizarGrid();
 
-        add(toolbar, gridAuditoria);
+        add(toolbar, paginator, gridAuditoria);
     }
 
     private void construirGrid() {
         gridAuditoria = new Grid<>(AjusteInventario.class, false);
-        gridAuditoria.setSizeFull();
+        gridAuditoria.setWidthFull();
+        gridAuditoria.setHeight("390px");
         gridAuditoria.addThemeNames("row-stripes");
         gridAuditoria.addClassName("ajustes-grid");
+        paginator = new GridPaginator<>(gridAuditoria, 10, "ajustes");
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
@@ -101,18 +104,24 @@ public class AjustesInventarioView extends VerticalLayout {
             return badge;
         }).setHeader("Tipo").setFlexGrow(0).setWidth("120px");
 
-        gridAuditoria.addColumn(AjusteInventario::getCantidad).setHeader("Cantidad").setFlexGrow(0).setWidth("100px");
+        gridAuditoria.addColumn(a -> FormatoInventarioUtil.formatearCantidad(
+                a.getCantidad(),
+                a.getLote().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(a.getLote().getProducto().getPermiteFraccionamiento()),
+                false
+        )).setHeader("Cantidad").setFlexGrow(0).setWidth("160px");
+
         gridAuditoria.addColumn(AjusteInventario::getJustificacion).setHeader("Motivo").setFlexGrow(3);
         gridAuditoria.addColumn(a -> a.getEmpleado().getPersona().getNombre()).setHeader("Auditor").setFlexGrow(1);
     }
 
     private void actualizarGrid() {
-        gridAuditoria.setItems(ajusteService.listarHistorial());
+        paginator.setItems(ajusteService.listarHistorial());
     }
 
     private void abrirModalNuevoAjuste() {
         Dialog dialog = new Dialog();
-        dialog.setWidth("600px");
+        dialog.setWidth("650px");
 
         H3 titulo = new H3("Declarar Diferencia Físca");
 
@@ -127,7 +136,9 @@ public class AjustesInventarioView extends VerticalLayout {
         cbAlmacen.setWidthFull();
 
         ComboBox<Producto> cbProducto = new ComboBox<>("Producto");
-        cbProducto.setItems(productoService.listarTodosActivos());
+        cbProducto.setItems(productoService.listarTodosActivos().stream()
+                .filter(p -> p.getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .toList());
         cbProducto.setItemLabelGenerator(Producto::getNombre);
         cbProducto.setWidthFull();
 
@@ -138,10 +149,22 @@ public class AjustesInventarioView extends VerticalLayout {
         cbLote.setWidthFull();
         cbLote.setEnabled(false);
 
+        CantidadFraccionadaField txtCantidad = new CantidadFraccionadaField();
+
         Runnable actualizarLotes = () -> {
             Producto prod = cbProducto.getValue();
             Almacen alm = cbAlmacen.getValue();
             TipoAjuste tipo = rbgTipo.getValue();
+
+            if (prod != null) {
+                txtCantidad.configurarProducto(
+                        prod.getContenidoPorEmpaque(),
+                        Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
+                        false
+                );
+            } else {
+                txtCantidad.clear();
+            }
 
             if (prod != null && alm != null) {
                 cbLote.setEnabled(true);
@@ -159,9 +182,6 @@ public class AjustesInventarioView extends VerticalLayout {
         rbgTipo.addValueChangeListener(e -> actualizarLotes.run());
         cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
         cbProducto.addValueChangeListener(e -> actualizarLotes.run());
-
-        com.vaadin.flow.component.textfield.BigDecimalField txtCantidad = new com.vaadin.flow.component.textfield.BigDecimalField("Cantidad");
-        txtCantidad.setWidthFull();
 
         TextArea txtJustificacion = new TextArea("Justificación Detallada (Obligatoria)");
         txtJustificacion.setWidthFull();

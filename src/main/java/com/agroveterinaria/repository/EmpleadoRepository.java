@@ -17,4 +17,8 @@ public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
 
     @Query("SELECT e FROM Empleado e JOIN e.cargos c WHERE c = :rol")
     List<Empleado> findByCargo(@Param("rol") RolEmpleado rol);
+
+    List<Empleado> findByActivoTrue();
+
+    Empleado findByUsuarioUsername(String username);
 }

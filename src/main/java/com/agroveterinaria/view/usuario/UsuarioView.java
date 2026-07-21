@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.usuario;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.service.EmpleadoService;
@@ -45,6 +46,8 @@ public class UsuarioView extends VerticalLayout {
 
         GridCrud<Usuario> crudUsuario = new GridCrud<>(Usuario.class, new WindowBasedCrudLayout());
         crudUsuario.getGrid().addClassName("usuario-grid");
+        CrudGridPaginator<Usuario> paginator = new CrudGridPaginator<>(10, "usuarios");
+        paginator.setRefreshOperation(crudUsuario::refreshGrid);
 
         DefaultCrudFormFactory<Usuario> formFactory = (DefaultCrudFormFactory<Usuario>) crudUsuario.getCrudFormFactory();
 
@@ -95,13 +98,13 @@ public class UsuarioView extends VerticalLayout {
         buscarUsuario.setValueChangeMode(ValueChangeMode.LAZY);
         buscarUsuario.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
-            crudUsuario.setFindAllOperation(() ->
+            paginator.setSource(() ->
                     usuarioService.findAll().stream()
                             .filter(u -> u.getUsername() != null &&
                                     u.getUsername().toLowerCase().contains(filtro))
                             .toList()
             );
-            crudUsuario.refreshGrid();
+            paginator.reset();
         });
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarUsuario);
@@ -118,7 +121,8 @@ public class UsuarioView extends VerticalLayout {
 
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Usuario?");
 
-        crudUsuario.setFindAllOperation(usuarioService::findAll);
+        paginator.setSource(usuarioService::findAll);
+        crudUsuario.setFindAllOperation(paginator::pageItems);
         crudUsuario.setDeleteOperation(usuario -> {
             Empleado emp = empleadoService.findByUsuario(usuario);
             if (emp != null) {
@@ -128,7 +132,7 @@ public class UsuarioView extends VerticalLayout {
             usuarioService.delete(usuario);
         });
 
-        add(toolbar, crudUsuario);
+        add(toolbar, paginator, crudUsuario);
     }
 
     private void dialogNuevoUsuario(GridCrud<Usuario> crudUsuario) {

@@ -1,9 +1,11 @@
 package com.agroveterinaria.view.transferencia;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.DetalleTransferencia;
 import com.agroveterinaria.entity.Transferencia;
 import com.agroveterinaria.enums.EstadoTransferencia;
 import com.agroveterinaria.service.TransferenciaService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -18,7 +20,6 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.data.provider.ListDataProvider;
 import jakarta.annotation.security.RolesAllowed;
 
 import java.time.format.DateTimeFormatter;
@@ -30,7 +31,9 @@ public class TransferenciasView extends VerticalLayout {
 
     private final TransferenciaService transferenciaService;
     private Grid<Transferencia> gridHistorial;
-    private ListDataProvider<Transferencia> dataProvider;
+    private GridPaginator<Transferencia> paginator;
+    private List<Transferencia> transferencias = List.of();
+    private String estadoFiltro = "TODOS";
     private final Runnable accionNuevaTransferencia;
 
     public TransferenciasView(TransferenciaService transferenciaService, Runnable accionNuevaTransferencia) {
@@ -47,8 +50,7 @@ public class TransferenciasView extends VerticalLayout {
         HorizontalLayout toolbar = construirToolbar();
         construirGrid();
 
-        add(titulo, toolbar, gridHistorial);
-        expand(gridHistorial);
+        add(titulo, toolbar, paginator, gridHistorial);
 
         actualizarGrid();
     }
@@ -68,13 +70,8 @@ public class TransferenciasView extends VerticalLayout {
         cbFiltroEstado.setItems("TODOS", "PENDIENTE", "EN_TRANSITO", "COMPLETADA", "CANCELADA");
         cbFiltroEstado.setValue("TODOS");
         cbFiltroEstado.addValueChangeListener(e -> {
-            if (dataProvider != null) {
-                if ("TODOS".equals(e.getValue()) || e.getValue() == null) {
-                    dataProvider.clearFilters();
-                } else {
-                    dataProvider.setFilter(t -> t.getEstado() != null && t.getEstado().equals(e.getValue()));
-                }
-            }
+            estadoFiltro = e.getValue() != null ? e.getValue() : "TODOS";
+            aplicarFiltroEstado();
         });
 
         toolbar.add(btnNuevaTransferencia, cbFiltroEstado);
@@ -83,9 +80,11 @@ public class TransferenciasView extends VerticalLayout {
 
     private void construirGrid() {
         gridHistorial = new Grid<>(Transferencia.class, false);
-        gridHistorial.setSizeFull();
+        gridHistorial.setWidthFull();
+        gridHistorial.setHeight("390px");
         gridHistorial.addClassName("almacen-grid");
         gridHistorial.addThemeNames("row-stripes");
+        paginator = new GridPaginator<>(gridHistorial, 10, "transferencias");
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
@@ -136,8 +135,14 @@ public class TransferenciasView extends VerticalLayout {
             return t2.getFechaHoraSalidaProgramada().compareTo(t1.getFechaHoraSalidaProgramada());
         });
 
-        dataProvider = new ListDataProvider<>(lista);
-        gridHistorial.setDataProvider(dataProvider);
+        transferencias = List.copyOf(lista);
+        aplicarFiltroEstado();
+    }
+
+    private void aplicarFiltroEstado() {
+        paginator.setItems(transferencias.stream()
+                .filter(t -> "TODOS".equals(estadoFiltro) || t.getEstado() != null && t.getEstado().name().equals(estadoFiltro))
+                .toList());
     }
 
     private void abrirModalDetalles(Transferencia transferencia) {
@@ -153,7 +158,13 @@ public class TransferenciasView extends VerticalLayout {
 
         gridDetalles.addColumn(d -> d.getLote().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
         gridDetalles.addColumn(d -> d.getLote().getNumeroLote() != null ? d.getLote().getNumeroLote() : "S/N").setHeader("Lote").setFlexGrow(1);
-        gridDetalles.addColumn(d -> String.format("%,.2f", d.getCantidad())).setHeader("Cantidad Enviada").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
+
+        gridDetalles.addColumn(d -> FormatoInventarioUtil.formatearCantidad(
+                d.getCantidad(),
+                d.getLote().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
+                false
+        )).setHeader("Cantidad Enviada").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         Transferencia tCompleta = transferenciaService.obtenerTransferenciaConDetalles(transferencia.getIdTransferencia());
         gridDetalles.setItems(tCompleta.getDetalles());

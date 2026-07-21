@@ -25,6 +25,9 @@ public class Persona {
     @Pattern(regexp = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]+$", message = "El nombre solo debe contener letras")
     private String nombre;
 
+    @Pattern(regexp = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]*$", message = "El apellido solo debe contener letras")
+    private String apellido = "";
+
     @NotBlank(message = "La cédula es obligatoria")
     @Pattern(regexp = "^\\d{3}-\\d{7}-\\d{1}$", message = "El formato debe ser 000-0000000-0")
     private String cedula;

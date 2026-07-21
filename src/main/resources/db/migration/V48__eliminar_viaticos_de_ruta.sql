@@ -1,0 +1,1 @@
+ALTER TABLE ruta DROP COLUMN tarifa_viatico_standard;

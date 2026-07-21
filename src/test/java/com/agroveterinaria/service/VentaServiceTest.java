@@ -1,11 +1,7 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.*;
-import com.agroveterinaria.enums.CategoriaProducto;
-import com.agroveterinaria.enums.EstadoVenta;
-import com.agroveterinaria.enums.MetodoPago;
-import com.agroveterinaria.enums.StatusEntidad;
-import com.agroveterinaria.enums.UnidadEmpaque;
+import com.agroveterinaria.enums.*;
 import com.agroveterinaria.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,8 +81,8 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenRechazaCantidadCeroONegativa() {
-        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", "0.00", 1L, 1L)));
-        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", "0.00", 1L, 1L)));
+        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
+        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadCero));
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadNegativa));
@@ -123,7 +119,7 @@ class VentaServiceTest {
         VentaService.ResumenVenta resumen = ventaService.calcularResumen(solicitud(
                 "25.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(new BigDecimal("354.00"), resumen.subtotal());
@@ -135,7 +131,7 @@ class VentaServiceTest {
     }
 
     @Test
-    void metodosDePagoDisponiblesEstanModeladosPeroSoloEfectivoEstaHabilitado() {
+    void efectivoYTransferenciaEstanHabilitadosComoMetodosDePago() {
         assertTrue(List.of(MetodoPago.values()).containsAll(List.of(
                 MetodoPago.EFECTIVO,
                 MetodoPago.TARJETA,
@@ -145,14 +141,16 @@ class VentaServiceTest {
 
         Venta venta = venta(cliente, "1000.00");
 
+        when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Cobro cobroTransferencia = ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"));
+
+        assertEquals(MetodoPago.TRANSFERENCIA, cobroTransferencia.getMetodoPago());
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.TARJETA, new BigDecimal("100.00"))
         );
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.NOTA_CREDITO, new BigDecimal("100.00"))
-        );
-        assertThrows(IllegalArgumentException.class, () ->
-                ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"))
         );
     }
 
@@ -173,13 +171,13 @@ class VentaServiceTest {
         VentaService.ResumenVenta pagoParcial = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         VentaService.ResumenVenta pagoTotal = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(EstadoVenta.PENDIENTE, pagoParcial.estado());
@@ -196,7 +194,7 @@ class VentaServiceTest {
         VentaService.SolicitudVenta solicitud = solicitud(
                 "0.00",
                 "355.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         );
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(solicitud));
@@ -212,8 +210,8 @@ class VentaServiceTest {
                 "0.00",
                 "514.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L),
-                        linea(200L, "2.00", "0.00", 1L, 1L)
+                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(200L, "2.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -238,7 +236,7 @@ class VentaServiceTest {
         ventaService.registrarVenta(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L))
+                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         ArgumentCaptor<Venta> ventaCaptor = ArgumentCaptor.forClass(Venta.class);
@@ -329,8 +327,8 @@ class VentaServiceTest {
                 "50.00",
                 "804.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L),
-                        linea(300L, "1.00", "0.00", 1L, 1L)
+                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(300L, "1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -344,6 +342,16 @@ class VentaServiceTest {
     private void prepararVenta(Producto... productos) {
         when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
         when(empleadoRepository.findById(10L)).thenReturn(Optional.of(vendedor));
+
+        Almacen almacen = almacen(1L);
+        Lote lote = lote(1L);
+        Inventario inventario = inventario(almacen, lote, "1000.00");
+
+        when(almacenRepository.findById(1L)).thenReturn(Optional.of(almacen));
+        when(loteRepository.findById(1L)).thenReturn(Optional.of(lote));
+        when(inventarioRepository.findByAlmacenAndLote(any(Almacen.class), any(Lote.class)))
+                .thenReturn(Optional.of(inventario));
+
         for (Producto producto : productos) {
             when(productoRepository.findById(producto.getIdProducto())).thenReturn(Optional.of(producto));
         }
@@ -352,6 +360,28 @@ class VentaServiceTest {
             venta.setIdVenta(55L);
             return venta;
         });
+    }
+
+    private Almacen almacen(Long idAlmacen) {
+        Almacen almacen = new Almacen();
+        almacen.setIdAlmacen(idAlmacen);
+        almacen.setNombre("Almacen prueba");
+        return almacen;
+    }
+
+    private Lote lote(Long idLote) {
+        Lote lote = new Lote();
+        lote.setIdLote(idLote);
+        lote.setNumeroLote("L-001");
+        return lote;
+    }
+
+    private Inventario inventario(Almacen almacen, Lote lote, String cantidadActual) {
+        Inventario inventario = new Inventario();
+        inventario.setAlmacen(almacen);
+        inventario.setLote(lote);
+        inventario.setCantidadActual(bd(cantidadActual));
+        return inventario;
     }
 
     private VentaService.SolicitudVenta solicitud(List<VentaService.LineaVentaRequest> lineas) {
@@ -369,6 +399,7 @@ class VentaServiceTest {
                 false,
                 LocalDate.now().plusDays(15),
                 "B0100000001",
+                new BigDecimal(0),
                 bd(descuento),
                 bd(montoPagado),
                 MetodoPago.EFECTIVO,
@@ -376,8 +407,8 @@ class VentaServiceTest {
         );
     }
 
-    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, String impuesto, Long idAlmacen, Long idLote) {
-        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), bd(impuesto), idAlmacen, idLote);
+    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, String impuesto, Long idAlmacen, Long idLote, EstrategiaPrecioVenta estrategia) {
+        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), bd(impuesto), idAlmacen, idLote, estrategia);
     }
 
     private Producto producto(Long idProducto, CategoriaProducto categoria, String precioEmpaque) {

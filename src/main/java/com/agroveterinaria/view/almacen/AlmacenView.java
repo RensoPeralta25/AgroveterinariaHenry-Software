@@ -1,11 +1,13 @@
 package com.agroveterinaria.view.almacen;
 
+import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Almacen;
 import com.agroveterinaria.entity.Inventario;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.AlmacenService;
 import com.agroveterinaria.service.InventarioService;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -19,11 +21,6 @@ import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.map.Map;
-import com.vaadin.flow.component.map.configuration.Coordinate;
-import com.vaadin.flow.component.map.configuration.feature.MarkerFeature;
-import com.vaadin.flow.component.map.configuration.layer.VectorLayer;
-import com.vaadin.flow.component.map.configuration.source.VectorSource;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -62,6 +59,8 @@ public class AlmacenView extends VerticalLayout {
         GridCrud<Almacen> crudAlmacen = new GridCrud<>(Almacen.class, new WindowBasedCrudLayout());
         crudAlmacen.addClassName("almacen-crud");
         crudAlmacen.getGrid().addClassName("almacen-grid");
+        CrudGridPaginator<Almacen> paginator = new CrudGridPaginator<>(10, "almacenes");
+        paginator.setRefreshOperation(crudAlmacen::refreshGrid);
 
         crudAlmacen.getGrid().removeAllColumns();
 
@@ -135,13 +134,13 @@ public class AlmacenView extends VerticalLayout {
         buscarAlmacen.setValueChangeMode(ValueChangeMode.LAZY);
         buscarAlmacen.addValueChangeListener(e -> {
             String filtro = e.getValue().toLowerCase().trim();
-            crudAlmacen.setFindAllOperation(() ->
+            paginator.setSource(() ->
                     almacenService.listarTodos().stream()
                             .filter(a -> (a.getNombre() != null && a.getNombre().toLowerCase().contains(filtro)) ||
                                     (a.getDireccion() != null && a.getDireccion().toLowerCase().contains(filtro)))
                             .toList()
             );
-            crudAlmacen.refreshGrid();
+            paginator.reset();
         });
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarAlmacen);
@@ -150,12 +149,13 @@ public class AlmacenView extends VerticalLayout {
         toolbar.addClassName("almacen-toolbar");
         toolbar.expand(buscarAlmacen);
 
-        crudAlmacen.setFindAllOperation(almacenService::listarTodos);
+        paginator.setSource(almacenService::listarTodos);
+        crudAlmacen.setFindAllOperation(paginator::pageItems);
         crudAlmacen.setDeleteOperation(almacenService::eliminar);
 
         crudAlmacen.getCrudFormFactory().setCaption(org.vaadin.crudui.crud.CrudOperation.DELETE, "¿Eliminar Almacén?");
 
-        add(toolbar, crudAlmacen);
+        add(toolbar, paginator, crudAlmacen);
     }
 
     private void dialogAlmacen(Almacen almacen, GridCrud<Almacen> crudAlmacen, boolean esNuevo) {
@@ -411,9 +411,15 @@ public class AlmacenView extends VerticalLayout {
                         inv.getLote().getFechaVencimiento().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "N/A"
         ).setHeader("Vencimiento").setWidth("140px").setFlexGrow(0);
 
-        gridInventario.addColumn(inv ->
-                        String.format("%,.2f", inv.getCantidadActual())
-                ).setHeader("Cantidad Actual").setWidth("140px").setFlexGrow(0)
+        gridInventario.addColumn(inv -> {
+                    Producto p = inv.getLote().getProducto();
+                    return FormatoInventarioUtil.formatearCantidad(
+                            inv.getCantidadActual(),
+                            p.getContenidoPorEmpaque(),
+                            Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
+                            false
+                    );
+                }).setHeader("Cantidad Actual").setWidth("170px").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);
 
         List<Inventario> existencias = inventarioService.listarPorAlmacen(almacen);

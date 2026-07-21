@@ -3,6 +3,8 @@ package com.agroveterinaria.view.transferencia;
 import com.agroveterinaria.dto.detalle_transferencia.DetalleTransferenciaDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
+import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -19,7 +21,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
-import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
@@ -132,7 +133,14 @@ public class RegistroTransferenciaView extends VerticalLayout {
         gridInventario.addThemeNames("row-stripes");
         gridInventario.addColumn(i -> i.getLote().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2).setComparator(inventario -> inventario.getLote().getProducto().getNombre());
         gridInventario.addColumn(i -> i.getLote().getNumeroLote()).setHeader("Lote").setFlexGrow(1).setComparator(inventario -> inventario.getLote().getNumeroLote());
-        gridInventario.addColumn(i -> String.format("%,.2f", i.getCantidadActual())).setHeader("Stock").setTextAlign(ColumnTextAlign.END).setFlexGrow(1).setComparator(Inventario::getCantidadActual);
+
+        gridInventario.addColumn(i -> FormatoInventarioUtil.formatearCantidad(
+                i.getCantidadActual(),
+                i.getLote().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(i.getLote().getProducto().getPermiteFraccionamiento()),
+                false
+        )).setHeader("Stock").setTextAlign(ColumnTextAlign.END).setFlexGrow(1).setComparator(Inventario::getCantidadActual);
+
         gridInventario.addComponentColumn(this::crearBotonAgregar).setHeader("Acción").setTextAlign(ColumnTextAlign.CENTER);
         gridInventario.setSizeFull();
 
@@ -154,8 +162,10 @@ public class RegistroTransferenciaView extends VerticalLayout {
         gridDetalles.addThemeNames("row-stripes");
         gridDetalles.addColumn(dto -> dto.getLote().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
         gridDetalles.addColumn(dto -> dto.getLote().getNumeroLote()).setHeader("Lote").setFlexGrow(1);
-        gridDetalles.addComponentColumn(this::crearCampoCantidad).setHeader("Cantidad").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
-        gridDetalles.addComponentColumn(this::crearBotonQuitar).setHeader("Acción").setTextAlign(ColumnTextAlign.CENTER);
+
+        gridDetalles.addComponentColumn(this::crearCampoCantidad).setHeader("Cantidad").setFlexGrow(0).setWidth("280px");
+
+        gridDetalles.addComponentColumn(this::crearBotonQuitar).setHeader("Acción").setTextAlign(ColumnTextAlign.CENTER).setWidth("90px").setFlexGrow(0);
         gridDetalles.setSizeFull();
 
         Button btnProcesar = new Button("Procesar Transferencia", new Icon(VaadinIcon.CHECK));
@@ -186,24 +196,39 @@ public class RegistroTransferenciaView extends VerticalLayout {
         return btn;
     }
 
-    private BigDecimalField crearCampoCantidad(DetalleTransferenciaDTO dto) {
-        BigDecimalField field = new BigDecimalField();
+    private CantidadFraccionadaField crearCampoCantidad(DetalleTransferenciaDTO dto) {
+        Producto prod = dto.getLote().getProducto();
+        CantidadFraccionadaField field = new CantidadFraccionadaField();
+
+        field.configurarProducto(
+                prod.getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
+                false
+        );
+
         field.setValue(dto.getCantidad());
-        field.setWidth("100%");
+
         field.addValueChangeListener(e -> {
-            if (e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+            BigDecimal val = e.getValue();
+            if (val == null || val.compareTo(BigDecimal.ZERO) <= 0) {
                 field.setValue(BigDecimal.ONE);
                 dto.setCantidad(BigDecimal.ONE);
                 Notification.show("La cantidad debe ser mayor a 0").addThemeVariants(NotificationVariant.LUMO_WARNING);
                 gridDetalles.getDataProvider().refreshItem(dto);
-            } else if (e.getValue().compareTo(dto.getExistenciaMaxima()) > 0) {
+            } else if (val.compareTo(dto.getExistenciaMaxima()) > 0) {
                 field.setValue(dto.getExistenciaMaxima());
                 dto.setCantidad(dto.getExistenciaMaxima());
-                Notification.show("La cantidad no puede superar la existencia máxima (" + dto.getExistenciaMaxima() + ")")
+
+                String maxFormateado = FormatoInventarioUtil.formatearCantidad(
+                        dto.getExistenciaMaxima(), prod.getContenidoPorEmpaque(),
+                        Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false
+                );
+                Notification.show("La cantidad no puede superar la existencia máxima (" + maxFormateado + ")")
                         .addThemeVariants(NotificationVariant.LUMO_WARNING);
+
                 gridDetalles.getDataProvider().refreshItem(dto);
             } else {
-                dto.setCantidad(e.getValue());
+                dto.setCantidad(val);
             }
         });
         return field;

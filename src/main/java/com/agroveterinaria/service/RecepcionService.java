@@ -41,7 +41,7 @@ public class RecepcionService {
                             TransporteRepository transporteRepository, GastoOperativoRepository gastoOperativoRepository,
                             ProductoRepository productoRepository, DetalleRecepcionRepository detalleRecepcionRepository,
                             TransferenciaRepository transferenciaRepository, DespachoRepository despachoRepository,
-                            AjusteInventarioRepository ajusteInventarioRepository, UsuarioRepository usuarioRepository, EmpleadoRepository empleadoRepository, EmpleadoService empleadoService) {
+                            AjusteInventarioRepository ajusteInventarioRepository, SecurityService securityService) {
         this.recepcionRepository = recepcionRepository;
         this.compraRepository = compraRepository;
         this.loteRepository = loteRepository;
@@ -53,7 +53,7 @@ public class RecepcionService {
         this.transferenciaRepository = transferenciaRepository;
         this.despachoRepository = despachoRepository;
         this.ajusteInventarioRepository = ajusteInventarioRepository;
-        this.securityService = new SecurityService(usuarioRepository, empleadoService);
+        this.securityService = securityService;
     }
 
     @Transactional

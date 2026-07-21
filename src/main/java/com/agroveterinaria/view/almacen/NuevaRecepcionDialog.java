@@ -7,6 +7,8 @@ import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
+import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -66,7 +68,8 @@ public class NuevaRecepcionDialog extends Dialog {
         this.recepcionService = recepcionService;
         this.alGuardarExitosamente = alGuardarExitosamente;
 
-        setWidth("1050px");
+        setWidth("95vw");
+        setMaxWidth("2000px");
         setCloseOnOutsideClick(false);
 
         H3 titulo = new H3("Procesar Nueva Recepción (Entrada)");
@@ -143,23 +146,29 @@ public class NuevaRecepcionDialog extends Dialog {
     private void construirGridRecepcion() {
         gridRecepcion = new Grid<>(RecepcionItemUI.class, false);
         gridRecepcion.addThemeNames("row-stripes");
-        gridRecepcion.setHeight("350px");
+        gridRecepcion.setHeight("400px");
 
-        gridRecepcion.addColumn(item -> item.getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
+        gridRecepcion.addColumn(item -> item.getProducto().getNombre())
+                .setHeader("Producto")
+                .setWidth("180px")
+                .setFlexGrow(2);
 
         gridRecepcion.addComponentColumn(item -> {
-            com.vaadin.flow.component.textfield.BigDecimalField txtCant = new com.vaadin.flow.component.textfield.BigDecimalField();
-            txtCant.setWidthFull();
+            Producto prod = item.getProducto();
+            CantidadFraccionadaField txtCant = new CantidadFraccionadaField();
+            txtCant.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
             txtCant.setValue(item.getCantidadRecibida());
-            txtCant.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.ON_BLUR);
+
             txtCant.addValueChangeListener(e -> {
                 BigDecimal nuevaCant = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
                 item.setCantidadRecibida(BigDecimal.ZERO);
+
                 BigDecimal sumaOtros = calcularSumaDelMismoProducto(itemsFisicos, item);
                 BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
 
                 if (nuevaCant.compareTo(maxPermitido) > 0) {
-                    Notification.show("Máximo permitido: " + maxPermitido, 3000, Notification.Position.MIDDLE);
+                    String maxFormateado = FormatoInventarioUtil.formatearCantidad(maxPermitido, prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
+                    Notification.show("Máximo permitido: " + maxFormateado, 3500, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
                     txtCant.setValue(maxPermitido);
                     item.setCantidadRecibida(maxPermitido);
                 } else {
@@ -168,19 +177,21 @@ public class NuevaRecepcionDialog extends Dialog {
                 gridRecepcion.getDataProvider().refreshAll();
             });
             return txtCant;
-        }).setHeader("Cant. a Recibir").setWidth("120px").setFlexGrow(0);
+        }).setHeader("Cant. a Recibir").setWidth("260px").setFlexGrow(0);
 
         gridRecepcion.addComponentColumn(item -> {
-            com.vaadin.flow.component.textfield.BigDecimalField txtMerma = new com.vaadin.flow.component.textfield.BigDecimalField();
-            txtMerma.setWidthFull();
+            Producto prod = item.getProducto();
+            CantidadFraccionadaField txtMerma = new CantidadFraccionadaField();
+            txtMerma.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
             txtMerma.setValue(item.getCantidadMerma());
-            txtMerma.addThemeVariants(com.vaadin.flow.component.textfield.TextFieldVariant.LUMO_ALIGN_RIGHT);
-            txtMerma.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.ON_BLUR);
+
             txtMerma.addValueChangeListener(e -> {
                 BigDecimal nuevaMerma = e.getValue() != null ? e.getValue() : BigDecimal.ZERO;
                 item.setCantidadMerma(BigDecimal.ZERO);
+
                 BigDecimal sumaOtros = calcularSumaDelMismoProducto(itemsFisicos, item);
                 BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
+
                 if (nuevaMerma.compareTo(maxPermitido) > 0) {
                     txtMerma.setValue(maxPermitido);
                     item.setCantidadMerma(maxPermitido);
@@ -190,7 +201,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 gridRecepcion.getDataProvider().refreshAll();
             });
             return txtMerma;
-        }).setHeader("Merma/Rotos").setWidth("110px").setFlexGrow(0);
+        }).setHeader("Merma/Rotos").setWidth("260px").setFlexGrow(0);
 
         gridRecepcion.addComponentColumn(item -> {
             TextField txtJustificacion = new TextField();
@@ -200,11 +211,18 @@ public class NuevaRecepcionDialog extends Dialog {
             txtJustificacion.setEnabled(tieneMerma);
             txtJustificacion.addValueChangeListener(e -> item.setJustificacionMerma(e.getValue()));
             return txtJustificacion;
-        }).setHeader("Justificación").setFlexGrow(2);
+        }).setHeader("Justificación").setWidth("160px").setFlexGrow(1);
 
         gridRecepcion.addColumn(item -> {
             BigDecimal disponible = calcularRestanteTotal(itemsFisicos, item);
-            return disponible.compareTo(BigDecimal.ZERO) > 0 ? disponible.toString() : "0.00";
+            BigDecimal valFinal = disponible.compareTo(BigDecimal.ZERO) > 0 ? disponible : BigDecimal.ZERO;
+            Producto prod = item.getProducto();
+            return FormatoInventarioUtil.formatearCantidad(
+                    valFinal,
+                    prod.getContenidoPorEmpaque(),
+                    Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
+                    false
+            );
         }).setHeader("Pendiente Global").setWidth("130px").setFlexGrow(0);
 
         gridRecepcion.addComponentColumn(item -> {
@@ -216,7 +234,7 @@ public class NuevaRecepcionDialog extends Dialog {
             if (item.getDetalleTransferencia() != null) cbAlmacen.setReadOnly(true);
             else cbAlmacen.addValueChangeListener(e -> item.setAlmacenDestino(e.getValue()));
             return cbAlmacen;
-        }).setHeader("Almacén Destino").setFlexGrow(2);
+        }).setHeader("Almacén Destino").setWidth("220px").setFlexGrow(2);
 
         gridRecepcion.addComponentColumn(item -> {
             ComboBox<Lote> cbLote = new ComboBox<>();
@@ -253,7 +271,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 });
             }
             return cbLote;
-        }).setHeader("No. Lote").setFlexGrow(1);
+        }).setHeader("No. Lote").setWidth("140px").setFlexGrow(1);
 
         gridRecepcion.addComponentColumn(item -> {
             DatePicker dpVencimiento = new DatePicker();
@@ -271,7 +289,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 });
             }
             return dpVencimiento;
-        }).setHeader("Vencimiento").setFlexGrow(1);
+        }).setHeader("Vencimiento").setFlexGrow(0).setWidth("150px");
 
         gridRecepcion.addComponentColumn(item -> {
             if (item.getDetalleTransferencia() != null) return new Span("-");
@@ -298,7 +316,7 @@ public class NuevaRecepcionDialog extends Dialog {
             });
             acciones.add(btnAdd, btnRemove);
             return acciones;
-        }).setHeader("Dividir").setWidth("110px").setFlexGrow(0);
+        }).setHeader("Dividir").setWidth("100px").setFlexGrow(0);
     }
 
     private void construirSeccionLogistica() {
@@ -335,7 +353,7 @@ public class NuevaRecepcionDialog extends Dialog {
 
         cbRuta = new ComboBox<>("Ruta");
         cbRuta.setItems(rutaService.listarTodos());
-        cbRuta.setItemLabelGenerator(r -> r.getDistanciaKm() + " km");
+        cbRuta.setItemLabelGenerator(r -> r.getNombre() + " km");
         cbRuta.setWidthFull();
 
         formCamionYChofer.add(cbVehiculo, cbConductor, cbRuta);

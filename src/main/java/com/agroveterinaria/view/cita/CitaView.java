@@ -1,5 +1,6 @@
 package com.agroveterinaria.view.cita;
 
+import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Cita;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Empleado;
@@ -35,10 +36,14 @@ import com.vaadin.flow.router.PageTitle;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 
 @PageTitle("Gestión de Citas | Agroveterinaria")
 public class CitaView extends VerticalLayout {
+
+    private static final int CITAS_POR_PAGINA = 10;
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final CitaService citaService;
     private final ClienteService clienteService;
@@ -46,8 +51,9 @@ public class CitaView extends VerticalLayout {
     private final ProductoService productoService;
     private final Grid<Cita> grid = new Grid<>(Cita.class, false);
     private final TextField buscar = new TextField();
-
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private final CitaCalendar calendar;
+    private final GridPaginator<Cita> paginator = new GridPaginator<>(grid, CITAS_POR_PAGINA, "citas");
+    private List<Cita> citasFiltradas = List.of();
 
     public CitaView(
             CitaService citaService,
@@ -66,6 +72,11 @@ public class CitaView extends VerticalLayout {
         addClassName("cita-view");
 
         configurarGrid();
+        calendar = new CitaCalendar(
+                fechaHora -> abrirDialogoCita(null, fechaHora),
+                this::abrirDialogoCitaPorId,
+                this::moverCita
+        );
 
         Button btnNueva = new Button("Nueva cita", new Icon(VaadinIcon.PLUS));
         btnNueva.addClassName("btn-nuevo");
@@ -75,7 +86,7 @@ public class CitaView extends VerticalLayout {
         buscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscar.setClearButtonVisible(true);
         buscar.setValueChangeMode(ValueChangeMode.LAZY);
-        buscar.addValueChangeListener(event -> refrescarGrid());
+        buscar.addValueChangeListener(event -> refrescarCitas());
 
         HorizontalLayout toolbar = new HorizontalLayout(btnNueva, buscar);
         toolbar.addClassName("usuario-toolbar");
@@ -83,16 +94,19 @@ public class CitaView extends VerticalLayout {
         toolbar.setAlignItems(FlexComponent.Alignment.CENTER);
         toolbar.expand(buscar);
 
-        add(toolbar, grid);
-        expand(grid);
+        grid.setHeight("390px");
 
-        refrescarGrid();
+        add(toolbar, calendar, paginator, grid);
+
+        refrescarCitas();
     }
 
     private void configurarGrid() {
         grid.addClassName("usuario-grid");
+        grid.addClassName("cita-grid");
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
-        grid.setSizeFull();
+        grid.setWidthFull();
+        grid.setAllRowsVisible(false);
 
         grid.addColumn(cita -> formatDateTime(cita.getFechaHora()))
                 .setHeader("Fecha y hora")
@@ -147,7 +161,7 @@ public class CitaView extends VerticalLayout {
                     citaService.marcarComoRealizada(cita.getIdCita());
                     mostrarExito("Cita marcada como realizada");
                 }
-                refrescarGrid();
+                refrescarCitas();
             } catch (IllegalArgumentException ex) {
                 mostrarError(ex.getMessage());
             }
@@ -166,6 +180,10 @@ public class CitaView extends VerticalLayout {
     }
 
     private void abrirDialogoCita(Cita cita) {
+        abrirDialogoCita(cita, null);
+    }
+
+    private void abrirDialogoCita(Cita cita, LocalDateTime fechaHoraInicial) {
         boolean editando = cita != null && cita.getIdCita() != null;
         Cita citaForm = editando ? cita : new Cita();
 
@@ -203,7 +221,9 @@ public class CitaView extends VerticalLayout {
         servicio.setRequiredIndicatorVisible(true);
 
         DateTimePicker fechaHora = new DateTimePicker("Fecha y hora");
-        fechaHora.setValue(citaForm.getFechaHora() != null ? citaForm.getFechaHora() : LocalDateTime.now().plusHours(1));
+        fechaHora.setValue(citaForm.getFechaHora() != null
+                ? citaForm.getFechaHora()
+                : fechaHoraInicial != null ? fechaHoraInicial : LocalDateTime.now().plusHours(1));
         fechaHora.setRequiredIndicatorVisible(true);
 
         Checkbox realizada = new Checkbox("Cita realizada");
@@ -258,7 +278,7 @@ public class CitaView extends VerticalLayout {
             try {
                 citaService.save(citaForm);
                 dialog.close();
-                refrescarGrid();
+                refrescarCitas();
                 mostrarExito(editando ? "Cita actualizada" : "Cita creada");
             } catch (IllegalArgumentException ex) {
                 mostrarError(ex.getMessage());
@@ -298,7 +318,7 @@ public class CitaView extends VerticalLayout {
             try {
                 citaService.delete(cita);
                 dialog.close();
-                refrescarGrid();
+                refrescarCitas();
                 mostrarExito("Cita eliminada");
             } catch (RuntimeException ex) {
                 mostrarError("No se pudo eliminar la cita.");
@@ -316,10 +336,37 @@ public class CitaView extends VerticalLayout {
         dialog.open();
     }
 
-    private void refrescarGrid() {
+    private void abrirDialogoCitaPorId(Long idCita) {
+        citaService.findById(idCita).ifPresentOrElse(
+                this::abrirDialogoCita,
+                () -> mostrarError("No se encontró la cita seleccionada.")
+        );
+    }
+
+    private boolean moverCita(Long idCita, LocalDateTime nuevaFechaHora) {
+        try {
+            Cita cita = citaService.findById(idCita)
+                    .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
+            cita.setFechaHora(nuevaFechaHora);
+            citaService.save(cita);
+            refrescarCitas();
+            mostrarExito("Fecha y hora de la cita actualizadas");
+            return true;
+        } catch (IllegalArgumentException ex) {
+            mostrarError(ex.getMessage());
+            refrescarCitas();
+            return false;
+        } catch (RuntimeException ex) {
+            mostrarError("No se pudo mover la cita.");
+            refrescarCitas();
+            return false;
+        }
+    }
+
+    private void refrescarCitas() {
         String termino = buscar.getValue() != null ? buscar.getValue().trim().toLowerCase() : "";
 
-        grid.setItems(citaService.findAll().stream()
+        citasFiltradas = citaService.findAll().stream()
                 .filter(cita -> termino.isBlank()
                         || nombreCliente(cita.getCliente()).toLowerCase().contains(termino)
                         || nombreEmpleado(cita.getVeterinario()).toLowerCase().contains(termino)
@@ -327,7 +374,11 @@ public class CitaView extends VerticalLayout {
                         && cita.getPaciente().getNombre().toLowerCase().contains(termino))
                         || (cita.getServicio() != null && cita.getServicio().getNombre() != null
                         && cita.getServicio().getNombre().toLowerCase().contains(termino)))
-                .toList());
+                .sorted(Comparator.comparing(Cita::getFechaHora, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+
+        paginator.setItems(citasFiltradas);
+        calendar.setCitas(citasFiltradas);
     }
 
     private String nombreCliente(Cliente cliente) {

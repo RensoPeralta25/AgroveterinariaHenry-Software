@@ -78,4 +78,47 @@ public class InventarioService {
         return inventarioRepository.findLotesConStock(almacen, producto);
     }
 
+    @Transactional
+    public void sumarStock(Almacen almacen, Lote lote, BigDecimal cantidadASumar) {
+        if (cantidadASumar == null || cantidadASumar.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cantidad a sumar al inventario debe ser mayor a cero.");
+        }
+
+        Optional<Inventario> inventarioOpt = inventarioRepository.findByAlmacenAndLote(almacen, lote);
+
+        if (inventarioOpt.isPresent()) {
+            Inventario inventario = inventarioOpt.get();
+            inventario.setCantidadActual(inventario.getCantidadActual().add(cantidadASumar));
+            inventarioRepository.save(inventario);
+        } else {
+            Inventario nuevoInventario = new Inventario();
+            nuevoInventario.setAlmacen(almacen);
+            nuevoInventario.setLote(lote);
+            nuevoInventario.setCantidadActual(cantidadASumar);
+            inventarioRepository.save(nuevoInventario);
+        }
+    }
+
+    @Transactional
+    public void restarStock(Almacen almacen, Lote lote, BigDecimal cantidadARestar) {
+        if (cantidadARestar == null || cantidadARestar.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La cantidad a restar del inventario debe ser mayor a cero.");
+        }
+
+        Inventario inventario = inventarioRepository.findByAlmacenAndLote(almacen, lote)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Inconsistencia grave: No existe un registro de inventario en el almacén " +
+                                almacen.getNombre() + " para el lote especificado."));
+
+        if (inventario.getCantidadActual().compareTo(cantidadARestar) < 0) {
+            throw new IllegalStateException(
+                    "No se puede anular la devolución. El stock actual (" + inventario.getCantidadActual() +
+                            ") es menor que la cantidad que se intenta retirar (" + cantidadARestar +
+                            ") debido a movimientos de venta o picking posteriores.");
+        }
+
+        inventario.setCantidadActual(inventario.getCantidadActual().subtract(cantidadARestar));
+        inventarioRepository.save(inventario);
+    }
+
 }

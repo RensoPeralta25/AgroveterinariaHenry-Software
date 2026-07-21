@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 public interface NominaRepository extends JpaRepository<Nomina, Long> {
 
@@ -18,4 +19,9 @@ public interface NominaRepository extends JpaRepository<Nomina, Long> {
             "JOIN FETCH n.corrida c " +
             "ORDER BY c.fechaEmision DESC")
     List<Nomina> findAllConEmpleadoYDetalles();
+
+    boolean existsByEmpleado(Empleado empleado);
+
+    @Query("SELECT DISTINCT n.empleado.idEmpleado FROM Nomina n")
+    Set<Long> findIdsEmpleadosConHistorial();
 }

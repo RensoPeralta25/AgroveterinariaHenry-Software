@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -27,6 +28,11 @@ public class CitaService {
     @Transactional(readOnly = true)
     public List<Cita> findAll() {
         return citaRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Cita> findById(Long idCita) {
+        return citaRepository.findById(idCita);
     }
 
     @Transactional(readOnly = true)

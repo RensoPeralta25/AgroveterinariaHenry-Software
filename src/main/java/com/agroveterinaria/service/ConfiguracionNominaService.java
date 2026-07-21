@@ -15,22 +15,22 @@ import java.util.List;
 @Transactional
 @RolesAllowed("ADMINISTRADOR")
 public class ConfiguracionNominaService {
-    private final ConfiguracionNominaRepository configuracionRepository;
+    private final ConfiguracionNominaRepository configuracionNominaRepository;
 
-    public ConfiguracionNominaService(ConfiguracionNominaRepository configuracionRepository) {
-        this.configuracionRepository = configuracionRepository;
+    public ConfiguracionNominaService(ConfiguracionNominaRepository configuracionNominaRepository) {
+        this.configuracionNominaRepository = configuracionNominaRepository;
     }
 
     public List<ConfiguracionNomina> findAll() {
-        return configuracionRepository.findAll();
+        return configuracionNominaRepository.findAll();
     }
 
     public ConfiguracionNomina actualizar(ConfiguracionNomina configuracion) {
-        return configuracionRepository.save(configuracion);
+        return configuracionNominaRepository.save(configuracion);
     }
 
     public BigDecimal obtenerValor(String clave) {
-        return configuracionRepository.findByClave(clave).map(ConfiguracionNomina::getValor)
+        return configuracionNominaRepository.findByClave(clave).map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new RuntimeException("Configuración no encontrada: " + clave));
     }
 
@@ -48,9 +48,14 @@ public class ConfiguracionNominaService {
         return base.multiply(porcentaje).setScale(2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal calcularISR(BigDecimal devengadoMensual, PeriodoNomina periodo) {
-        int divisor = periodo == PeriodoNomina.MES ? 12 : 24;
-        BigDecimal devengadoAnual = devengadoMensual.multiply(BigDecimal.valueOf(divisor));
+    public BigDecimal calcularISR(BigDecimal devengadoPeriodo, PeriodoNomina periodo) {
+        int divisor = switch (periodo) {
+            case MES -> 12;
+            case QUINCENA -> 24;
+            case SEMANAL -> 52;
+        };
+
+        BigDecimal devengadoAnual = devengadoPeriodo.multiply(BigDecimal.valueOf(divisor));
 
         BigDecimal tramo1Limite = obtenerValor("ISR_TRAMO_1_LIMITE");
         BigDecimal tramo2Limite = obtenerValor("ISR_TRAMO_2_LIMITE");
@@ -65,13 +70,10 @@ public class ConfiguracionNominaService {
 
         if (devengadoAnual.compareTo(tramo1Limite) <= 0) {
             isrAnual = BigDecimal.ZERO;
-
         } else if (devengadoAnual.compareTo(tramo2Limite) <= 0) {
             isrAnual = devengadoAnual.subtract(tramo1Limite).multiply(tramo1Pct).setScale(2, RoundingMode.HALF_UP);
-
         } else if (devengadoAnual.compareTo(tramo3Limite) <= 0) {
             isrAnual = tramo2Base.add(devengadoAnual.subtract(tramo2Limite).multiply(tramo2Pct)).setScale(2, RoundingMode.HALF_UP);
-
         } else {
             isrAnual = tramo3Base.add(devengadoAnual.subtract(tramo3Limite).multiply(tramo3Pct)).setScale(2, RoundingMode.HALF_UP);
         }
@@ -84,5 +86,111 @@ public class ConfiguracionNominaService {
         BigDecimal valorFijo = obtenerValor("HORA_EXTRA_VALOR_FIJO");
         return valorFijo.multiply(BigDecimal.valueOf(cantidadHoras))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal getDivisorMensualDiario() {
+        return configuracionNominaRepository.findByClave("DIVISOR_MENSUAL_DIARIO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Error Crítico: No se encontró la configuración 'DIVISOR_MENSUAL_DIARIO' en la base de datos. " +
+                                "Este valor es indispensable para el cálculo de nómina y vacaciones."));
+    }
+
+    public BigDecimal getPorcentajeMaximoPrestamo() {
+        return configuracionNominaRepository.findByClave("PORCENTAJE_MAXIMO_PRESTAMO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Error Crítico: No se encontró la configuración 'PORCENTAJE_MAXIMO_PRESTAMO' en la base de datos. " +
+                                "Es indispensable para validar la creación de nuevos préstamos."));
+    }
+
+    public BigDecimal getDiasBonificacionBase() {
+        return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_BASE")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_BASE'."));
+    }
+
+    public BigDecimal getDiasBonificacionTope() {
+        return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_TOPE")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_TOPE'."));
+    }
+
+    public BigDecimal getDivisorLimiteEmbargo() {
+        return configuracionNominaRepository.findByClave("DIVISOR_LIMITE_EMBARGO")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIVISOR_LIMITE_EMBARGO'."));
+    }
+
+    public int getAniosBonificacionSenior() {
+        BigDecimal valor = configuracionNominaRepository.findByClave("ANIOS_BONIFICACION_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'ANIOS_BONIFICACION_SENIOR'."));
+
+        return valor.intValue();
+    }
+
+    public int getDiasDescansoVacaciones() {
+        return configuracionNominaRepository.findByClave("DIAS_DESCANSO_VACACIONES")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_DESCANSO_VACACIONES'."));
+    }
+
+    public int getAniosVacacionesSenior() {
+        return configuracionNominaRepository.findByClave("ANIOS_VACACIONES_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'ANIOS_VACACIONES_SENIOR'."));
+    }
+
+    public int getDiasPagoVacacionesBasico() {
+        return configuracionNominaRepository.findByClave("DIAS_PAGO_VACACIONES_BASICO")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_PAGO_VACACIONES_BASICO'."));
+    }
+
+    public int getDiasPagoVacacionesSenior() {
+        return configuracionNominaRepository.findByClave("DIAS_PAGO_VACACIONES_SENIOR")
+                .map(ConfiguracionNomina::getValor)
+                .map(BigDecimal::intValue)
+                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIAS_PAGO_VACACIONES_SENIOR'."));
+    }
+
+    public BigDecimal getSalarioMinimoLegal() {
+        return obtenerValor("SALARIO_MINIMO_LEGAL");
+    }
+
+    public BigDecimal getAnticipoPorcentajeMaximoMonto() {
+        return obtenerValor("ANTICIPO_PORCENTAJE_MAXIMO_MONTO");
+    }
+
+    public BigDecimal getAnticipoPorcentajeMinimoMonto() {
+        return obtenerValor("ANTICIPO_PORCENTAJE_MINIMO_MONTO");
+    }
+
+    public BigDecimal getAnticipoDivisorMaximoCuota() {
+        return obtenerValor("ANTICIPO_DIVISOR_MAXIMO_CUOTA");
+    }
+
+    public int getAnticipoPlazoMaximoMeses() {
+        return obtenerValor("ANTICIPO_PLAZO_MAXIMO_MESES").intValue();
+    }
+
+    public BigDecimal getAnticipoRiesgoAltoMultiplicador() {
+        return obtenerValor("ANTICIPO_RIESGO_ALTO_MULTIPLICADOR");
+    }
+
+    public BigDecimal getAnticipoRiesgoAltoPorcentaje() {
+        return obtenerValor("ANTICIPO_RIESGO_ALTO_PORCENTAJE");
+    }
+
+    public BigDecimal getAnticipoRiesgoMedioMultiplicador() {
+        return obtenerValor("ANTICIPO_RIESGO_MEDIO_MULTIPLICADOR");
+    }
+
+    public BigDecimal getAnticipoRiesgoMedioPorcentaje() {
+        return obtenerValor("ANTICIPO_RIESGO_MEDIO_PORCENTAJE");
     }
 }
