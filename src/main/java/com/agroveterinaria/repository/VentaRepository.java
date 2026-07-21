@@ -35,4 +35,10 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     @Query("SELECT COALESCE(SUM(v.montoTotal), 0) FROM Venta v " +
             "WHERE v.fechaHoraVenta >= :inicio AND v.fechaHoraVenta < :fin")
     BigDecimal sumarMontoEntre(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
+    @EntityGraph(attributePaths = {"cliente.persona"})
+    @Query("SELECT DISTINCT v FROM Venta v JOIN v.detallesVentas dv " +
+            "WHERE v.llevaDespacho = true " +
+            "AND dv.cantidad > (SELECT COALESCE(SUM(dd.cantidad), 0) FROM DetalleDespacho dd WHERE dd.detalleVenta = dv)")
+    List<Venta> findVentasConMercanciaPendienteDeDespacho();
 }
