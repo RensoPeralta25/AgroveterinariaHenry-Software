@@ -399,6 +399,7 @@ class VentaServiceTest {
                 false,
                 LocalDate.now().plusDays(15),
                 "B0100000001",
+                new BigDecimal(0),
                 bd(descuento),
                 bd(montoPagado),
                 MetodoPago.EFECTIVO,

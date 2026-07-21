@@ -1,0 +1,2 @@
+ALTER TABLE venta
+    ADD COLUMN costo_envio NUMERIC(12,2) DEFAULT 0.00 NOT NULL;
