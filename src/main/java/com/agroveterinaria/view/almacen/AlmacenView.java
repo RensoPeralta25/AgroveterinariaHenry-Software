@@ -403,7 +403,7 @@ public class AlmacenView extends VerticalLayout {
             return layout;
         }).setHeader("Producto").setFlexGrow(1).setAutoWidth(true);
 
-        gridInventario.addColumn(inv -> inv.getLote().getIdLote())
+        gridInventario.addColumn(inv -> inv.getLote().getNumeroLote())
                 .setHeader("N° Lote").setWidth("100px").setFlexGrow(0);
 
         gridInventario.addColumn(inv ->
