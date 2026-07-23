@@ -1,15 +1,15 @@
 package com.agroveterinaria.enums;
 
 public enum TipoEmbargo {
-    PENSION_ALIMENTICIA("Pensión Alimenticia");
+    PENSION_ALIMENTICIA(1);
 
-    private final String descripcion;
+    private final int prioridad;
 
-    TipoEmbargo(String descripcion) {
-        this.descripcion = descripcion;
+    TipoEmbargo(int prioridad) {
+        this.prioridad = prioridad;
     }
 
-    public String getDescripcion() {
-        return descripcion;
+    public int getPrioridad() {
+        return prioridad;
     }
 }

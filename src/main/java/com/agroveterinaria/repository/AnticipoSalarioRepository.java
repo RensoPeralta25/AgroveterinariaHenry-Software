@@ -1,6 +1,7 @@
 package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.AnticipoSalario;
+import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.enums.EstadoAnticipo;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -10,4 +11,6 @@ public interface AnticipoSalarioRepository extends JpaRepository<AnticipoSalario
     List<AnticipoSalario> findByEmpleadoIdEmpleadoAndEstado(Long empleadoId, EstadoAnticipo estado);
 
     boolean existsByEmpleadoIdEmpleadoAndEstadoIn(Long empleadoId, List<EstadoAnticipo> estados);
+
+    boolean existsByEmpleadoAndEstadoIn(Empleado empleado, List<EstadoAnticipo> estados);
 }

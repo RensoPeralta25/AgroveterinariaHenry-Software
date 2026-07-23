@@ -1,0 +1,1 @@
+ALTER TABLE cuota_extra_embargo ADD COLUMN ultimo_anio_cobrado INT DEFAULT 0 NOT NULL;

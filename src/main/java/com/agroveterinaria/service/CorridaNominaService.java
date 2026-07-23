@@ -1,5 +1,6 @@
 package com.agroveterinaria.service;
 
+import com.agroveterinaria.dto.nomina.NovedadNominaDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.*;
 import com.agroveterinaria.repository.AnticipoSalarioRepository;
@@ -12,15 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Period;
-import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -46,7 +43,7 @@ public class CorridaNominaService {
         return corridaRepository.findAllConNominas();
     }
 
-    public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo, PeriodoFiscal periodoFiscal, Empleado empleadoEspecifico) {
+    public CorridaNomina generarCorrida(PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo, PeriodoFiscal periodoFiscal, Empleado empleadoEspecifico, List<NovedadNominaDTO> novedades) {
         validarDisponibilidadDePeriodo(periodo, fecha, tipo);
 
         if (tipo == TipoCorrida.VACACIONES_ANTICIPADAS) {
@@ -105,8 +102,12 @@ public class CorridaNominaService {
 
         List<Empleado> empleados = (empleadoEspecifico != null)
                 ? List.of(empleadoEspecifico)
-                : empleadoService.findByActivoTrue();
+                : empleadoService.findByStatus(StatusEntidad.ACTIVO);
         Set<Nomina> nominas = new LinkedHashSet<>();
+
+        Map<Long, NovedadNominaDTO> mapaNovedades = (novedades != null)
+                ? novedades.stream().collect(Collectors.toMap(n -> n.getEmpleado().getIdEmpleado(), n -> n))
+                : Collections.emptyMap();
 
         for (Empleado empleado : empleados) {
             if (corrida.getTipo() != TipoCorrida.REGALIA_PASCUAL) {
@@ -116,9 +117,11 @@ public class CorridaNominaService {
             Nomina nomina = new Nomina(empleado, corrida);
             Set<DetalleNomina> detalles = new LinkedHashSet<>();
 
+            NovedadNominaDTO novedadDelEmpleado = mapaNovedades.get(empleado.getIdEmpleado());
+
             switch (corrida.getTipo()) {
                 case ORDINARIA:
-                    procesarNominaOrdinaria(empleado, nomina, detalles, periodo, corrida.getFechaEmision());
+                    procesarNominaOrdinaria(empleado, nomina, detalles, periodo, corrida.getFechaEmision(), novedadDelEmpleado);
                     break;
                 case REGALIA_PASCUAL:
                     procesarRegaliaPascual(empleado, nomina, detalles, corrida.getFechaEmision());
@@ -229,6 +232,47 @@ public class CorridaNominaService {
                 }
             }
 
+            int mesActual = corrida.getFechaEmision().getMonthValue();
+            int anioActual = corrida.getFechaEmision().getYear();
+
+            List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(nomina.getEmpleado());
+
+            if (corrida.getTipo() == TipoCorrida.REGALIA_PASCUAL || corrida.getTipo() == TipoCorrida.BONIFICACION) {
+                embargos = embargos.stream()
+                        .filter(e -> e.getTipoEmbargo() == TipoEmbargo.PENSION_ALIMENTICIA)
+                        .collect(Collectors.toList());
+            }
+
+            for (EmbargoSalarial embargo : embargos) {
+                BigDecimal cuotaOrdinaria;
+                if (corrida.getTipo() == TipoCorrida.REGALIA_PASCUAL || corrida.getTipo() == TipoCorrida.BONIFICACION) {
+                    cuotaOrdinaria = embargo.getMontoCuotaOrdinaria() != null ? embargo.getMontoCuotaOrdinaria() : BigDecimal.ZERO;
+                } else {
+                    cuotaOrdinaria = calcularCuotaEsperadaPorPeriodo(embargo.getMontoCuotaOrdinaria(), corrida.getPeriodo());
+                }
+
+                BigDecimal moraAcumulada = embargo.getSaldoPendienteMora() != null ? embargo.getSaldoPendienteMora() : BigDecimal.ZERO;
+                BigDecimal cuotasExtras = calcularCuotasExtras(embargo, mesActual, anioActual);
+                BigDecimal montoRequerido = cuotaOrdinaria.add(moraAcumulada).add(cuotasExtras);
+
+                String descripcionEsperada = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                BigDecimal montoCobrado = nomina.getDetalles().stream()
+                        .filter(d -> d.getTipo() == TipoConcepto.EMBARGO_SALARIAL && d.getDescripcion().equals(descripcionEsperada))
+                        .map(DetalleNomina::getMonto)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                BigDecimal diferenciaNoCobrada = montoRequerido.subtract(montoCobrado);
+
+                embargo.setSaldoPendienteMora(diferenciaNoCobrada);
+                embargoSalarialService.save(embargo);
+
+                if (cuotasExtras.compareTo(BigDecimal.ZERO) > 0) {
+                    embargo.getCuotasExtras().stream()
+                            .filter(c -> c.getMesAplicacion() == mesActual && c.getUltimoAnioCobrado() < anioActual)
+                            .forEach(c -> c.setUltimoAnioCobrado(anioActual));
+                }
+            }
+
             boolean tienePagoVacaciones = nomina.getDetalles().stream()
                     .anyMatch(d -> d.getTipo() == TipoConcepto.PAGO_VACACIONES);
 
@@ -262,124 +306,6 @@ public class CorridaNominaService {
     private void validarEstadoPendiente(CorridaNomina corrida) {
         if (corrida == null || corrida.getEstado() != EstadoCorrida.PENDIENTE) {
             throw new IllegalStateException("La corrida de nómina ya está aprobada, por lo que no se pueden realizar acciones sobre esta");
-        }
-    }
-
-    private BigDecimal calcularNetoDisponibleTemporal(Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
-        BigDecimal totalDeduccionesPrevias = detalles.stream()
-                .filter(d -> d.getTipo() != TipoConcepto.SALARIO_BASE &&
-                        d.getTipo() != TipoConcepto.COMISIONES_REGULARES &&
-                        d.getTipo() != TipoConcepto.PAGO_VACACIONES &&
-                        d.getTipo() != TipoConcepto.SUELDO_13 &&
-                        d.getTipo() != TipoConcepto.BONIFICACIONES)
-                .map(DetalleNomina::getMonto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal netoReal = totalDevengado.subtract(totalDeduccionesPrevias);
-        BigDecimal salarioMinimo = configuracionNominaService.getSalarioMinimoLegal();
-
-        BigDecimal disponibleParaDeudas = netoReal.subtract(salarioMinimo);
-
-        if (disponibleParaDeudas.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        return disponibleParaDeudas;
-    }
-
-    private void cobrarPrestamosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
-        List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(empleado);
-        for (PrestamoEmpleado prestamo : prestamos) {
-            BigDecimal montoACobrar = prestamo.getCuotaPeriodica().min(prestamo.getBalancePendiente());
-            detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
-                    "Cuota Préstamo: " + prestamo.getConcepto(), montoACobrar, 1.0));
-        }
-    }
-
-    private void cobrarEmbargosActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndActivoTrueOrderByFechaNotificacionAsc(empleado);
-
-        if (embargos.isEmpty()) return;
-
-        BigDecimal divisorEmbargo = configuracionNominaService.getDivisorLimiteEmbargo();
-        BigDecimal limiteLegal = empleado.getSalario().divide(divisorEmbargo, 2, java.math.RoundingMode.HALF_UP);
-
-        BigDecimal totalDemandado = embargos.stream()
-                .map(EmbargoSalarial::getMontoDescuento)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        boolean excedeLimite = totalDemandado.compareTo(limiteLegal) > 0;
-
-        boolean usarProrrateo = empleado.isProrratearEmbargos();
-
-        BigDecimal totalEmbargado = BigDecimal.ZERO;
-
-        for (EmbargoSalarial embargo : embargos) {
-            BigDecimal montoADescontar = embargo.getMontoDescuento();
-
-            if (excedeLimite) {
-                if (usarProrrateo) {
-                    BigDecimal proporcion = montoADescontar.divide(totalDemandado, 6, java.math.RoundingMode.HALF_UP);
-                    montoADescontar = limiteLegal.multiply(proporcion).setScale(2, java.math.RoundingMode.HALF_UP);
-                } else {
-                    if (totalEmbargado.add(montoADescontar).compareTo(limiteLegal) > 0) {
-                        montoADescontar = limiteLegal.subtract(totalEmbargado);
-                    }
-                }
-            }
-
-            if (montoADescontar.compareTo(BigDecimal.ZERO) > 0) {
-                detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
-                        embargo.getTipo().getDescripcion() + ": " + embargo.getEntidadDemandante(), montoADescontar, 1.0));
-
-                totalEmbargado = totalEmbargado.add(montoADescontar);
-            }
-        }
-    }
-
-    private void cobrarAnticiposActivos(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal totalDevengado) {
-        List<AnticipoSalario> anticipos = anticipoSalarioRepository.findByEmpleadoIdEmpleadoAndEstado(empleado.getIdEmpleado(), EstadoAnticipo.APROBADO);
-
-        for (AnticipoSalario anticipo : anticipos) {
-            if (anticipo.getSaldoPendiente().compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            BigDecimal disponibleParaDeudas = calcularNetoDisponibleTemporal(detalles, totalDevengado);
-            if (disponibleParaDeudas.compareTo(BigDecimal.ZERO) <= 0) break;
-
-            BigDecimal totalDeduccionesPrevias = detalles.stream()
-                    .filter(d -> d.getTipo() != TipoConcepto.SALARIO_BASE &&
-                            d.getTipo() != TipoConcepto.COMISIONES_REGULARES &&
-                            d.getTipo() != TipoConcepto.PAGO_VACACIONES &&
-                            d.getTipo() != TipoConcepto.SUELDO_13 &&
-                            d.getTipo() != TipoConcepto.BONIFICACIONES)
-                    .map(DetalleNomina::getMonto)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal netoReal = totalDevengado.subtract(totalDeduccionesPrevias);
-            BigDecimal salarioMinimo = configuracionNominaService.getSalarioMinimoLegal();
-
-            BigDecimal limiteRiesgoAlto = salarioMinimo.multiply(configuracionNominaService.getAnticipoRiesgoAltoMultiplicador());
-            BigDecimal limiteRiesgoMedio = salarioMinimo.multiply(configuracionNominaService.getAnticipoRiesgoMedioMultiplicador());
-
-            BigDecimal limiteCuotaPorBanda;
-
-            if (netoReal.compareTo(limiteRiesgoAlto) <= 0) {
-                limiteCuotaPorBanda = netoReal.multiply(configuracionNominaService.getAnticipoRiesgoAltoPorcentaje());
-            } else if (netoReal.compareTo(limiteRiesgoMedio) <= 0) {
-                limiteCuotaPorBanda = netoReal.multiply(configuracionNominaService.getAnticipoRiesgoMedioPorcentaje());
-            } else {
-                limiteCuotaPorBanda = anticipo.getCuotaDescuento();
-            }
-            
-            BigDecimal montoACobrar = anticipo.getCuotaDescuento()
-                    .min(anticipo.getSaldoPendiente())
-                    .min(limiteCuotaPorBanda)
-                    .min(disponibleParaDeudas);
-
-            if (montoACobrar.compareTo(BigDecimal.ZERO) > 0) {
-                detalles.add(crearDetalle(nomina, TipoConcepto.ANTICIPO_SALARIO,
-                        "Descuento Automático Anticipo", montoACobrar, 1.0));
-            }
         }
     }
 
@@ -417,7 +343,7 @@ public class CorridaNominaService {
         return salarioComputable.divide(divisorOficial, 2, RoundingMode.HALF_UP);
     }
 
-    private void procesarNominaOrdinaria(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, PeriodoNomina periodo, LocalDate fechaEmision) {
+    private void procesarNominaOrdinaria(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, PeriodoNomina periodo, LocalDate fechaEmision, NovedadNominaDTO novedad) {
         LocalDate inicioPeriodo, finPeriodo;
 
         if (periodo == PeriodoNomina.QUINCENA) {
@@ -447,10 +373,11 @@ public class CorridaNominaService {
         BigDecimal montoTotalDescontarSalario = BigDecimal.ZERO;
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
+        BigDecimal divisorOficial = configuracionNominaService.getDivisorMensualDiario();
+        BigDecimal salarioBaseDiario = empleado.getSalario().divide(divisorOficial, 2, java.math.RoundingMode.HALF_UP);
+
         if (!vacaciones.isEmpty()) {
             BigDecimal salarioDiarioComputable = calcularSalarioDiario(empleado);
-            BigDecimal divisorOficial = configuracionNominaService.getDivisorMensualDiario();
-            BigDecimal salarioBaseDiario = empleado.getSalario().divide(divisorOficial, 2, java.math.RoundingMode.HALF_UP);
 
             List<LocalDate> feriadosDelPeriodo = diaFeriadoService.obtenerFechasFeriadasEnRango(inicioPeriodo, finPeriodo);
 
@@ -486,10 +413,42 @@ public class CorridaNominaService {
             }
         }
 
+        if (novedad != null && novedad.getAusenciasNoPagadasDias() != null && novedad.getAusenciasNoPagadasDias() > 0) {
+            BigDecimal deduccionAusencias = salarioBaseDiario.multiply(BigDecimal.valueOf(novedad.getAusenciasNoPagadasDias()));
+
+            montoTotalDescontarSalario = montoTotalDescontarSalario.add(deduccionAusencias);
+
+            detalles.add(crearDetalle(nomina, TipoConcepto.AUSENCIAS_NO_PAGADAS,
+                    "Ausencias no pagadas (" + novedad.getAusenciasNoPagadasDias() + " días)", deduccionAusencias, novedad.getAusenciasNoPagadasDias().doubleValue()));
+        }
+
         BigDecimal montoSalarioRestante = salarioDelPeriodo.subtract(montoTotalDescontarSalario);
         if (montoSalarioRestante.compareTo(BigDecimal.ZERO) > 0) {
             detalles.add(crearDetalle(nomina, TipoConcepto.SALARIO_BASE, "Salario base", montoSalarioRestante, 1.0));
             totalDevengado = totalDevengado.add(montoSalarioRestante);
+        }
+
+        if (novedad != null) {
+            if (novedad.getHorasExtras() != null && novedad.getHorasExtras() > 0) {
+                BigDecimal valorHoras = configuracionNominaService.calcularHorasExtras(novedad.getHorasExtras().doubleValue());
+                detalles.add(crearDetalle(nomina, TipoConcepto.HORAS_EXTRAS, "Horas extras", valorHoras, novedad.getHorasExtras().doubleValue()));
+                totalDevengado = totalDevengado.add(valorHoras);
+            }
+
+            if (novedad.getComisionesRegulares() != null && novedad.getComisionesRegulares().compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.COMISIONES_REGULARES, "Comisiones Regulares", novedad.getComisionesRegulares(), 1.0));
+                totalDevengado = totalDevengado.add(novedad.getComisionesRegulares());
+            }
+
+            if (novedad.getComisionesExtraordinarias() != null && novedad.getComisionesExtraordinarias().compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.COMISIONES_EXTRAORDINARIAS, "Comisiones Extraordinarias / Bonos", novedad.getComisionesExtraordinarias(), 1.0));
+                totalDevengado = totalDevengado.add(novedad.getComisionesExtraordinarias());
+            }
+
+            if (novedad.getDietasViaticos() != null && novedad.getDietasViaticos().compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.DIETAS_Y_VIATICOS, "Dietas y viáticos", novedad.getDietasViaticos(), 1.0));
+                totalDevengado = totalDevengado.add(novedad.getDietasViaticos());
+            }
         }
 
         if (totalDevengado.compareTo(BigDecimal.ZERO) > 0) {
@@ -503,16 +462,146 @@ public class CorridaNominaService {
             if (isr.compareTo(BigDecimal.ZERO) > 0) {
                 detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR", isr, 1.0));
             }
+
+            BigDecimal deduccionesLey = afp.add(sfs).add(isr);
+            BigDecimal salarioNeto = totalDevengado.subtract(deduccionesLey);
+
+            BigDecimal porcentajeLimite = configuracionNominaService.getPorcentajeLimiteEmbargo();
+            BigDecimal limiteEmbargable = salarioNeto.multiply(porcentajeLimite);
+
+            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable, salarioNeto);
         }
 
-        cobrarEmbargosActivos(empleado, nomina, detalles);
-        cobrarPrestamosActivos(empleado, nomina, detalles, totalDevengado);
-        cobrarAnticiposActivos(empleado, nomina, detalles, totalDevengado);
+    }
+
+    private void ejecutarDeduccionesPorPrioridad(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible, BigDecimal salarioNeto) {
+        List<EmbargoSalarial> embargosActivos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado);
+        int mesActual = nomina.getCorrida().getFechaEmision().getMonthValue();
+        int anioActual = nomina.getCorrida().getFechaEmision().getYear();
+
+        PeriodoNomina periodoActual = nomina.getCorrida().getPeriodo();
+
+        Map<Integer, List<EmbargoSalarial>> embargosPorPrioridad = embargosActivos.stream()
+                .collect(Collectors.groupingBy(e -> e.getTipoEmbargo().getPrioridad()));
+
+        List<Integer> nivelesPrioridad = embargosPorPrioridad.keySet().stream().sorted().toList();
+
+        for (Integer prioridad : nivelesPrioridad) {
+            if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+
+            List<EmbargoSalarial> embargosNivel = embargosPorPrioridad.get(prioridad);
+
+            BigDecimal totalRequeridoNivel = embargosNivel.stream()
+                    .map(e -> calcularMontoRequeridoEmbargo(e, mesActual, anioActual, periodoActual))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (totalRequeridoNivel.compareTo(BigDecimal.ZERO) == 0) continue;
+
+            if (totalRequeridoNivel.compareTo(limiteDisponible) <= 0) {
+                for (EmbargoSalarial embargo : embargosNivel) {
+                    BigDecimal montoACobrar = calcularMontoRequeridoEmbargo(embargo, mesActual,  anioActual, periodoActual);
+                    if (montoACobrar.compareTo(BigDecimal.ZERO) > 0) {
+                        String descripcionUnica = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                        detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
+                                descripcionUnica, montoACobrar, 1.0));
+                        limiteDisponible = limiteDisponible.subtract(montoACobrar);
+                    }
+                }
+            } else {
+                BigDecimal fondoOriginalNivel = limiteDisponible;
+                BigDecimal fondoRestante = limiteDisponible;
+
+                for (int i = 0; i < embargosNivel.size(); i++) {
+                    EmbargoSalarial embargo = embargosNivel.get(i);
+                    BigDecimal deudaEmbargo = calcularMontoRequeridoEmbargo(embargo, mesActual, anioActual,periodoActual);
+
+                    if (deudaEmbargo.compareTo(BigDecimal.ZERO) == 0) continue;
+
+                    BigDecimal proporcion = deudaEmbargo.divide(totalRequeridoNivel, 6, RoundingMode.HALF_UP);
+                    BigDecimal montoAsignado = fondoOriginalNivel.multiply(proporcion).setScale(2, RoundingMode.HALF_UP);
+
+                    if (i == embargosNivel.size() - 1 || montoAsignado.compareTo(fondoRestante) > 0) {
+                        montoAsignado = fondoRestante.min(deudaEmbargo);
+                    }
+
+                    if (montoAsignado.compareTo(BigDecimal.ZERO) > 0) {
+                        String descripcionUnica = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                        detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
+                                descripcionUnica, montoAsignado, 1.0));
+                        fondoRestante = fondoRestante.subtract(montoAsignado);
+                    }
+                }
+                limiteDisponible = BigDecimal.ZERO;
+            }
+        }
+
+        if (limiteDisponible.compareTo(BigDecimal.ZERO) > 0) {
+            limiteDisponible = procesarPrestamosConLimite(empleado, nomina, detalles, limiteDisponible);
+        }
+
+        if (limiteDisponible.compareTo(BigDecimal.ZERO) > 0) {
+            procesarAnticiposConLimite(empleado, nomina, detalles, limiteDisponible);
+        }
+    }
+
+    private BigDecimal calcularMontoRequeridoEmbargo(EmbargoSalarial embargo, int mesActual, int anioActual, PeriodoNomina periodo) {
+        BigDecimal cuotaMensual = embargo.getMontoCuotaOrdinaria() != null ? embargo.getMontoCuotaOrdinaria() : BigDecimal.ZERO;
+        BigDecimal cuotaOrdinaria = calcularCuotaEsperadaPorPeriodo(cuotaMensual, periodo);
+        BigDecimal mora = embargo.getSaldoPendienteMora() != null ? embargo.getSaldoPendienteMora() : BigDecimal.ZERO;
+        BigDecimal extras = calcularCuotasExtras(embargo, mesActual, anioActual);
+        return cuotaOrdinaria.add(mora).add(extras);
+    }
+
+    private BigDecimal calcularCuotasExtras(EmbargoSalarial embargo, int mesActual, int anioActual) {
+        return embargo.getCuotasExtras().stream()
+                .filter(cuota -> cuota.getMesAplicacion() == mesActual && cuota.getUltimoAnioCobrado() < anioActual)
+                .map(CuotaExtraEmbargo::getMontoExtra)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal procesarPrestamosConLimite(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible) {
+        List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(empleado);
+
+        for (PrestamoEmpleado prestamo : prestamos) {
+            if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal montoRequerido = prestamo.getCuotaPeriodica().min(prestamo.getBalancePendiente());
+            BigDecimal montoACobrar = montoRequerido.min(limiteDisponible);
+
+            detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
+                    "Cuota Préstamo: " + prestamo.getConcepto(), montoACobrar, 1.0));
+
+            limiteDisponible = limiteDisponible.subtract(montoACobrar);
+        }
+        return limiteDisponible;
+    }
+
+    private void procesarAnticiposConLimite(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible) {
+        List<AnticipoSalario> anticipos = anticipoSalarioRepository.findByEmpleadoIdEmpleadoAndEstado(empleado.getIdEmpleado(), EstadoAnticipo.APROBADO);
+
+        for (AnticipoSalario anticipo : anticipos) {
+            if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;
+            if (anticipo.getSaldoPendiente().compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            BigDecimal montoACobrar = anticipo.getCuotaDescuento()
+                    .min(anticipo.getSaldoPendiente())
+                    .min(limiteDisponible);
+
+            if (montoACobrar.compareTo(BigDecimal.ZERO) > 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.ANTICIPO_SALARIO,
+                        "Descuento Automático Anticipo", montoACobrar, 1.0));
+                limiteDisponible = limiteDisponible.subtract(montoACobrar);
+            }
+        }
     }
 
     private void procesarRegaliaPascual(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, LocalDate fechaCorrida) {
         BigDecimal promedioAnual = calcularSueldo13(empleado, fechaCorrida);
         detalles.add(crearDetalle(nomina, TipoConcepto.SUELDO_13, "Sueldo 13 (Regalía Pascual)", promedioAnual, 1.0));
+        BigDecimal limiteEmbargable = promedioAnual.multiply(configuracionNominaService.getPorcentajeLimiteEmbargo());
+        ejecutarDeduccionesEspeciales(empleado, nomina, detalles, limiteEmbargable, TipoEmbargo.PENSION_ALIMENTICIA);
     }
 
     private void procesarBonificacion(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles,PeriodoFiscal periodoFiscal) {
@@ -531,6 +620,11 @@ public class CorridaNominaService {
         if (isr.compareTo(BigDecimal.ZERO) > 0) {
             detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR Bonificación", isr, 1.0));
         }
+
+        BigDecimal salarioNeto = bonificacion.subtract(isr);
+        BigDecimal limiteEmbargable = salarioNeto.multiply(configuracionNominaService.getPorcentajeLimiteEmbargo());
+
+        ejecutarDeduccionesEspeciales(empleado, nomina, detalles, limiteEmbargable, TipoEmbargo.PENSION_ALIMENTICIA);
     }
 
     private BigDecimal calcularMontoBonificacion(Empleado empleado, PeriodoFiscal periodoFiscal) {
@@ -616,7 +710,13 @@ public class CorridaNominaService {
                 detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR", isr, 1.0));
             }
 
-            cobrarEmbargosActivos(empleado, nomina, detalles);
+            BigDecimal deduccionesLey = afp.add(sfs).add(isr);
+            BigDecimal salarioNeto = totalDevengado.subtract(deduccionesLey);
+
+            BigDecimal porcentajeLimite = configuracionNominaService.getPorcentajeLimiteEmbargo();
+            BigDecimal limiteEmbargable = salarioNeto.multiply(porcentajeLimite);
+
+            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable, salarioNeto);
         }
     }
 
@@ -748,6 +848,46 @@ public class CorridaNominaService {
                 if (fecha.getDayOfMonth() > 7) {
                     throw new IllegalStateException("Al iniciar (o reiniciar) la modalidad semanal, la primera corrida del mes debe emitirse dentro de los primeros 7 días (del 1 al 7).");
                 }
+            }
+        }
+    }
+
+    private BigDecimal calcularCuotaEsperadaPorPeriodo(BigDecimal cuotaMensual, PeriodoNomina periodo) {
+        if (cuotaMensual == null) return BigDecimal.ZERO;
+
+        return switch (periodo) {
+            case QUINCENA -> cuotaMensual.divide(FACTOR_QUINCENA, 2, RoundingMode.HALF_UP);
+            case SEMANAL -> cuotaMensual.divide(FACTOR_SEMANAL, 2, RoundingMode.HALF_UP);
+            default -> cuotaMensual;
+        };
+    }
+
+    private void ejecutarDeduccionesEspeciales(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible, TipoEmbargo tipoPermitido) {
+        List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado)
+                .stream()
+                .filter(e -> e.getTipoEmbargo() == tipoPermitido)
+                .toList();
+
+        int mesActual = nomina.getCorrida().getFechaEmision().getMonthValue();
+        int anioActual = nomina.getCorrida().getFechaEmision().getYear();
+
+        for (EmbargoSalarial embargo : embargos) {
+            if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal cuotaEsperada = embargo.getMontoCuotaOrdinaria() != null ? embargo.getMontoCuotaOrdinaria() : BigDecimal.ZERO;
+            BigDecimal mora = embargo.getSaldoPendienteMora() != null ? embargo.getSaldoPendienteMora() : BigDecimal.ZERO;
+            BigDecimal extras = calcularCuotasExtras(embargo, mesActual, anioActual);
+
+            BigDecimal montoRequerido = cuotaEsperada.add(mora).add(extras);
+
+            if (montoRequerido.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal montoACobrar = montoRequerido.min(limiteDisponible);
+
+                String descripcionUnica = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
+                        descripcionUnica, montoACobrar, 1.0));
+
+                limiteDisponible = limiteDisponible.subtract(montoACobrar);
             }
         }
     }

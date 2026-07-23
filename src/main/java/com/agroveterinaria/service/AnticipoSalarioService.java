@@ -1,11 +1,17 @@
 package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.AnticipoSalario;
+import com.agroveterinaria.entity.CuotaExtraEmbargo;
+import com.agroveterinaria.entity.EmbargoSalarial;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.enums.EstadoAnticipo;
 import com.agroveterinaria.enums.EstadoCorrida;
+import com.agroveterinaria.enums.EstadoPrestamo;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.repository.AnticipoSalarioRepository;
 import com.agroveterinaria.repository.CorridaNominaRepository;
+import com.agroveterinaria.repository.PrestamoEmpleadoRepository;
+import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,17 +19,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @AllArgsConstructor
+@RolesAllowed("ADMINISTRADOR")
 public class AnticipoSalarioService {
 
     private final AnticipoSalarioRepository anticipoSalarioRepository;
+    private final PrestamoEmpleadoRepository prestamoEmpleadoRepository;
     private final CorridaNominaRepository corridaNominaRepository;
     private final ConfiguracionNominaService configuracionNominaService;
+    private final EmbargoSalarialService embargoSalarialService;
 
     @Transactional(readOnly = true)
     public List<AnticipoSalario> findAll() {
@@ -34,13 +45,24 @@ public class AnticipoSalarioService {
     public AnticipoSalario save(AnticipoSalario anticipo) {
         validarNominaPendiente();
 
-        BigDecimal remanenteDisponible = calcularRemanenteTrasEmbargo(anticipo.getEmpleado());
-        validarLimitesFinancieros(anticipo, remanenteDisponible);
+        BigDecimal sueldoNetoBase = calcularSueldoNetoBase(anticipo.getEmpleado());
+
+        validarMargenLegalEmbargos(anticipo, sueldoNetoBase);
+        validarLimitesFinancieros(anticipo, sueldoNetoBase);
 
         if (anticipo.getId() == null) {
             if (anticipoSalarioRepository.existsByEmpleadoIdEmpleadoAndEstadoIn(anticipo.getEmpleado().getIdEmpleado(),
                     Arrays.asList(EstadoAnticipo.PENDIENTE, EstadoAnticipo.APROBADO))) {
                 throw new IllegalStateException("El empleado ya posee un anticipo activo o en proceso de aprobación.");
+            }
+
+            boolean tienePrestamoActivo = prestamoEmpleadoRepository.existsByEmpleadoAndEstado(
+                    anticipo.getEmpleado(),
+                    EstadoPrestamo.ACTIVO
+            );
+
+            if (tienePrestamoActivo) {
+                throw new IllegalStateException("El empleado tiene un Préstamo Activo. No puede solicitar un Anticipo.");
             }
 
             anticipo.setSaldoPendiente(anticipo.getMontoOriginal());
@@ -61,6 +83,10 @@ public class AnticipoSalarioService {
         if (anticipo.getEstado() != EstadoAnticipo.PENDIENTE) {
             throw new IllegalStateException("Solo se pueden aprobar anticipos en estado PENDIENTE.");
         }
+
+        BigDecimal sueldoNetoBase = calcularSueldoNetoBase(anticipo.getEmpleado());
+        validarMargenLegalEmbargos(anticipo, sueldoNetoBase);
+
         anticipo.setEstado(EstadoAnticipo.APROBADO);
         return anticipoSalarioRepository.save(anticipo);
     }
@@ -82,14 +108,14 @@ public class AnticipoSalarioService {
         }
     }
 
-    private void validarLimitesFinancieros(AnticipoSalario anticipo, BigDecimal remanenteDisponible) {
+    private void validarLimitesFinancieros(AnticipoSalario anticipo, BigDecimal sueldoNetoBase) {
         BigDecimal montoPropuesto = anticipo.getMontoOriginal();
         BigDecimal cuotaPropuesta = anticipo.getCuotaDescuento();
 
         BigDecimal montoMinimoPermitido = configuracionNominaService.getSalarioMinimoLegal()
                 .multiply(configuracionNominaService.getAnticipoPorcentajeMinimoMonto());
 
-        BigDecimal montoMaximoPermitido = remanenteDisponible
+        BigDecimal montoMaximoPermitido = sueldoNetoBase
                 .multiply(configuracionNominaService.getAnticipoPorcentajeMaximoMonto());
 
         if (montoPropuesto.compareTo(montoMinimoPermitido) < 0) {
@@ -100,7 +126,7 @@ public class AnticipoSalarioService {
         }
 
         BigDecimal divisorMaximo = configuracionNominaService.getAnticipoDivisorMaximoCuota();
-        BigDecimal cuotaMaximaPermitida = remanenteDisponible.divide(divisorMaximo, 2, RoundingMode.HALF_UP);
+        BigDecimal cuotaMaximaPermitida = sueldoNetoBase.divide(divisorMaximo, 2, RoundingMode.HALF_UP);
 
         int plazoMaximo = configuracionNominaService.getAnticipoPlazoMaximoMeses();
         BigDecimal cuotaMinimaPermitida = montoPropuesto.divide(new BigDecimal(plazoMaximo), 2, RoundingMode.HALF_UP);
@@ -114,7 +140,7 @@ public class AnticipoSalarioService {
 
     }
 
-    private BigDecimal calcularRemanenteTrasEmbargo(Empleado empleado) {
+    private BigDecimal calcularSueldoNetoBase(Empleado empleado) {
         BigDecimal salarioBruto = empleado.getSalario();
 
         BigDecimal tss = configuracionNominaService.calcularAFP(salarioBruto).add(configuracionNominaService.calcularSFS(salarioBruto));
@@ -122,15 +148,11 @@ public class AnticipoSalarioService {
 
         BigDecimal isr = configuracionNominaService.calcularISR(baseGravable, com.agroveterinaria.enums.PeriodoNomina.MES);
 
-        BigDecimal netoMensual = baseGravable.subtract(isr);
-
-        BigDecimal montoEmbargo = BigDecimal.ZERO; // TODO: Falta implementar los embargos
-
-        return netoMensual.subtract(montoEmbargo);
+        return baseGravable.subtract(isr);
     }
 
     public java.util.Map<String, BigDecimal> calcularLimitesParaUI(Empleado empleado) {
-        BigDecimal remanente = calcularRemanenteTrasEmbargo(empleado);
+        BigDecimal remanente = calcularSueldoNetoBase(empleado);
 
         BigDecimal minMonto = configuracionNominaService.getSalarioMinimoLegal()
                 .multiply(configuracionNominaService.getAnticipoPorcentajeMinimoMonto());
@@ -149,6 +171,68 @@ public class AnticipoSalarioService {
                 "maxCuota", maxCuota,
                 "plazoMaximo", plazoMaximo
         );
+    }
+
+    private void validarMargenLegalEmbargos(AnticipoSalario anticipo, BigDecimal salarioNetoMensual) {
+        Empleado empleado = anticipo.getEmpleado();
+        if (empleado == null) return;
+
+        List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado);
+
+        if (embargos.isEmpty()) {
+            return;
+        }
+
+        BigDecimal totalMora = embargos.stream()
+                .map(EmbargoSalarial::getSaldoPendienteMora)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalMora.compareTo(BigDecimal.ZERO) > 0) {
+            lanzarErrorMargenLegal("Solicitud denegada: El empleado posee mora judicial acumulada activa (RD$ " + format(totalMora) + ").");
+        }
+
+        BigDecimal limiteMensual = salarioNetoMensual.multiply(configuracionNominaService.getPorcentajeLimiteEmbargo());
+        BigDecimal cuotaAnticipo = anticipo.getCuotaDescuento();
+
+        int mesesAnticipo = anticipo.getMontoOriginal().divide(cuotaAnticipo, 0, RoundingMode.CEILING).intValue();
+
+        BigDecimal totalCuotasOrdEmbargos = embargos.stream()
+                .map(EmbargoSalarial::getMontoCuotaOrdinaria)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        LocalDate fechaActual = java.time.LocalDate.now();
+
+        for (int i = 0; i < mesesAnticipo; i++) {
+            LocalDate mesProyectado = fechaActual.plusMonths(i);
+            int mesIteracion = mesProyectado.getMonthValue();
+            int anioIteracion = mesProyectado.getYear();
+
+            BigDecimal totalExtraordinarioDelMes = embargos.stream()
+                    .flatMap(e -> e.getCuotasExtras().stream())
+                    .filter(cuota -> cuota.getMesAplicacion() == mesIteracion)
+                    .map(CuotaExtraEmbargo::getMontoExtra)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal cargaTotalProyectada = totalCuotasOrdEmbargos
+                    .add(totalExtraordinarioDelMes)
+                    .add(cuotaAnticipo);
+
+            if (cargaTotalProyectada.compareTo(limiteMensual) > 0) {
+                lanzarErrorMargenLegal(
+                        "Solicitud denegada por proyección legal. El anticipo superará el 50% legal en el mes "
+                                + mesIteracion + "/" + anioIteracion + ". "
+                                + "(Carga proyectada: RD$ " + format(cargaTotalProyectada)
+                                + " | Límite: RD$ " + format(limiteMensual) + ")"
+                );
+            }
+        }
+    }
+
+    private void lanzarErrorMargenLegal(String mensaje) {
+        throw new IllegalStateException(mensaje);
     }
 
     private String format(BigDecimal amount) {
