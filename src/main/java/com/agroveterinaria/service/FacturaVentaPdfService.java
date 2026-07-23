@@ -67,7 +67,7 @@ public class FacturaVentaPdfService {
                     </tr>
                     """.formatted(
                     escape(linea.productoNombre()),
-                    formatCantidad(linea.cantidad()),
+                    escape(linea.cantidad()),
                     formatMoney(linea.precioUnitario()),
                     formatMoney(linea.impuesto()),
                     formatMoney(linea.subtotal())
@@ -245,7 +245,7 @@ public class FacturaVentaPdfService {
                         <th class="num">Cantidad</th>
                         <th class="num">Precio</th>
                         <th class="num">Impuesto</th>
-                        <th class="num">Subtotal</th>
+                        <th class="num">Total línea</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -256,6 +256,14 @@ public class FacturaVentaPdfService {
                   <table class="totals">
                     <tr>
                       <td>Subtotal</td>
+                      <td class="num">%s</td>
+                    </tr>
+                    <tr>
+                      <td>Impuestos</td>
+                      <td class="num">%s</td>
+                    </tr>
+                    <tr>
+                      <td>Ajustes (envio/descuento)</td>
                       <td class="num">%s</td>
                     </tr>
                     <tr>
@@ -289,6 +297,8 @@ public class FacturaVentaPdfService {
                 factura.llevaDespacho() ? "Si" : "No",
                 lineas,
                 formatMoney(factura.subtotal()),
+                formatMoney(factura.impuestos()),
+                formatMoney(factura.ajustes()),
                 formatMoney(factura.montoCobrado()),
                 formatMoney(factura.balancePendiente()),
                 formatMoney(factura.montoTotal())
@@ -307,10 +317,6 @@ public class FacturaVentaPdfService {
 
     private String formatMoney(BigDecimal value) {
         return MONEY_FORMAT.format(value != null ? value : BigDecimal.ZERO);
-    }
-
-    private String formatCantidad(BigDecimal value) {
-        return value != null ? value.stripTrailingZeros().toPlainString() : "0";
     }
 
     private String escape(String value) {
