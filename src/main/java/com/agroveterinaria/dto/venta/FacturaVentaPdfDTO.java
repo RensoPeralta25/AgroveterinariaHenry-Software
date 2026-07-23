@@ -16,6 +16,8 @@ public record FacturaVentaPdfDTO(
         String estado,
         boolean llevaDespacho,
         BigDecimal subtotal,
+        BigDecimal impuestos,
+        BigDecimal ajustes,
         BigDecimal montoTotal,
         BigDecimal montoCobrado,
         BigDecimal balancePendiente,
