@@ -4,8 +4,13 @@ import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.AnticipoSalario;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.enums.EstadoAnticipo;
+import com.agroveterinaria.enums.EstadoPrestamo;
+import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.repository.EmbargoSalarialRepository;
+import com.agroveterinaria.repository.PrestamoEmpleadoRepository;
 import com.agroveterinaria.service.AnticipoSalarioService;
 import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.PrestamoEmpleadoService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -34,15 +39,17 @@ import java.util.Locale;
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class AnticipoSalarioView extends VerticalLayout {
     private final AnticipoSalarioService anticipoService;
+    private final PrestamoEmpleadoService prestamoEmpleadoService;
     private final EmpleadoService empleadoService;
     private final Grid<AnticipoSalario> gridAnticipos;
     private final GridPaginator<AnticipoSalario> paginator;
     private final com.vaadin.flow.component.textfield.TextField txtFiltroEmpleado;
     private final ComboBox<EstadoAnticipo> cmbFiltroEstado;
 
-    public AnticipoSalarioView(AnticipoSalarioService anticipoService, EmpleadoService empleadoService) {
+    public AnticipoSalarioView(AnticipoSalarioService anticipoService, EmpleadoService empleadoService, PrestamoEmpleadoService prestamoEmpleadoService) {
         this.anticipoService = anticipoService;
         this.empleadoService = empleadoService;
+        this.prestamoEmpleadoService = prestamoEmpleadoService;
         this.gridAnticipos = new Grid<>(AnticipoSalario.class, false);
         this.paginator = new GridPaginator<>(gridAnticipos, 10, "anticipos");
 
@@ -166,7 +173,7 @@ public class AnticipoSalarioView extends VerticalLayout {
         dialog.setWidth("450px");
 
         ComboBox<Empleado> cmbEmpleado = new ComboBox<>("Empleado");
-        cmbEmpleado.setItems(empleadoService.findByActivoTrue());
+        cmbEmpleado.setItems(empleadoService.findByStatus(StatusEntidad.ACTIVO));
         cmbEmpleado.setItemLabelGenerator(e -> e.getPersona().getNombre());
         cmbEmpleado.setWidthFull();
 
@@ -180,10 +187,56 @@ public class AnticipoSalarioView extends VerticalLayout {
         BigDecimalField montoOriginalField = crearCampoMoneda("Monto Total Autorizado (RD$)");
         BigDecimalField cuotaField = crearCampoMoneda("Cuota a Descontar por Nómina (RD$)");
 
+        Button btnGuardar = new Button("Guardar", new Icon(VaadinIcon.CHECK), e -> {
+            if (cmbEmpleado.isEmpty() || fechaField.isEmpty() || montoOriginalField.isEmpty() || cuotaField.isEmpty()) {
+                mostrarError("Todos los campos son obligatorios.");
+                return;
+            }
+
+            BigDecimal monto = montoOriginalField.getValue();
+            BigDecimal cuota = cuotaField.getValue();
+
+            if (monto.compareTo(BigDecimal.ZERO) <= 0 || cuota.compareTo(BigDecimal.ZERO) <= 0) {
+                mostrarError("Los montos deben ser mayores a cero.");
+                return;
+            }
+            if (cuota.compareTo(monto) > 0) {
+                mostrarError("La cuota no puede ser mayor al monto total.");
+                return;
+            }
+
+            AnticipoSalario anticipoAGuardar = esNuevo ? new AnticipoSalario() : anticipoExistente;
+            anticipoAGuardar.setEmpleado(cmbEmpleado.getValue());
+            anticipoAGuardar.setFechaRegistro(fechaField.getValue());
+            anticipoAGuardar.setMontoOriginal(monto);
+            anticipoAGuardar.setCuotaDescuento(cuota);
+
+            try {
+                anticipoService.save(anticipoAGuardar);
+                mostrarExito("Anticipo guardado exitosamente.");
+                dialog.close();
+                updateList();
+            } catch (IllegalStateException | IllegalArgumentException ex) {
+                mostrarError(ex.getMessage());
+            } catch (Exception ex) {
+                mostrarError("Error crítico al guardar: " + ex.getMessage());
+            }
+        });
+        btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
         cmbEmpleado.addValueChangeListener(event -> {
             Empleado empleadoSeleccionado = event.getValue();
 
             if (empleadoSeleccionado != null) {
+                boolean bloqueado = prestamoEmpleadoService.existsByEmpleadoAndEstado(empleadoSeleccionado, EstadoPrestamo.ACTIVO);
+
+                if (bloqueado) {
+                    mostrarError("Este empleado tiene un Préstamo activo. No puede recibir anticipos.");
+                    btnGuardar.setEnabled(false);
+                } else {
+                    btnGuardar.setEnabled(true);
+                }
+
                 var limites = anticipoService.calcularLimitesParaUI(empleadoSeleccionado);
 
                 montoOriginalField.setHelperText("Permitido: RD$ " + formatearMonto(limites.get("minMonto")) +
@@ -242,43 +295,6 @@ public class AnticipoSalarioView extends VerticalLayout {
 
         FormLayout formLayout = new FormLayout(cmbEmpleado, fechaField, montoOriginalField, cuotaField);
         formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-
-        Button btnGuardar = new Button("Guardar", new Icon(VaadinIcon.CHECK), e -> {
-            if (cmbEmpleado.isEmpty() || fechaField.isEmpty() || montoOriginalField.isEmpty() || cuotaField.isEmpty()) {
-                mostrarError("Todos los campos son obligatorios.");
-                return;
-            }
-
-            BigDecimal monto = montoOriginalField.getValue();
-            BigDecimal cuota = cuotaField.getValue();
-
-            if (monto.compareTo(BigDecimal.ZERO) <= 0 || cuota.compareTo(BigDecimal.ZERO) <= 0) {
-                mostrarError("Los montos deben ser mayores a cero.");
-                return;
-            }
-            if (cuota.compareTo(monto) > 0) {
-                mostrarError("La cuota no puede ser mayor al monto total.");
-                return;
-            }
-
-            AnticipoSalario anticipoAGuardar = esNuevo ? new AnticipoSalario() : anticipoExistente;
-            anticipoAGuardar.setEmpleado(cmbEmpleado.getValue());
-            anticipoAGuardar.setFechaRegistro(fechaField.getValue());
-            anticipoAGuardar.setMontoOriginal(monto);
-            anticipoAGuardar.setCuotaDescuento(cuota);
-
-            try {
-                anticipoService.save(anticipoAGuardar);
-                mostrarExito("Anticipo guardado exitosamente.");
-                dialog.close();
-                updateList();
-            } catch (IllegalStateException | IllegalArgumentException ex) {
-                mostrarError(ex.getMessage());
-            } catch (Exception ex) {
-                mostrarError("Error crítico al guardar: " + ex.getMessage());
-            }
-        });
-        btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
         btnCancelar.addClassName("btn-borde");

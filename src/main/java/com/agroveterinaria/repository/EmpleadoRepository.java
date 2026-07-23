@@ -3,6 +3,7 @@ package com.agroveterinaria.repository;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.enums.RolEmpleado;
+import com.agroveterinaria.enums.StatusEntidad;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,7 +19,7 @@ public interface EmpleadoRepository extends JpaRepository<Empleado, Long> {
     @Query("SELECT e FROM Empleado e JOIN e.cargos c WHERE c = :rol")
     List<Empleado> findByCargo(@Param("rol") RolEmpleado rol);
 
-    List<Empleado> findByActivoTrue();
+    List<Empleado> findByStatus(StatusEntidad status);
 
     Empleado findByUsuarioUsername(String username);
 }

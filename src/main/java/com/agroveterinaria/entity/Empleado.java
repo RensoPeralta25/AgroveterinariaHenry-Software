@@ -1,6 +1,7 @@
 package com.agroveterinaria.entity;
 
 import com.agroveterinaria.enums.RolEmpleado;
+import com.agroveterinaria.enums.StatusEntidad;
 import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -52,8 +53,9 @@ public class Empleado {
 
     @NotNull(message = "La fecha de ingreso es obligatoria")
     private LocalDate fechaIngreso;
-    
-    private boolean activo = true;
-    private boolean prorratearEmbargos = true;
+
+    @NotNull(message = "El estado es obligatorio")
+    @Enumerated(EnumType.STRING)
+    private StatusEntidad status = StatusEntidad.ACTIVO;
 
 }

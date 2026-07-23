@@ -178,19 +178,5 @@ public class ConfiguracionNominaService {
         return obtenerValor("ANTICIPO_PLAZO_MAXIMO_MESES").intValue();
     }
 
-    public BigDecimal getAnticipoRiesgoAltoMultiplicador() {
-        return obtenerValor("ANTICIPO_RIESGO_ALTO_MULTIPLICADOR");
-    }
-
-    public BigDecimal getAnticipoRiesgoAltoPorcentaje() {
-        return obtenerValor("ANTICIPO_RIESGO_ALTO_PORCENTAJE");
-    }
-
-    public BigDecimal getAnticipoRiesgoMedioMultiplicador() {
-        return obtenerValor("ANTICIPO_RIESGO_MEDIO_MULTIPLICADOR");
-    }
-
-    public BigDecimal getAnticipoRiesgoMedioPorcentaje() {
-        return obtenerValor("ANTICIPO_RIESGO_MEDIO_PORCENTAJE");
-    }
+    public BigDecimal getPorcentajeLimiteEmbargo() { return obtenerValor("LIMITE_EMBARGO_PORCENTAJE"); }
 }
