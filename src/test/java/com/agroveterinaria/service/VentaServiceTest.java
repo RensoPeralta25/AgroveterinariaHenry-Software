@@ -143,15 +143,57 @@ class VentaServiceTest {
 
         when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Cobro cobroTransferencia = ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"));
+        Cobro cobroTransferencia = ventaService.registrarCobro(
+                cliente,
+                venta,
+                MetodoPago.TRANSFERENCIA,
+                new BigDecimal("100.00"),
+                transferencia("BHD-001")
+        );
 
         assertEquals(MetodoPago.TRANSFERENCIA, cobroTransferencia.getMetodoPago());
+        assertEquals("BHD-001", cobroTransferencia.getReferenciaTransferencia());
+        assertEquals("Cliente prueba", cobroTransferencia.getTitularTransferencia());
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.TARJETA, new BigDecimal("100.00"))
         );
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.NOTA_CREDITO, new BigDecimal("100.00"))
         );
+    }
+
+    @Test
+    void transferenciaExigeEvidenciaYConfirmacionDelCajero() {
+        Venta venta = venta(cliente, "1000.00");
+
+        IllegalArgumentException sinDatos = assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(
+                        cliente,
+                        venta,
+                        MetodoPago.TRANSFERENCIA,
+                        new BigDecimal("100.00")
+                )
+        );
+
+        assertEquals("Debes completar los datos de la transferencia.", sinDatos.getMessage());
+    }
+
+    @Test
+    void transferenciaRechazaUnaReferenciaBancariaReutilizada() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.existsByReferenciaTransferenciaIgnoreCase("BHD-001")).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(
+                        cliente,
+                        venta,
+                        MetodoPago.TRANSFERENCIA,
+                        new BigDecimal("100.00"),
+                        transferencia("BHD-001")
+                )
+        );
+
+        assertEquals("La referencia bancaria ya fue utilizada en otro cobro.", exception.getMessage());
     }
 
     @Test
@@ -403,7 +445,20 @@ class VentaServiceTest {
                 bd(descuento),
                 bd(montoPagado),
                 MetodoPago.EFECTIVO,
+                null,
                 lineas
+        );
+    }
+
+    private VentaService.DatosTransferencia transferencia(String referencia) {
+        return new VentaService.DatosTransferencia(
+                "BHD",
+                "Cliente prueba",
+                referencia,
+                new byte[]{1, 2, 3},
+                "comprobante.png",
+                "image/png",
+                true
         );
     }
 

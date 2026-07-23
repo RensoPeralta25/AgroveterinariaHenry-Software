@@ -1,6 +1,7 @@
 package com.agroveterinaria.view.cobro;
 
 import com.agroveterinaria.component.GridPaginator;
+import com.agroveterinaria.component.DatosTransferenciaForm;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Cobro;
 import com.agroveterinaria.entity.Empleado;
@@ -10,6 +11,7 @@ import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.service.CuentaBancariaTransferenciaPdfService;
 import com.agroveterinaria.service.VentaService;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -68,6 +70,7 @@ public class CobroView extends VerticalLayout {
     private final Span vencimientoSeleccionado = new Span("-");
     private final BigDecimalField monto = new BigDecimalField("Monto a cobrar");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
+    private final DatosTransferenciaForm datosTransferencia = new DatosTransferenciaForm();
     private final Button registrar = new Button("Registrar cobro", new Icon(VaadinIcon.CHECK));
 
     private CarteraFila filaSeleccionada;
@@ -172,7 +175,15 @@ public class CobroView extends VerticalLayout {
         registrar.setWidthFull();
         registrar.addClickListener(event -> registrarCobro());
 
-        VerticalLayout panel = new VerticalLayout(titulo, resumen, monto, metodoPago, crearDescargaCuentaBancaria(), registrar);
+        VerticalLayout panel = new VerticalLayout(
+                titulo,
+                resumen,
+                monto,
+                metodoPago,
+                datosTransferencia,
+                crearDescargaCuentaBancaria(),
+                registrar
+        );
         panel.addClassName("cobro-form-panel");
         panel.setPadding(false);
         panel.setSpacing(true);
@@ -261,6 +272,13 @@ public class CobroView extends VerticalLayout {
         metodoPago.setValue(MetodoPago.EFECTIVO);
         metodoPago.setEnabled(false);
         metodoPago.setWidthFull();
+        metodoPago.addValueChangeListener(event -> {
+            boolean esTransferencia = event.getValue() == MetodoPago.TRANSFERENCIA;
+            datosTransferencia.setVisible(esTransferencia);
+            if (!esTransferencia) {
+                datosTransferencia.limpiar();
+            }
+        });
 
         registrar.setEnabled(false);
     }
@@ -306,6 +324,19 @@ public class CobroView extends VerticalLayout {
         gridHistorial.addColumn(cobro -> cobro.getMetodoPago() != null ? cobro.getMetodoPago().getEtiqueta() : "")
                 .setHeader("Metodo")
                 .setFlexGrow(1);
+
+        gridHistorial.addColumn(cobro -> valorOrDefault(cobro.getReferenciaTransferencia(), "-"))
+                .setHeader("Referencia")
+                .setFlexGrow(1);
+
+        gridHistorial.addColumn(cobro -> valorOrDefault(cobro.getTitularTransferencia(), "-"))
+                .setHeader("Titular transferencia")
+                .setFlexGrow(2);
+
+        gridHistorial.addComponentColumn(this::crearDescargaComprobante)
+                .setHeader("Comprobante")
+                .setWidth("130px")
+                .setFlexGrow(0);
 
         gridHistorial.addColumn(cobro -> formatMoney(cobro.getMontoTotal()))
                 .setHeader("Monto")
@@ -422,6 +453,9 @@ public class CobroView extends VerticalLayout {
         metodoPago.setEnabled(tieneVenta);
         registrar.setEnabled(tieneVenta);
         monto.setValue(tieneVenta ? fila.balance() : null);
+        if (tieneVenta) {
+            datosTransferencia.sugerirTitular(nombreCliente(fila.venta().getCliente()));
+        }
     }
 
     private void registrarCobro() {
@@ -435,7 +469,10 @@ public class CobroView extends VerticalLayout {
                     filaSeleccionada.venta().getCliente(),
                     filaSeleccionada.venta(),
                     metodoPago.getValue(),
-                    monto.getValue()
+                    monto.getValue(),
+                    metodoPago.getValue() == MetodoPago.TRANSFERENCIA
+                            ? datosTransferencia.obtenerDatos()
+                            : null
             );
             Notification notification = Notification.show(
                     "Cobro registrado correctamente.",
@@ -443,6 +480,8 @@ public class CobroView extends VerticalLayout {
                     Notification.Position.BOTTOM_END
             );
             notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            datosTransferencia.limpiar();
+            metodoPago.setValue(MetodoPago.EFECTIVO);
             actualizarVista();
         } catch (Exception ex) {
             mostrarError(ex.getMessage());
@@ -452,6 +491,23 @@ public class CobroView extends VerticalLayout {
     private void mostrarError(String mensaje) {
         Notification notification = Notification.show(mensaje, 4000, Notification.Position.MIDDLE);
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    private Component crearDescargaComprobante(Cobro cobro) {
+        byte[] contenido = cobro.getComprobanteTransferencia();
+        if (contenido == null || contenido.length == 0) {
+            return new Span("-");
+        }
+
+        String nombre = valorOrDefault(cobro.getNombreComprobante(), "comprobante-transferencia");
+        StreamResource resource = new StreamResource(nombre, () ->
+                new ByteArrayInputStream(contenido));
+        resource.setContentType(valorOrDefault(cobro.getTipoContenidoComprobante(), "application/octet-stream"));
+        resource.setCacheTime(0);
+
+        Anchor descarga = new Anchor(resource, "Descargar");
+        descarga.getElement().setAttribute("download", true);
+        return descarga;
     }
 
     private boolean contiene(String valor, String filtro) {
