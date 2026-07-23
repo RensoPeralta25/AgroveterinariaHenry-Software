@@ -17,8 +17,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 
 import java.math.BigDecimal;
+import java.sql.Types;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -51,4 +54,26 @@ public class Cobro {
     @Enumerated(EnumType.STRING)
     @Column(name = "metodo_pago", nullable = false, length = 30)
     private MetodoPago metodoPago;
+
+    @Column(name = "banco_origen", length = 80)
+    private String bancoOrigen;
+
+    @Column(name = "titular_transferencia", length = 150)
+    private String titularTransferencia;
+
+    @Column(name = "referencia_transferencia", length = 100, unique = true)
+    private String referenciaTransferencia;
+
+    @JdbcTypeCode(Types.BINARY)
+    @Column(name = "comprobante_transferencia")
+    private byte[] comprobanteTransferencia;
+
+    @Column(name = "nombre_comprobante", length = 255)
+    private String nombreComprobante;
+
+    @Column(name = "tipo_contenido_comprobante", length = 100)
+    private String tipoContenidoComprobante;
+
+    @Column(name = "fecha_confirmacion_transferencia")
+    private LocalDateTime fechaConfirmacionTransferencia;
 }

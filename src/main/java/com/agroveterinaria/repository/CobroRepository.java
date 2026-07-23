@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface CobroRepository extends JpaRepository<Cobro, Long> {
 
+    boolean existsByReferenciaTransferenciaIgnoreCase(String referenciaTransferencia);
+
     List<Cobro> findByVenta(Venta venta);
 
     @Query("SELECT COALESCE(SUM(c.montoTotal), 0) FROM Cobro c WHERE c.venta = :venta")
