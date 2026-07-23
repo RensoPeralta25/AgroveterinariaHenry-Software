@@ -1,0 +1,73 @@
+package com.agroveterinaria.view.nomina;
+
+import com.agroveterinaria.entity.*;
+import com.agroveterinaria.service.*;
+import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.tabs.Tab;
+import com.vaadin.flow.component.tabs.Tabs;
+
+@CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
+public class DeduccionesView extends VerticalLayout {
+
+    private final EmbargoSalarialService embargoSalarialService;
+    private final AnticipoSalarioService anticipoSalarioService;
+    private final PrestamoEmpleadoService prestamoEmpleadoService;
+    private final EmpleadoService empleadoService;
+    private final ConfiguracionNominaService configuracionNominaService;
+
+
+    public DeduccionesView(EmbargoSalarialService embargoSalarialService, AnticipoSalarioService anticipoSalarioService,
+                           PrestamoEmpleadoService prestamoEmpleadoService, EmpleadoService empleadoService, ConfiguracionNominaService configuracionNominaService) {
+        this.embargoSalarialService = embargoSalarialService;
+        this.anticipoSalarioService = anticipoSalarioService;
+        this.prestamoEmpleadoService = prestamoEmpleadoService;
+        this.empleadoService = empleadoService;
+        this.configuracionNominaService = configuracionNominaService;
+
+        setSizeFull();
+        setPadding(true);
+        setSpacing(false);
+
+        Tab tabEmbargos = new Tab("Embargos Salariales");
+        Tab separador1 = crearSeparador();
+        Tab tabPrestamos = new Tab("Préstamos");
+        Tab separador2 = crearSeparador();
+        Tab tabAnticipos = new Tab("Anticipos de Salario");
+
+        Tabs tabs = new Tabs(tabAnticipos, separador1, tabPrestamos, separador2, tabEmbargos);
+        tabs.setWidthFull();
+        tabs.getStyle().set("border-bottom", "1px solid #e0e0e0");
+        tabs.getStyle().set("width", "fit-content");
+
+        VerticalLayout contenidoEmbargos = new EmbargoSalarialView(embargoSalarialService,empleadoService, configuracionNominaService, anticipoSalarioService);
+        VerticalLayout contenidoPrestamos = new VerticalLayout(new Span("Módulo de Préstamos en construcción..."));
+        VerticalLayout contenidoAnticipos = new AnticipoSalarioView(anticipoSalarioService,empleadoService, prestamoEmpleadoService);
+
+        contenidoPrestamos.setVisible(false);
+        contenidoEmbargos.setVisible(false);
+
+        tabs.addSelectedChangeListener(e -> {
+            Tab selected = tabs.getSelectedTab();
+            contenidoEmbargos.setVisible(selected.equals(tabEmbargos));
+            contenidoPrestamos.setVisible(selected.equals(tabPrestamos));
+            contenidoAnticipos.setVisible(selected.equals(tabAnticipos));
+        });
+
+        add(tabs, contenidoEmbargos, contenidoPrestamos, contenidoAnticipos);
+    }
+
+    private Tab crearSeparador() {
+        Tab separador = new Tab("|");
+        separador.getStyle()
+                .set("color", "#cccccc")
+                .set("pointer-events", "none")
+                .set("cursor", "default")
+                .set("padding", "0 4px")
+                .set("min-width", "0");
+        separador.setEnabled(false);
+        return separador;
+    }
+
+}

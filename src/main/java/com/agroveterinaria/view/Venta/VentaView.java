@@ -1,6 +1,7 @@
 package com.agroveterinaria.view.Venta;
 
 import com.agroveterinaria.component.CantidadFraccionadaField;
+import com.agroveterinaria.component.DatosTransferenciaForm;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstrategiaPrecioVenta;
@@ -79,6 +80,7 @@ public class VentaView extends VerticalLayout {
     private boolean calculandoDescuento = false;
     private final BigDecimalField montoPagado = new BigDecimalField("Monto pagado");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
+    private final DatosTransferenciaForm datosTransferencia = new DatosTransferenciaForm();
 
     private final BigDecimalField costoEnvio = new BigDecimalField("Costo envío");
     private final Span transporteResumen = new Span(formatMoney(BigDecimal.ZERO));
@@ -199,6 +201,7 @@ public class VentaView extends VerticalLayout {
                 ventaTitulo,
                 ventaFila,
                 pagoFila,
+                datosTransferencia,
                 acciones
         );
         formulario.setSizeFull();
@@ -405,7 +408,13 @@ public class VentaView extends VerticalLayout {
 
         metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
-
+        metodoPago.addValueChangeListener(event -> {
+            boolean esTransferencia = event.getValue() == MetodoPago.TRANSFERENCIA;
+            datosTransferencia.setVisible(esTransferencia);
+            if (!esTransferencia) {
+                datosTransferencia.limpiar();
+            }
+        });
 
         costoEnvio.setValue(BigDecimal.ZERO);
         costoEnvio.setPrefixComponent(new Span("RD$"));
@@ -526,6 +535,9 @@ public class VentaView extends VerticalLayout {
         telefonoCliente.setValue(cliente.getPersona() != null ? cliente.getPersona().getTelefono() : "");
         direccionCliente.setValue(cliente.getPersona() != null ? cliente.getPersona().getDireccion() : "");
         tipoCliente.setValue(cliente.getTipoCliente());
+        datosTransferencia.sugerirTitular(
+                cliente.getPersona() != null ? cliente.getPersona().getNombre() : null
+        );
     }
 
     private void limpiarCliente() {
@@ -612,6 +624,9 @@ public class VentaView extends VerticalLayout {
                 descuento.getValue(),
                 montoPagado.getValue(),
                 metodoPago.getValue(),
+                metodoPago.getValue() == MetodoPago.TRANSFERENCIA
+                        ? datosTransferencia.obtenerDatos()
+                        : null,
                 lineas.stream()
                         .map(linea -> new VentaService.LineaVentaRequest(
                                 linea.getProducto().getIdProducto(),
@@ -686,6 +701,7 @@ public class VentaView extends VerticalLayout {
         descuentoPorcentaje.setValue(BigDecimal.ZERO);
         montoPagado.setValue(BigDecimal.ZERO);
         metodoPago.clear();
+        datosTransferencia.limpiar();
         producto.clear();
         cbAlmacen.clear();
         cbLote.clear();

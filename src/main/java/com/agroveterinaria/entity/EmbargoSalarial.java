@@ -1,11 +1,9 @@
 package com.agroveterinaria.entity;
 
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.TipoEmbargo;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,6 +11,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -35,19 +35,38 @@ public class EmbargoSalarial {
     @Size(max = 255, message = "El nombre de la entidad no puede exceder los 255 caracteres")
     private String entidadDemandante;
 
-    @NotNull(message = "El monto de descuento es obligatorio")
-    @Positive(message = "El monto del embargo debe ser mayor a cero")
-    private BigDecimal montoDescuento;
+    @NotNull(message = "El monto de la cuota ordinaria es obligatorio")
+    @Positive(message = "La cuota ordinaria debe ser mayor que cero")
+    private BigDecimal montoCuotaOrdinaria;
+
+    @NotNull(message = "El saldo pendiente en mora no puede ser nulo")
+    @PositiveOrZero(message = "El saldo pendiente en mora no puede ser un valor negativo")
+    private BigDecimal saldoPendienteMora = BigDecimal.ZERO;
 
     @NotNull(message = "La fecha de notificación es obligatoria")
     private LocalDate fechaNotificacion;
 
-    private boolean activo = true;
+    @NotNull(message = "El estado es obligatorio")
+    @Enumerated(EnumType.STRING)
+    private StatusEntidad estado = StatusEntidad.ACTIVO;
 
     @Version
     private Long version;
 
     @NotNull(message = "El tipo de embargo es obligatorio")
     @Enumerated(EnumType.STRING)
-    private TipoEmbargo tipo;
+    private TipoEmbargo tipoEmbargo;
+
+    @OneToMany(mappedBy = "embargoSalarial", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CuotaExtraEmbargo> cuotasExtras = new ArrayList<>();
+
+    public void addCuotaExtra(CuotaExtraEmbargo cuota) {
+        cuotasExtras.add(cuota);
+        cuota.setEmbargoSalarial(this);
+    }
+
+    public void removeCuotaExtra(CuotaExtraEmbargo cuota) {
+        cuotasExtras.remove(cuota);
+        cuota.setEmbargoSalarial(null);
+    }
 }
