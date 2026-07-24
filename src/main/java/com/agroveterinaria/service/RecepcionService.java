@@ -349,31 +349,32 @@ public class RecepcionService {
     public List<RecepcionResumenDTO> obtenerHistorialRecepciones() {
         List<RecepcionResumenDTO> historial = new ArrayList<>();
 
-        List<Compra> comprasRecibidas = compraRepository.findByEstadoRecepcionIn(
-                List.of(EstadoRecepcion.RECIBIDA)
-        );
+        List<Recepcion> recepcionesCompletadas = recepcionRepository.findAll();
 
-        for (Compra c : comprasRecibidas) {
+        for (Recepcion r : recepcionesCompletadas) {
             RecepcionResumenDTO dto = new RecepcionResumenDTO();
-            dto.setCodigo("COMP-" + c.getIdCompra());
-            dto.setTipo("Compra");
-            dto.setOrigen(c.getProveedor().getNombre());
-            dto.setFechaRaw(c.getFechaHoraCompra());
-            dto.setEstado(c.getEstadoRecepcion().name());
-            dto.setCompraOriginal(c);
-            historial.add(dto);
-        }
+            dto.setIdRecepcion(r.getIdRecepcion());
+            dto.setCodigo("REC-" + r.getIdRecepcion());
+            dto.setFechaRaw(r.getFechaHoraRecepcion());
+            dto.setFechaFormateada(r.getFechaHoraRecepcion().format(formatter));
+            dto.setEstado("COMPLETADA");
 
-        List<Transferencia> transferenciasCompletadas = transferenciaRepository.findByEstado(EstadoTransferencia.COMPLETADA);
+            if (r.getTransferencia() != null) {
+                dto.setTipo("Transferencia");
+                dto.setOrigen("Sucursal: " + r.getTransferencia().getAlmacenOrigen().getNombre());
+                dto.setTransferenciaOriginal(r.getTransferencia());
+            }
+            else if (r.getCompras() != null && !r.getCompras().isEmpty()) {
+                Compra compra = r.getCompras().iterator().next();
+                dto.setTipo("Compra");
+                dto.setOrigen(compra.getProveedor().getNombre());
+                dto.setCompraOriginal(compra);
+            }
+            else {
+                dto.setTipo("Desconocido");
+                dto.setOrigen("-");
+            }
 
-        for (Transferencia t : transferenciasCompletadas) {
-            RecepcionResumenDTO dto = new RecepcionResumenDTO();
-            dto.setCodigo("TRF-" + t.getIdTransferencia());
-            dto.setTipo("Transferencia");
-            dto.setOrigen(t.getAlmacenOrigen().getNombre());
-            dto.setFechaRaw(t.getFechaHoraLlegadaProgramada());
-            dto.setEstado(t.getEstado().getEtiqueta());
-            dto.setTransferenciaOriginal(t);
             historial.add(dto);
         }
 
@@ -385,5 +386,13 @@ public class RecepcionService {
         });
 
         return historial;
+    }
+
+    @Transactional(readOnly = true)
+    public Recepcion obtenerRecepcionConDetalles(Long idRecepcion) {
+        if (idRecepcion == null) {
+            return null;
+        }
+        return recepcionRepository.findRecepcionConDetallesByIdRecepcion(idRecepcion).orElse(null);
     }
 }
