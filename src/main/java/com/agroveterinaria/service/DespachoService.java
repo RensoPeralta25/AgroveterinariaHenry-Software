@@ -264,10 +264,6 @@ public class DespachoService {
         Transporte transporte = transporteRepository.findById(idTransporte)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró el registro de transporte."));
 
-        if (transporte.getEstado() == EstadoTransporte.COMPLETADO) {
-            throw new IllegalStateException("Este transporte ya fue liquidado.");
-        }
-
         for (GastoOperativoUI dto : gastosUI) {
             if (dto.getMonto() != null && dto.getMonto().compareTo(BigDecimal.ZERO) > 0) {
                 GastoOperativo gasto = new GastoOperativo();
