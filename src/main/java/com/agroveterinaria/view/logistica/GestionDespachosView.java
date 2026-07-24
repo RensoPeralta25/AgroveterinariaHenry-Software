@@ -182,9 +182,8 @@ public class GestionDespachosView extends VerticalLayout {
             acciones.add(btnVer);
 
             boolean esVenta = "Venta".equals(dto.getTipo());
-            boolean noLiquidado = dto.getEstado() != null && !dto.getEstado().equalsIgnoreCase("COMPLETADO");
 
-            if (esVenta && noLiquidado) {
+            if (esVenta) {
                 Button btnLiquidar = new Button(new Icon(VaadinIcon.INVOICE));
                 btnLiquidar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
                 btnLiquidar.setTooltipText("Liquidar Retorno del Chofer");
