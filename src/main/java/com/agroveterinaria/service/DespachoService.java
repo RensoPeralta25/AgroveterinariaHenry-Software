@@ -288,4 +288,10 @@ public class DespachoService {
 
         transporteRepository.save(transporte);
     }
+
+    @Transactional(readOnly = true)
+    public Despacho obtenerDespachoConDetalles(Long idDespacho) {
+        if (idDespacho == null) return null;
+        return despachoRepository.findDespachoConDetallesByIdDespacho(idDespacho).orElse(null);
+    }
 }
