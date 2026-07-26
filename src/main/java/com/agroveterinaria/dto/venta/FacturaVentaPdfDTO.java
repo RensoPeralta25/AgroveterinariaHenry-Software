@@ -21,6 +21,8 @@ public record FacturaVentaPdfDTO(
         BigDecimal montoTotal,
         BigDecimal montoCobrado,
         BigDecimal balancePendiente,
-        List<LineaFacturaVentaPdfDTO> lineas
+        List<LineaFacturaVentaPdfDTO> lineas,
+        BigDecimal descuento,
+        BigDecimal costoEnvio
 ) {
 }

@@ -202,7 +202,11 @@ public class FacturaVentaTermicaPdfService {
                       <td class="num">%s</td>
                     </tr>
                     <tr>
-                      <td>Ajustes/Envio</td>
+                      <td>Descuento</td>
+                      <td class="num">-%s</td>
+                    </tr>
+                    <tr>
+                      <td>Costo Envío</td>
                       <td class="num">%s</td>
                     </tr>
                     <tr>
@@ -238,7 +242,8 @@ public class FacturaVentaTermicaPdfService {
                 lineas,
                 formatMoney(factura.subtotal()),
                 formatMoney(factura.impuestos()),
-                formatMoney(factura.ajustes()),
+                formatMoney(factura.descuento()),
+                formatMoney(factura.costoEnvio()),
                 formatMoney(factura.montoCobrado()),
                 formatMoney(factura.balancePendiente()),
                 formatMoney(factura.montoTotal())

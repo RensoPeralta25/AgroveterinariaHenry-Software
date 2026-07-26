@@ -678,12 +678,15 @@ public class VentaView extends VerticalLayout {
     }
 
     private void actualizarResumen() {
+        BigDecimal envio = costoEnvio.getValue() != null ? costoEnvio.getValue() : BigDecimal.ZERO;
+
         if (lineas.isEmpty()) {
             subtotal.setText(formatMoney(BigDecimal.ZERO));
+            transporteResumen.setText(formatMoney(envio));
             descuentoResumen.setText(formatMoney(BigDecimal.ZERO));
-            total.setText(formatMoney(BigDecimal.ZERO));
+            total.setText(formatMoney(envio));
             pagado.setText(formatMoney(BigDecimal.ZERO));
-            balance.setText(formatMoney(BigDecimal.ZERO));
+            balance.setText(formatMoney(envio));
             estado.setText("Pendiente");
             return;
         }
@@ -691,6 +694,7 @@ public class VentaView extends VerticalLayout {
         try {
             VentaService.ResumenVenta resumen = ventaService.calcularResumen(crearSolicitud());
             subtotal.setText(formatMoney(resumen.subtotal()));
+            transporteResumen.setText(formatMoney(envio));
             descuentoResumen.setText(formatMoney(resumen.descuento()));
             total.setText(formatMoney(resumen.total()));
             pagado.setText(formatMoney(resumen.montoPagado()));
@@ -698,7 +702,6 @@ public class VentaView extends VerticalLayout {
             estado.setText(resumen.estado().getEtiqueta());
         } catch (Exception ignored) {
             BigDecimal sub = lineas.stream().map(LineaVentaForm::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal envio = costoEnvio.getValue() != null ? costoEnvio.getValue() : BigDecimal.ZERO;
             BigDecimal desc = descuento.getValue() != null ? descuento.getValue() : BigDecimal.ZERO;
 
             subtotal.setText(formatMoney(sub));

@@ -38,6 +38,8 @@ public class FacturaVentaPdfMapper {
         BigDecimal total = redondearMoneda(venta.getMontoTotal());
         BigDecimal ajustes = total.subtract(subtotal).subtract(impuestos)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal costoEnvio = venta.getCostoEnvio();
+        BigDecimal descuento = ajustes.subtract(costoEnvio);
 
         return new FacturaVentaPdfDTO(
                 venta.getIdVenta(),
@@ -56,7 +58,9 @@ public class FacturaVentaPdfMapper {
                 total,
                 montoSeguro(montoCobrado),
                 montoSeguro(balancePendiente),
-                lineas
+                lineas,
+                montoSeguro(descuento),
+                montoSeguro(costoEnvio)
         );
     }
 
