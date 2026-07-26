@@ -52,6 +52,7 @@ public class VentaView extends VerticalLayout {
     private final AlmacenService almacenService;
     private final LoteService loteService;
     private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
+    private final FacturaVentaTermicaPdfService facturaVentaTermicaPdfService;
 
     private final ComboBox<Cliente> clienteExistente = new ComboBox<>("Buscar cliente");
     private final TextField cedulaCliente = new TextField("Cedula");
@@ -63,6 +64,7 @@ public class VentaView extends VerticalLayout {
     private final TextField comprobanteFiscal = new TextField("Comprobante fiscal");
     private final DatePicker fechaVencimientoPago = new DatePicker("Vencimiento de pago");
     private final Checkbox llevaDespacho = new Checkbox("Lleva despacho");
+    private final Checkbox chkImprimirTicket = new Checkbox("Imprimir ticket térmico", true);
 
     private final ComboBox<Producto> producto = new ComboBox<>("Producto");
     private final ComboBox<Almacen> cbAlmacen = new ComboBox<>("Almacén Origen");
@@ -102,7 +104,8 @@ public class VentaView extends VerticalLayout {
             ProductoService productoService,
             AlmacenService almacenService,
             LoteService loteService,
-            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
     ) {
         this.ventaService = ventaService;
         this.clienteService = clienteService;
@@ -111,6 +114,7 @@ public class VentaView extends VerticalLayout {
         this.almacenService = almacenService;
         this.loteService = loteService;
         this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
+        this.facturaVentaTermicaPdfService = facturaVentaTermicaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -185,9 +189,10 @@ public class VentaView extends VerticalLayout {
         Button limpiar = new Button("Limpiar", new Icon(VaadinIcon.REFRESH), event -> limpiarFormulario());
         limpiar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-        HorizontalLayout acciones = new HorizontalLayout(crearDescargaCuentaBancaria(), guardar, limpiar);
+        HorizontalLayout acciones = new HorizontalLayout(chkImprimirTicket, crearDescargaCuentaBancaria(), guardar, limpiar);
         acciones.setWidthFull();
-        acciones.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
+        acciones.setAlignItems(FlexComponent.Alignment.CENTER);
+        acciones.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
 
         VerticalLayout formulario = new VerticalLayout(
                 clienteTitulo,
@@ -596,6 +601,25 @@ public class VentaView extends VerticalLayout {
                     Notification.Position.BOTTOM_END
             );
             notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
+            if (chkImprimirTicket.getValue()) {
+                byte[] pdfBytes = facturaVentaTermicaPdfService.generarFacturaTermicaPdf(venta.getIdVenta());
+                StreamResource resource = new StreamResource("Ticket-" + venta.getIdVenta() + ".pdf", () -> new ByteArrayInputStream(pdfBytes));
+                resource.setContentType("application/pdf");
+
+                com.vaadin.flow.server.StreamRegistration registration =
+                        com.vaadin.flow.server.VaadinSession.getCurrent().getResourceRegistry().registerResource(resource);
+
+                com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
+                        "const iframe = document.createElement('iframe');" +
+                                "iframe.style.display = 'none';" +
+                                "iframe.src = $0;" +
+                                "document.body.appendChild(iframe);" +
+                                "iframe.onload = function() { setTimeout(function() { iframe.contentWindow.print(); }, 800); };",
+                        registration.getResourceUri().toString()
+                );
+            }
+
             limpiarFormulario();
         } catch (Exception ex) {
             mostrarError(ex.getMessage());
