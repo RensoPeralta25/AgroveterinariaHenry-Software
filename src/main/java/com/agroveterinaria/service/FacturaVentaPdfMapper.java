@@ -13,10 +13,15 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class FacturaVentaPdfMapper {
+
+    private static final NumberFormat MONEY_FORMAT = NumberFormat.getCurrencyInstance(Locale.of("es", "DO"));
 
     public FacturaVentaPdfDTO toDto(Venta venta, BigDecimal montoCobrado, BigDecimal balancePendiente) {
         Cliente cliente = venta.getCliente();
@@ -71,8 +76,55 @@ public class FacturaVentaPdfMapper {
                 formatearCantidad(detalle, producto),
                 precioComercial(detalle, producto),
                 redondearMoneda(detalle.getImpuesto()),
-                redondearMoneda(detalle.calcularSubtotal())
+                redondearMoneda(detalle.calcularSubtotal()),
+                generarDesglosePrecios(detalle, producto)
         );
+    }
+
+    private String generarDesglosePrecios(DetalleVenta detalle, Producto producto) {
+        BigDecimal cantidad = montoSeguro(detalle.getCantidad());
+        BigDecimal precioCalculado = montoSeguro(detalle.getPrecioUnitarioVenta());
+
+        if (producto == null || !Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, null, false, false) + " x " + formatMoney(precioCalculado);
+        }
+
+        BigDecimal factor = producto.getContenidoPorEmpaque();
+        BigDecimal precioEmpaque = producto.getPrecioEmpaque();
+
+        if (factor == null || factor.compareTo(BigDecimal.ONE) <= 0 || precioEmpaque == null) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioCalculado);
+        }
+
+        BigDecimal precioFraccion = producto.getPrecioFraccion() != null
+                ? producto.getPrecioFraccion()
+                : precioEmpaque.divide(factor, 4, RoundingMode.HALF_UP);
+        BigDecimal precioEmpaqueProporcional = precioEmpaque.divide(factor, 6, RoundingMode.HALF_UP);
+
+        if (mismoPrecio(precioCalculado, precioFraccion)) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioFraccion);
+        }
+        if (mismoPrecio(precioCalculado, precioEmpaqueProporcional)) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioEmpaque);
+        }
+
+        BigDecimal[] division = cantidad.divideAndRemainder(factor);
+        BigDecimal cajas = division[0];
+        BigDecimal unidades = division[1];
+
+        List<String> partes = new ArrayList<>();
+        if (cajas.compareTo(BigDecimal.ZERO) > 0) {
+            partes.add(cajas.stripTrailingZeros().toPlainString() + " Cajas x " + formatMoney(precioEmpaque));
+        }
+        if (unidades.compareTo(BigDecimal.ZERO) > 0) {
+            partes.add(unidades.stripTrailingZeros().toPlainString() + " Unids x " + formatMoney(precioFraccion));
+        }
+
+        return String.join(" + ", partes);
+    }
+
+    private String formatMoney(BigDecimal value) {
+        return MONEY_FORMAT.format(value != null ? value : BigDecimal.ZERO);
     }
 
     private String formatearCantidad(DetalleVenta detalle, Producto producto) {

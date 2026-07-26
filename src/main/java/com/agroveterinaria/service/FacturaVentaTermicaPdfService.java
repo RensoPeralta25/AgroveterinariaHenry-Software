@@ -63,14 +63,13 @@ public class FacturaVentaTermicaPdfService {
                     <tr>
                       <td class="col-prod">
                         <span class="item-name">%s</span>
-                        <span class="item-detail">%s x %s (Imp: %s)</span>
+                        <span class="item-detail">%s (Imp: %s)</span>
                       </td>
                       <td class="col-total num">%s</td>
                     </tr>
                     """.formatted(
                     escape(linea.productoNombre()),
-                    escape(linea.cantidad()),
-                    formatMoney(linea.precioUnitario()),
+                    escape(linea.desglosePrecios()),
                     formatMoney(linea.impuesto()),
                     formatMoney(linea.subtotal())
             ));
