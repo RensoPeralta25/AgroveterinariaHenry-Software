@@ -118,7 +118,8 @@ public class MainView extends Div {
             DevolucionVentaService devolucionVentaService,
             TransporteService transporteService,
             EmbargoSalarialService embargoSalarialService,
-            PrestamoEmpleadoService prestamoEmpleadoService) {
+            PrestamoEmpleadoService prestamoEmpleadoService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -132,7 +133,8 @@ public class MainView extends Div {
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService,
                 cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
-                anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService);
+                anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService,
+                facturaVentaTermicaPdfService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -191,7 +193,8 @@ public class MainView extends Div {
             DevolucionVentaService devolucionVentaService,
             TransporteService transporteService,
             EmbargoSalarialService embargoSalarialService,
-            PrestamoEmpleadoService prestamoEmpleadoService
+            PrestamoEmpleadoService prestamoEmpleadoService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -556,7 +559,7 @@ public class MainView extends Div {
                     "Registro de clientes, productos y descuentos de venta",
                     VaadinIcon.CART,
                     new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService,
-                            cuentaBancariaTransferenciaPdfService)
+                            cuentaBancariaTransferenciaPdfService, facturaVentaTermicaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -569,7 +572,7 @@ public class MainView extends Div {
                     "Lista de Ventas",
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
-                    new ListaVentasView(ventaService, facturaVentaPdfService, cuentaBancariaTransferenciaPdfService)
+                    new ListaVentasView(ventaService, facturaVentaPdfService, cuentaBancariaTransferenciaPdfService, facturaVentaTermicaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });

@@ -7,6 +7,7 @@ public record LineaFacturaVentaPdfDTO(
         String cantidad,
         BigDecimal precioUnitario,
         BigDecimal impuesto,
-        BigDecimal subtotal
+        BigDecimal subtotal,
+        String desglosePrecios
 ) {
 }

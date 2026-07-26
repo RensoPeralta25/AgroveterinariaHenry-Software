@@ -8,15 +8,21 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Venta;
+import com.agroveterinaria.enums.EstrategiaPrecioVenta;
 import com.agroveterinaria.util.FormatoInventarioUtil;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class FacturaVentaPdfMapper {
+
+    private static final NumberFormat MONEY_FORMAT = NumberFormat.getCurrencyInstance(Locale.of("es", "DO"));
 
     public FacturaVentaPdfDTO toDto(Venta venta, BigDecimal montoCobrado, BigDecimal balancePendiente) {
         Cliente cliente = venta.getCliente();
@@ -38,6 +44,8 @@ public class FacturaVentaPdfMapper {
         BigDecimal total = redondearMoneda(venta.getMontoTotal());
         BigDecimal ajustes = total.subtract(subtotal).subtract(impuestos)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal costoEnvio = venta.getCostoEnvio();
+        BigDecimal descuento = ajustes.subtract(costoEnvio);
 
         return new FacturaVentaPdfDTO(
                 venta.getIdVenta(),
@@ -56,7 +64,9 @@ public class FacturaVentaPdfMapper {
                 total,
                 montoSeguro(montoCobrado),
                 montoSeguro(balancePendiente),
-                lineas
+                lineas,
+                montoSeguro(descuento),
+                montoSeguro(costoEnvio)
         );
     }
 
@@ -65,10 +75,54 @@ public class FacturaVentaPdfMapper {
         return new LineaFacturaVentaPdfDTO(
                 valorOrDefault(producto != null ? producto.getNombre() : null, "Producto sin nombre"),
                 formatearCantidad(detalle, producto),
-                precioComercial(detalle, producto),
+                redondearMoneda(detalle.getPrecioUnitarioVenta()),
                 redondearMoneda(detalle.getImpuesto()),
-                redondearMoneda(detalle.calcularSubtotal())
+                redondearMoneda(detalle.calcularSubtotal()),
+                generarDesglosePreciosHistorico(detalle, producto)
         );
+    }
+
+    private String generarDesglosePreciosHistorico(DetalleVenta detalle, Producto producto) {
+        BigDecimal cantidad = montoSeguro(detalle.getCantidad());
+        BigDecimal precioMezclado = montoSeguro(detalle.getPrecioUnitarioVenta());
+
+        EstrategiaPrecioVenta estrategia = detalle.getEstrategiaPrecio();
+        BigDecimal precioEmpaqueHist = detalle.getPrecioEmpaqueHistorico();
+        BigDecimal precioFraccionHist = detalle.getPrecioFraccionHistorico();
+
+        if (estrategia == null || precioEmpaqueHist == null || producto == null || !Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, null, false, false) + " x " + formatMoney(precioMezclado);
+        }
+
+        BigDecimal factor = producto.getContenidoPorEmpaque() != null ? producto.getContenidoPorEmpaque() : BigDecimal.ONE;
+
+        if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_EMPAQUE) {
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioEmpaqueHist) + " (p. empaque)";
+        }
+
+        if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_FRACCION) {
+            BigDecimal fraccionAUsar = precioFraccionHist != null ? precioFraccionHist : precioEmpaqueHist.divide(factor, 4, RoundingMode.HALF_UP);
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(fraccionAUsar) + " (p. unidad)";
+        }
+
+        BigDecimal[] division = cantidad.divideAndRemainder(factor);
+        BigDecimal cajas = division[0];
+        BigDecimal unidades = division[1];
+        BigDecimal fraccionAUsar = precioFraccionHist != null ? precioFraccionHist : precioEmpaqueHist.divide(factor, 4, RoundingMode.HALF_UP);
+
+        List<String> partes = new java.util.ArrayList<>();
+        if (cajas.compareTo(BigDecimal.ZERO) > 0) {
+            partes.add(cajas.stripTrailingZeros().toPlainString() + " Cajas x " + formatMoney(precioEmpaqueHist));
+        }
+        if (unidades.compareTo(BigDecimal.ZERO) > 0) {
+            partes.add(unidades.stripTrailingZeros().toPlainString() + " Unids x " + formatMoney(fraccionAUsar));
+        }
+
+        return String.join(" + ", partes);
+    }
+
+    private String formatMoney(BigDecimal value) {
+        return MONEY_FORMAT.format(value != null ? value : BigDecimal.ZERO);
     }
 
     private String formatearCantidad(DetalleVenta detalle, Producto producto) {
