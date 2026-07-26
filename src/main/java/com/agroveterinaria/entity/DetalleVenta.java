@@ -1,5 +1,6 @@
 package com.agroveterinaria.entity;
 
+import com.agroveterinaria.enums.EstrategiaPrecioVenta;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
@@ -55,6 +56,16 @@ public class DetalleVenta {
     @Digits(integer = 12, fraction = 4, message = "El impuesto solo puede tener hasta 4 decimales")
     @Column(name = "impuesto", nullable = false, precision = 12, scale = 4)
     private BigDecimal impuesto;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estrategia_precio", length = 50)
+    private EstrategiaPrecioVenta estrategiaPrecio;
+
+    @Column(name = "precio_empaque_historico", precision = 14, scale = 6)
+    private BigDecimal precioEmpaqueHistorico;
+
+    @Column(name = "precio_fraccion_historico", precision = 14, scale = 6)
+    private BigDecimal precioFraccionHistorico;
 
     public BigDecimal calcularSubtotal() {
         BigDecimal precio = precioUnitarioVenta != null ? precioUnitarioVenta : BigDecimal.ZERO;

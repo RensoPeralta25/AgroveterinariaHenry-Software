@@ -122,6 +122,7 @@ public class VentaService {
                 detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
                 detalle.setAlmacen(null);
                 detalle.setLote(null);
+                aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
 
                 detalles.add(detalle);
             }
@@ -155,6 +156,7 @@ public class VentaService {
                     detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
                     detalle.setAlmacen(almacen);
                     detalle.setLote(lote);
+                    aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
 
                     detalles.add(detalle);
                 }
@@ -186,6 +188,7 @@ public class VentaService {
                         detalleFraccionado.setImpuesto(impuestoProporcional.setScale(4, RoundingMode.HALF_UP));
                         detalleFraccionado.setAlmacen(almacen);
                         detalleFraccionado.setLote(inv.getLote());
+                        aplicarSnapshotHistorico(detalleFraccionado, producto, linea.estrategia());
 
                         detalles.add(detalleFraccionado);
                         cantidadPendientePorAsignar = cantidadPendientePorAsignar.subtract(cantidadATomar);
@@ -211,6 +214,7 @@ public class VentaService {
                         detallePendiente.setImpuesto(impuestoRestante.setScale(4, RoundingMode.HALF_UP));
                         detallePendiente.setAlmacen(almacen);
                         detallePendiente.setLote(null);
+                        aplicarSnapshotHistorico(detallePendiente, producto, linea.estrategia());
 
                         detalles.add(detallePendiente);
                     }
@@ -604,6 +608,14 @@ public class VentaService {
     public Venta obtenerVentaConDetalles(Long idVenta) {
         if (idVenta == null) return null;
         return ventaRepository.findVentaConDetallesByIdVenta(idVenta).orElse(null);
+    }
+
+    private void aplicarSnapshotHistorico(DetalleVenta detalle, Producto producto, EstrategiaPrecioVenta estrategia) {
+        detalle.setEstrategiaPrecio(estrategia != null ? estrategia : EstrategiaPrecioVenta.NORMAL);
+        if (producto != null) {
+            detalle.setPrecioEmpaqueHistorico(producto.getPrecioEmpaque());
+            detalle.setPrecioFraccionHistorico(producto.getPrecioFraccion());
+        }
     }
 
     public record SolicitudVenta(
