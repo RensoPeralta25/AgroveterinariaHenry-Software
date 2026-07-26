@@ -97,12 +97,12 @@ public class FacturaVentaPdfMapper {
         BigDecimal factor = producto.getContenidoPorEmpaque() != null ? producto.getContenidoPorEmpaque() : BigDecimal.ONE;
 
         if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_EMPAQUE) {
-            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioEmpaqueHist);
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioEmpaqueHist) + " (p. empaque)";
         }
 
         if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_FRACCION) {
             BigDecimal fraccionAUsar = precioFraccionHist != null ? precioFraccionHist : precioEmpaqueHist.divide(factor, 4, RoundingMode.HALF_UP);
-            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(fraccionAUsar);
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(fraccionAUsar) + " (p. unidad)";
         }
 
         BigDecimal[] division = cantidad.divideAndRemainder(factor);
