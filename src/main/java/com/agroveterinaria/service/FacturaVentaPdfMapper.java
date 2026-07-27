@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +24,7 @@ import java.util.Locale;
 public class FacturaVentaPdfMapper {
 
     private static final NumberFormat MONEY_FORMAT = NumberFormat.getCurrencyInstance(Locale.of("es", "DO"));
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public FacturaVentaPdfDTO toDto(Venta venta, BigDecimal montoCobrado, BigDecimal balancePendiente) {
         Cliente cliente = venta.getCliente();
@@ -44,8 +46,10 @@ public class FacturaVentaPdfMapper {
         BigDecimal total = redondearMoneda(venta.getMontoTotal());
         BigDecimal ajustes = total.subtract(subtotal).subtract(impuestos)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal costoEnvio = venta.getCostoEnvio();
-        BigDecimal descuento = ajustes.subtract(costoEnvio);
+        BigDecimal costoEnvio = montoSeguro(venta.getCostoEnvio()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal descuento = subtotal.add(impuestos).add(costoEnvio).subtract(total)
+                .max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
 
         return new FacturaVentaPdfDTO(
                 venta.getIdVenta(),
@@ -58,6 +62,7 @@ public class FacturaVentaPdfMapper {
                 valorOrDefault(venta.getComprobanteFiscal(), "Sin comprobante"),
                 venta.getEstado() != null ? venta.getEstado().getEtiqueta() : "",
                 Boolean.TRUE.equals(venta.getLlevaDespacho()),
+                condicionesCredito(venta),
                 subtotal,
                 impuestos,
                 ajustes,
@@ -75,7 +80,7 @@ public class FacturaVentaPdfMapper {
         return new LineaFacturaVentaPdfDTO(
                 valorOrDefault(producto != null ? producto.getNombre() : null, "Producto sin nombre"),
                 formatearCantidad(detalle, producto),
-                redondearMoneda(detalle.getPrecioUnitarioVenta()),
+                precioComercial(detalle, producto),
                 redondearMoneda(detalle.getImpuesto()),
                 redondearMoneda(detalle.calcularSubtotal()),
                 generarDesglosePreciosHistorico(detalle, producto)
@@ -145,14 +150,18 @@ public class FacturaVentaPdfMapper {
         }
 
         BigDecimal factor = producto.getContenidoPorEmpaque();
-        BigDecimal precioEmpaque = producto.getPrecioEmpaque();
+        BigDecimal precioEmpaque = detalle.getPrecioEmpaqueHistorico() != null
+                ? detalle.getPrecioEmpaqueHistorico()
+                : producto.getPrecioEmpaque();
         if (factor == null || factor.compareTo(BigDecimal.ONE) <= 0 || precioEmpaque == null) {
             return redondearMoneda(precioCalculado);
         }
 
-        BigDecimal precioFraccion = producto.getPrecioFraccion() != null
-                ? producto.getPrecioFraccion()
-                : precioEmpaque.divide(factor, 4, RoundingMode.HALF_UP);
+        BigDecimal precioFraccion = detalle.getPrecioFraccionHistorico() != null
+                ? detalle.getPrecioFraccionHistorico()
+                : (producto.getPrecioFraccion() != null
+                    ? producto.getPrecioFraccion()
+                    : precioEmpaque.divide(factor, 4, RoundingMode.HALF_UP));
         BigDecimal precioEmpaqueProporcional = precioEmpaque.divide(factor, 6, RoundingMode.HALF_UP);
 
         if (mismoPrecio(precioCalculado, precioFraccion)) {
@@ -183,5 +192,12 @@ public class FacturaVentaPdfMapper {
 
     private String valorOrDefault(String value, String defaultValue) {
         return value != null && !value.isBlank() ? value : defaultValue;
+    }
+
+    private String condicionesCredito(Venta venta) {
+        if (venta.getFechaVencimientoPago() == null) {
+            return "Contado";
+        }
+        return "Crédito - vence el " + venta.getFechaVencimientoPago().format(DATE_FORMAT);
     }
 }

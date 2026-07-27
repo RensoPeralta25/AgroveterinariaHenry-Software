@@ -79,7 +79,7 @@
       "vite": "7.3.2",
       "vite-plugin-checker": "0.12.0"
     },
-    "hash": "9062362537c0544d587716a91b018b063b245ef78494d287a28d1053c9219242",
+    "hash": "3afbdb363953cba0751c38dae38411011f55ce10fd1edd7005240f531815271f",
     "overrides": {
       "@fullcalendar/core": "$@fullcalendar/core",
       "@fullcalendar/daygrid": "$@fullcalendar/daygrid",

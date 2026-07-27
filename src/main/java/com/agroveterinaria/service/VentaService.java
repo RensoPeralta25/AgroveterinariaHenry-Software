@@ -112,14 +112,19 @@ public class VentaService {
 
             BigDecimal cantidadPedida = normalizarCantidad(linea.cantidad());
             BigDecimal precioUnitario = seleccionarPrecio(producto, cantidadPedida, linea.estrategia());
-            BigDecimal impuestoBase = normalizarMonto(linea.impuesto());
+            BigDecimal impuestoLinea = resolverImpuesto(
+                    linea.impuesto(),
+                    producto,
+                    precioUnitario,
+                    cantidadPedida
+            );
 
             if (producto.getCategoria() == CategoriaProducto.SERVICIO) {
                 DetalleVenta detalle = new DetalleVenta();
                 detalle.setProducto(producto);
                 detalle.setCantidad(cantidadPedida);
                 detalle.setPrecioUnitarioVenta(precioUnitario);
-                detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
+                detalle.setImpuesto(impuestoLinea);
                 detalle.setAlmacen(null);
                 detalle.setLote(null);
                 aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
@@ -153,7 +158,7 @@ public class VentaService {
                     detalle.setProducto(producto);
                     detalle.setCantidad(cantidadPedida);
                     detalle.setPrecioUnitarioVenta(precioUnitario);
-                    detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
+                    detalle.setImpuesto(impuestoLinea);
                     detalle.setAlmacen(almacen);
                     detalle.setLote(lote);
                     aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
@@ -178,14 +183,15 @@ public class VentaService {
                             inventarioRepository.save(inv);
                         }
 
-                        BigDecimal proporcion = cantidadATomar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                        BigDecimal impuestoProporcional = impuestoBase.multiply(proporcion);
-
                         DetalleVenta detalleFraccionado = new DetalleVenta();
                         detalleFraccionado.setProducto(producto);
                         detalleFraccionado.setCantidad(cantidadATomar);
                         detalleFraccionado.setPrecioUnitarioVenta(precioUnitario);
-                        detalleFraccionado.setImpuesto(impuestoProporcional.setScale(4, RoundingMode.HALF_UP));
+                        detalleFraccionado.setImpuesto(distribuirImpuesto(
+                                impuestoLinea,
+                                cantidadATomar,
+                                cantidadPedida
+                        ));
                         detalleFraccionado.setAlmacen(almacen);
                         detalleFraccionado.setLote(inv.getLote());
                         aplicarSnapshotHistorico(detalleFraccionado, producto, linea.estrategia());
@@ -204,14 +210,15 @@ public class VentaService {
                             );
                         }
 
-                        BigDecimal proporcionRestante = cantidadPendientePorAsignar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                        BigDecimal impuestoRestante = impuestoBase.multiply(proporcionRestante);
-
                         DetalleVenta detallePendiente = new DetalleVenta();
                         detallePendiente.setProducto(producto);
                         detallePendiente.setCantidad(cantidadPendientePorAsignar);
                         detallePendiente.setPrecioUnitarioVenta(precioUnitario);
-                        detallePendiente.setImpuesto(impuestoRestante.setScale(4, RoundingMode.HALF_UP));
+                        detallePendiente.setImpuesto(distribuirImpuesto(
+                                impuestoLinea,
+                                cantidadPendientePorAsignar,
+                                cantidadPedida
+                        ));
                         detallePendiente.setAlmacen(almacen);
                         detallePendiente.setLote(null);
                         aplicarSnapshotHistorico(detallePendiente, producto, linea.estrategia());
@@ -245,12 +252,17 @@ public class VentaService {
             Producto producto = productoRepository.findById(linea.idProducto())
                     .orElseThrow(() -> new IllegalArgumentException("Uno de los productos seleccionados no existe."));
             BigDecimal cantidad = normalizarCantidad(linea.cantidad());
-            BigDecimal impuesto = normalizarMonto(linea.impuesto());
             DetalleVenta detalle = new DetalleVenta();
             detalle.setProducto(producto);
             detalle.setCantidad(cantidad);
-            detalle.setPrecioUnitarioVenta(seleccionarPrecio(producto, cantidad, linea.estrategia()));
-            detalle.setImpuesto(impuesto.setScale(4, RoundingMode.HALF_UP));
+            BigDecimal precioUnitario = seleccionarPrecio(producto, cantidad, linea.estrategia());
+            detalle.setPrecioUnitarioVenta(precioUnitario);
+            detalle.setImpuesto(resolverImpuesto(
+                    linea.impuesto(),
+                    producto,
+                    precioUnitario,
+                    cantidad
+            ));
             subtotal = subtotal.add(detalle.calcularSubtotal());
         }
 
@@ -565,6 +577,43 @@ public class VentaService {
         }
 
         return subtotalSinImpuesto.divide(cantidad, 6, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calcularImpuesto(Producto producto, BigDecimal precioUnitario, BigDecimal cantidad) {
+        BigDecimal porcentaje = producto != null && producto.getPorcentajeImpuesto() != null
+                ? producto.getPorcentajeImpuesto()
+                : BigDecimal.ZERO;
+
+        if (porcentaje.compareTo(BigDecimal.ZERO) < 0 || porcentaje.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("El porcentaje de impuesto del producto debe estar entre 0% y 100%.");
+        }
+
+        return precioUnitario
+                .multiply(cantidad)
+                .multiply(porcentaje)
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolverImpuesto(
+            BigDecimal impuestoIngresado,
+            Producto producto,
+            BigDecimal precioUnitario,
+            BigDecimal cantidad
+    ) {
+        if (impuestoIngresado != null) {
+            return normalizarMonto(impuestoIngresado).setScale(4, RoundingMode.HALF_UP);
+        }
+        return calcularImpuesto(producto, precioUnitario, cantidad);
+    }
+
+    private BigDecimal distribuirImpuesto(
+            BigDecimal impuestoTotal,
+            BigDecimal cantidadDetalle,
+            BigDecimal cantidadTotal
+    ) {
+        return impuestoTotal
+                .multiply(cantidadDetalle)
+                .divide(cantidadTotal, 4, RoundingMode.HALF_UP);
     }
 
     private EstadoVenta calcularEstado(BigDecimal total, BigDecimal montoPagado) {
