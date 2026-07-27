@@ -4,12 +4,15 @@ import com.agroveterinaria.dto.venta.LineaFacturaVentaPdfDTO;
 import com.agroveterinaria.entity.DetalleVenta;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Venta;
+import com.agroveterinaria.enums.EstrategiaPrecioVenta;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FacturaVentaPdfMapperTest {
 
@@ -93,6 +96,38 @@ class FacturaVentaPdfMapperTest {
         assertEquals(new BigDecimal("2.99"), factura.ajustes());
         assertEquals(factura.montoTotal(),
                 factura.subtotal().add(factura.impuestos()).add(factura.ajustes()));
+    }
+
+    @Test
+    void usaPreciosHistoricosYEstrategiaParaDesglosarLaLinea() {
+        Producto producto = productoFraccionable("Alimento", "12", "120.00", "12.00");
+        DetalleVenta detalle = detalle(producto, "17", "8.823529", "0");
+        detalle.setEstrategiaPrecio(EstrategiaPrecioVenta.NORMAL);
+        detalle.setPrecioEmpaqueHistorico(new BigDecimal("100.00"));
+        detalle.setPrecioFraccionHistorico(new BigDecimal("10.00"));
+
+        LineaFacturaVentaPdfDTO linea = mapear(detalle);
+        String desglose = linea.desglosePrecios();
+
+        assertEquals(new BigDecimal("100.00"), linea.precioUnitario());
+        assertTrue(desglose.contains("1 Cajas"));
+        assertTrue(desglose.contains("5 Unids"));
+        assertTrue(desglose.contains("100"));
+        assertTrue(desglose.contains("10"));
+    }
+
+    @Test
+    void describeCondicionesDeCreditoYCostoDeEnvio() {
+        Venta venta = new Venta();
+        venta.setDetallesVentas(List.of());
+        venta.setMontoTotal(new BigDecimal("125.00"));
+        venta.setCostoEnvio(new BigDecimal("25.00"));
+        venta.setFechaVencimientoPago(LocalDateTime.of(2026, 8, 15, 0, 0));
+
+        var factura = mapper.toDto(venta, BigDecimal.ZERO, new BigDecimal("125.00"));
+
+        assertEquals("Crédito - vence el 15/08/2026", factura.condicionesCredito());
+        assertEquals(new BigDecimal("25.00"), factura.costoEnvio());
     }
 
     private LineaFacturaVentaPdfDTO mapear(DetalleVenta detalle) {

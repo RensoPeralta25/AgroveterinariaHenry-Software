@@ -172,13 +172,23 @@ public class VentaView extends VerticalLayout {
         agregarProducto.addClassName("btn-nuevo");
         agregarProducto.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        HorizontalLayout productoFila = new HorizontalLayout(producto, cbAlmacen, chkLoteAutomatico, cbLote, cantidad, impuesto, agregarProducto);
+        HorizontalLayout productoFila = new HorizontalLayout(
+                producto,
+                cbAlmacen,
+                chkLoteAutomatico,
+                cbLote,
+                cantidad,
+                impuesto,
+                agregarProducto
+        );
         productoFila.setWidthFull();
         productoFila.setAlignItems(FlexComponent.Alignment.END);
         productoFila.expand(producto);
         cbAlmacen.setWidth("140px");
         cbLote.setWidth("130px");
-        impuesto.setWidth("90px");
+        impuesto.setWidth("110px");
+        impuesto.setMinWidth("110px");
+        impuesto.getStyle().set("flex-shrink", "0");
         chkLoteAutomatico.getStyle().set("padding-bottom", "10px");
         cantidad.getStyle().set("margin-bottom", "-8px");
 
@@ -189,7 +199,16 @@ public class VentaView extends VerticalLayout {
         Button limpiar = new Button("Limpiar", new Icon(VaadinIcon.REFRESH), event -> limpiarFormulario());
         limpiar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-        HorizontalLayout acciones = new HorizontalLayout(chkImprimirTicket, crearDescargaCuentaBancaria(), guardar, limpiar);
+        HorizontalLayout opcionesImpresion = new HorizontalLayout(
+                chkImprimirTicket,
+                crearDescargaCuentaBancaria()
+        );
+        opcionesImpresion.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        HorizontalLayout accionesVenta = new HorizontalLayout(guardar, limpiar);
+        accionesVenta.setAlignItems(FlexComponent.Alignment.CENTER);
+
+        HorizontalLayout acciones = new HorizontalLayout(opcionesImpresion, accionesVenta);
         acciones.setWidthFull();
         acciones.setAlignItems(FlexComponent.Alignment.CENTER);
         acciones.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
@@ -315,7 +334,11 @@ public class VentaView extends VerticalLayout {
         });
 
         montoIngresado.addValueChangeListener(e -> calcularCantidadDesdeMonto());
-        estrategiaPrecio.addValueChangeListener(e -> calcularCantidadDesdeMonto());
+        estrategiaPrecio.addValueChangeListener(e -> {
+            calcularCantidadDesdeMonto();
+            actualizarImpuestoSugerido();
+        });
+        cantidad.addValueChangeListener(e -> actualizarImpuestoSugerido());
 
         Runnable actualizarLotes = () -> {
             if (producto.getValue() != null && cbAlmacen.getValue() != null) {
@@ -361,6 +384,7 @@ public class VentaView extends VerticalLayout {
                 montoIngresado.setVisible(false);
             }
             actualizarLotes.run();
+            actualizarImpuestoSugerido();
         });
         cbAlmacen.addValueChangeListener(e -> actualizarLotes.run());
 
@@ -368,6 +392,7 @@ public class VentaView extends VerticalLayout {
 
         impuesto.setValue(BigDecimal.ZERO);
         impuesto.setPrefixComponent(new Span("RD$"));
+        impuesto.setValueChangeMode(ValueChangeMode.EAGER);
 
         descuentoPorcentaje.setValue(BigDecimal.ZERO);
         descuentoPorcentaje.setSuffixComponent(new Span("%"));
@@ -576,7 +601,9 @@ public class VentaView extends VerticalLayout {
                     cbAlmacen.getValue(),
                     cbLote.getValue(),
                     cantidad.getValue().setScale(4, RoundingMode.HALF_UP),
-                    impuesto.getValue() != null ? impuesto.getValue().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO,
+                    impuesto.getValue() != null
+                            ? impuesto.getValue().setScale(2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                     estrategiaPrecio.getValue() != null ? estrategiaPrecio.getValue() : EstrategiaPrecioVenta.NORMAL.getEtiqueta()
             );
             lineas.add(linea);
@@ -770,6 +797,34 @@ public class VentaView extends VerticalLayout {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private void actualizarImpuestoSugerido() {
+        Producto productoSeleccionado = producto.getValue();
+        BigDecimal cantidadSeleccionada = cantidad.getValue();
+
+        if (productoSeleccionado == null
+                || cantidadSeleccionada == null
+                || cantidadSeleccionada.compareTo(BigDecimal.ZERO) <= 0) {
+            impuesto.setValue(BigDecimal.ZERO);
+            return;
+        }
+
+        EstrategiaPrecioVenta estrategia = EstrategiaPrecioVenta.fromEtiqueta(estrategiaPrecio.getValue());
+        BigDecimal subtotalSinImpuesto = LineaVentaForm.calcularSubtotalSinImpuesto(
+                productoSeleccionado,
+                cantidadSeleccionada,
+                estrategia
+        );
+        BigDecimal porcentaje = productoSeleccionado.getPorcentajeImpuesto() != null
+                ? productoSeleccionado.getPorcentajeImpuesto()
+                : BigDecimal.ZERO;
+
+        impuesto.setValue(
+                subtotalSinImpuesto
+                        .multiply(porcentaje)
+                        .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP)
+        );
+    }
+
     private static class LineaVentaForm {
         private final Producto producto;
         private final Almacen almacen;
@@ -778,7 +833,14 @@ public class VentaView extends VerticalLayout {
         private final BigDecimal impuesto;
         private final EstrategiaPrecioVenta estrategiaPrecio;
 
-        LineaVentaForm(Producto producto, Almacen almacen, Lote lote, BigDecimal cantidad, BigDecimal impuesto, String estrategiaPrecio) {
+        LineaVentaForm(
+                Producto producto,
+                Almacen almacen,
+                Lote lote,
+                BigDecimal cantidad,
+                BigDecimal impuesto,
+                String estrategiaPrecio
+        ) {
             this.producto = producto;
             this.almacen = almacen;
             this.lote = lote;
@@ -795,13 +857,25 @@ public class VentaView extends VerticalLayout {
         EstrategiaPrecioVenta getEstrategiaPrecio() { return estrategiaPrecio; }
 
         BigDecimal getSubtotal() {
+            return getSubtotalSinImpuesto().add(getImpuesto()).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        private BigDecimal getSubtotalSinImpuesto() {
+            return calcularSubtotalSinImpuesto(producto, cantidad, estrategiaPrecio);
+        }
+
+        private static BigDecimal calcularSubtotalSinImpuesto(
+                Producto producto,
+                BigDecimal cantidad,
+                EstrategiaPrecioVenta estrategiaPrecio
+        ) {
             if (!Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
-                return producto.getPrecioEmpaque().multiply(cantidad).add(impuesto).setScale(2, RoundingMode.HALF_UP);
+                return producto.getPrecioEmpaque().multiply(cantidad);
             }
 
             BigDecimal factor = producto.getContenidoPorEmpaque();
             if (factor == null || factor.compareTo(BigDecimal.ONE) <= 0) {
-                return producto.getPrecioEmpaque().multiply(cantidad).add(impuesto).setScale(2, RoundingMode.HALF_UP);
+                return producto.getPrecioEmpaque().multiply(cantidad);
             }
 
             BigDecimal precioEmp = producto.getPrecioEmpaque();
@@ -826,7 +900,7 @@ public class VentaView extends VerticalLayout {
                     break;
             }
 
-            return subtotalCalculado.add(impuesto).setScale(2, RoundingMode.HALF_UP);
+            return subtotalCalculado;
         }
     }
 }

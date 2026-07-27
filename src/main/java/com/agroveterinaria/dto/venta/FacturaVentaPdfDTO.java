@@ -15,6 +15,7 @@ public record FacturaVentaPdfDTO(
         String comprobanteFiscal,
         String estado,
         boolean llevaDespacho,
+        String condicionesCredito,
         BigDecimal subtotal,
         BigDecimal impuestos,
         BigDecimal ajustes,
