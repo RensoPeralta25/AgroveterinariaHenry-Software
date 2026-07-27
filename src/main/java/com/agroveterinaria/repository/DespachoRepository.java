@@ -32,4 +32,10 @@ public interface DespachoRepository extends JpaRepository<Despacho, Long> {
             "LEFT JOIN FETCH t.ruta " +
             "WHERE d.idDespacho = :idDespacho")
     Optional<Despacho> findByIdWithFullTransporte(@Param("idDespacho") Long idDespacho);
+
+    @EntityGraph(attributePaths = {
+            "detalles",
+            "detalles.lote.producto"
+    })
+    Optional<Despacho> findDespachoConDetallesByIdDespacho(Long idDespacho);
 }

@@ -2,12 +2,17 @@ package com.agroveterinaria.view.almacen;
 
 import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.recepcion.RecepcionResumenDTO;
+import com.agroveterinaria.entity.DetalleRecepcion;
+import com.agroveterinaria.entity.Producto;
+import com.agroveterinaria.entity.Recepcion;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -17,6 +22,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import jakarta.annotation.security.RolesAllowed;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @PageTitle("Gestión de Recepciones")
@@ -160,32 +166,27 @@ public class GestionRecepcionesView extends VerticalLayout {
         gridRecepciones.addComponentColumn(dto -> {
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> Notification.show("Aquí podrías abrir un modal de solo lectura del histórico."));
+            btnVer.addClickListener(e -> abrirModalDetalles(dto));
             return btnVer;
         }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
     }
 
     private void cargarDatos() {
-        List<RecepcionResumenDTO> pendientes = recepcionService.obtenerColaRecepciones();
         List<RecepcionResumenDTO> historial = recepcionService.obtenerHistorialRecepciones();
 
-        List<RecepcionResumenDTO> todasLasRecepciones = new java.util.ArrayList<>();
-        todasLasRecepciones.addAll(pendientes);
-        todasLasRecepciones.addAll(historial);
-
-        todasLasRecepciones.sort((d1, d2) -> {
+        historial.sort((d1, d2) -> {
             if (d1.getFechaRaw() == null || d2.getFechaRaw() == null) return 0;
             return d2.getFechaRaw().compareTo(d1.getFechaRaw());
         });
 
-        long countCompras = todasLasRecepciones.stream().filter(d -> "Compra".equals(d.getTipo())).count();
-        long countTransferencias = todasLasRecepciones.stream().filter(d -> "Transferencia".equals(d.getTipo())).count();
+        long countCompras = historial.stream().filter(d -> "Compra".equals(d.getTipo())).count();
+        long countTransferencias = historial.stream().filter(d -> "Transferencia".equals(d.getTipo())).count();
 
-        lblTotalRecepcionesVal.setText(String.valueOf(todasLasRecepciones.size()));
+        lblTotalRecepcionesVal.setText(String.valueOf(historial.size()));
         lblComprasVal.setText(String.valueOf(countCompras));
         lblTransferenciasVal.setText(String.valueOf(countTransferencias));
 
-        recepciones = List.copyOf(todasLasRecepciones);
+        recepciones = List.copyOf(historial);
         paginator.setItems(recepciones);
     }
 
@@ -193,5 +194,68 @@ public class GestionRecepcionesView extends VerticalLayout {
         paginator.setItems(recepciones.stream()
                 .filter(dto -> tipo.isEmpty() || (dto.getTipo() != null && dto.getTipo().equals(tipo)))
                 .toList());
+    }
+
+    private void abrirModalDetalles(RecepcionResumenDTO dto) {
+        com.vaadin.flow.component.dialog.Dialog dialog = new com.vaadin.flow.component.dialog.Dialog();
+        dialog.setWidth("850px");
+
+        H3 titulo = new H3("Detalles de Recepción " + dto.getCodigo());
+        titulo.getStyle().set("margin-top", "0");
+
+        Grid<DetalleRecepcion> gridDetalles = new Grid<>(DetalleRecepcion.class, false);
+        gridDetalles.addThemeNames("row-stripes");
+        gridDetalles.setHeight("300px");
+
+        gridDetalles.addColumn(d -> {
+            Producto p = obtenerProducto(d);
+            return p != null ? p.getNombre() : "Producto Desconocido";
+        }).setHeader("Producto").setFlexGrow(2);
+
+        gridDetalles.addColumn(d -> d.getLote() != null && d.getLote().getNumeroLote() != null
+                ? d.getLote().getNumeroLote()
+                : "S/N"
+        ).setHeader("Lote").setFlexGrow(1);
+
+        gridDetalles.addColumn(d -> {
+            Producto p = obtenerProducto(d);
+            BigDecimal cantidad = d.getCantidad();
+
+            if (p == null || cantidad == null) return "0";
+
+            return FormatoInventarioUtil.formatearCantidad(
+                    cantidad,
+                    p.getContenidoPorEmpaque(),
+                    Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
+                    false
+            );
+        }).setHeader("Cant. Recibida").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END).setFlexGrow(1);
+
+        gridDetalles.addColumn(d -> d.getAlmacen() != null ? d.getAlmacen().getNombre() : "-")
+                .setHeader("Almacén Destino").setFlexGrow(1);
+
+        Recepcion recepcionCompleta = recepcionService.obtenerRecepcionConDetalles(dto.getIdRecepcion());
+        if (recepcionCompleta != null && recepcionCompleta.getDetalles() != null) {
+            gridDetalles.setItems(recepcionCompleta.getDetalles());
+        }
+
+        Button btnCerrar = new Button("Cerrar", e -> dialog.close());
+        btnCerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout footer = new HorizontalLayout(btnCerrar);
+        footer.setWidthFull();
+        footer.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.add(new VerticalLayout(titulo, gridDetalles, footer));
+        dialog.open();
+    }
+
+    private Producto obtenerProducto(DetalleRecepcion detalle) {
+        if (detalle.getDetalleCompra() != null) {
+            return detalle.getDetalleCompra().getProducto();
+        } else if (detalle.getDetalleTransferencia() != null) {
+            return detalle.getDetalleTransferencia().getLote().getProducto();
+        }
+        return null;
     }
 }
