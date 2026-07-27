@@ -72,6 +72,15 @@ public class ServicioCrudView extends VerticalLayout {
                 .setHeader("Tarifa / Precio")
                 .setKey("precioEmpaque").setFlexGrow(1).setComparator(Producto::getPrecioEmpaque);
 
+        crud.getGrid().addColumn(servicio -> servicio.getPorcentajeImpuesto() != null
+                        ? String.format("%,.2f%%", servicio.getPorcentajeImpuesto())
+                        : "0.00%")
+                .setHeader("Impuesto")
+                .setKey("porcentajeImpuesto")
+                .setWidth("110px")
+                .setFlexGrow(0)
+                .setComparator(Producto::getPorcentajeImpuesto);
+
         crud.getGrid().addComponentColumn(servicio -> {
             boolean isActivo = servicio.getStatus() == StatusEntidad.ACTIVO;
             Span badge = new Span(servicio.getStatus() != null ? servicio.getStatus().getEtiqueta() : "");
@@ -95,8 +104,8 @@ public class ServicioCrudView extends VerticalLayout {
         DefaultCrudFormFactory<Producto> formFactory = new DefaultCrudFormFactory<>(Producto.class);
         formFactory.setUseBeanValidation(true);
 
-        formFactory.setVisibleProperties("nombre", "precioEmpaque", "foto", "status");
-        formFactory.setFieldCaptions("Nombre del Servicio", "Tarifa / Precio Base", "Icono / Imagen", "Estado");
+        formFactory.setVisibleProperties("nombre", "precioEmpaque", "porcentajeImpuesto", "foto", "status");
+        formFactory.setFieldCaptions("Nombre del Servicio", "Tarifa / Precio Base", "Impuesto (%)", "Icono / Imagen", "Estado");
 
         formFactory.setFieldCreationListener("nombre", field -> {
             TextField nombreField = (TextField) field;
@@ -109,6 +118,18 @@ public class ServicioCrudView extends VerticalLayout {
             bf.setPlaceholder("0.00");
             bf.setPrefixComponent(new Span("RD$"));
             bf.setValueChangeMode(ValueChangeMode.EAGER);
+        });
+
+        formFactory.setFieldCreationListener("porcentajeImpuesto", field -> {
+            BigDecimalField bf = (BigDecimalField) field;
+            bf.setPlaceholder("0.00");
+            bf.setSuffixComponent(new Span("%"));
+            bf.setValueChangeMode(ValueChangeMode.EAGER);
+            bf.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.getValue().scale() > 2) {
+                    bf.setValue(e.getValue().setScale(2, RoundingMode.DOWN));
+                }
+            });
         });
 
         formFactory.setFieldProvider("foto", p -> new FotoProductoField());

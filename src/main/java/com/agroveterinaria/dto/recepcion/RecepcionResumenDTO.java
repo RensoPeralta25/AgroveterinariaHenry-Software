@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class RecepcionResumenDTO {
+    private Long idRecepcion;
     private String codigo;
     private String tipo;
     private String origen;

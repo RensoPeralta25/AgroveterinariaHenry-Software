@@ -15,10 +15,15 @@ public record FacturaVentaPdfDTO(
         String comprobanteFiscal,
         String estado,
         boolean llevaDespacho,
+        String condicionesCredito,
         BigDecimal subtotal,
+        BigDecimal impuestos,
+        BigDecimal ajustes,
         BigDecimal montoTotal,
         BigDecimal montoCobrado,
         BigDecimal balancePendiente,
-        List<LineaFacturaVentaPdfDTO> lineas
+        List<LineaFacturaVentaPdfDTO> lineas,
+        BigDecimal descuento,
+        BigDecimal costoEnvio
 ) {
 }

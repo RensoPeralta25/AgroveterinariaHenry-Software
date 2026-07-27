@@ -5,6 +5,8 @@ import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.UnidadEmpaque;
 import com.agroveterinaria.enums.UnidadMedida;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -64,6 +66,13 @@ public class Producto {
     @Digits(integer = 10, fraction = 2, message = "El precio por fracción solo puede tener hasta 2 decimales")
     @Column(name = "precio_fraccion", precision = 10, scale = 2)
     private BigDecimal precioFraccion;
+
+    @NotNull(message = "El porcentaje de impuesto es obligatorio")
+    @DecimalMin(value = "0.00", message = "El porcentaje de impuesto no puede ser negativo")
+    @DecimalMax(value = "100.00", message = "El porcentaje de impuesto no puede superar el 100%")
+    @Digits(integer = 3, fraction = 2, message = "El porcentaje de impuesto solo puede tener hasta 2 decimales")
+    @Column(name = "porcentaje_impuesto", nullable = false, precision = 5, scale = 2)
+    private BigDecimal porcentajeImpuesto = BigDecimal.ZERO;
 
     @JdbcTypeCode(Types.BINARY)
     @Column(name = "foto")

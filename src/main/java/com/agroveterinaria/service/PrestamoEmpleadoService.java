@@ -2,7 +2,9 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.PrestamoEmpleado;
+import com.agroveterinaria.enums.EstadoAnticipo;
 import com.agroveterinaria.enums.EstadoPrestamo;
+import com.agroveterinaria.repository.AnticipoSalarioRepository;
 import com.agroveterinaria.repository.DetalleNominaRepository;
 import com.agroveterinaria.repository.PrestamoEmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
 import java.util.List;
 
 @AllArgsConstructor
@@ -21,11 +24,21 @@ import java.util.List;
 public class PrestamoEmpleadoService {
     private final PrestamoEmpleadoRepository prestamoEmpleadoRepository;
     private final DetalleNominaRepository detalleNominaRepository;
+    private final AnticipoSalarioRepository anticipoSalarioRepository;
     private final ConfiguracionNominaService configuracionNominaService;
 
 
     public PrestamoEmpleado save(PrestamoEmpleado prestamo) {
         if (prestamo.getIdPrestamo() == null) {
+
+            boolean tieneAnticipoActivo = anticipoSalarioRepository.existsByEmpleadoAndEstadoIn(
+                    prestamo.getEmpleado(),
+                    Arrays.asList(EstadoAnticipo.PENDIENTE, EstadoAnticipo.APROBADO)
+            );
+
+            if (tieneAnticipoActivo) {
+                throw new IllegalStateException("El empleado ya posee un Anticipo pendiente o aprobado. Debe saldarse antes de solicitar un Préstamo.");
+            }
 
             BigDecimal porcentajeMaximo = configuracionNominaService.getPorcentajeMaximoPrestamo();
 
@@ -77,4 +90,8 @@ public class PrestamoEmpleadoService {
     }
 
     public boolean existsByEmpleado(Empleado empleado){ return prestamoEmpleadoRepository.existsByEmpleado(empleado); }
+
+    public boolean existsByEmpleadoAndEstado(Empleado empleadoSeleccionado, EstadoPrestamo estadoPrestamo) {
+        return prestamoEmpleadoRepository.existsByEmpleadoAndEstado(empleadoSeleccionado, estadoPrestamo);
+    }
 }

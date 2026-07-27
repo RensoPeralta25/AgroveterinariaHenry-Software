@@ -4,6 +4,7 @@ import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.DiaFeriado;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.VacacionEmpleado;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.ConfiguracionNominaService;
 import com.agroveterinaria.service.DiaFeriadoService;
 import com.agroveterinaria.service.EmpleadoService;
@@ -166,7 +167,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
         formFactory.setFieldProvider("empleado", v -> {
             this.vacacionActual = (VacacionEmpleado) v;
-            combo.setItems(empleadoService.findByActivoTrue());
+            combo.setItems(empleadoService.findByStatus(StatusEntidad.ACTIVO));
             combo.setItemLabelGenerator(e -> e.getPersona().getNombre());
             combo.setWidthFull();
             return combo;
@@ -333,6 +334,8 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
                 } else {
                     numDiasAPagar.setValue(0);
+                    inicio.clear();
+                    fin.clear();
                     Notification.show("El empleado tiene menos de 1 año.", 4000, Notification.Position.MIDDLE)
                             .addThemeVariants(NotificationVariant.LUMO_WARNING);
                 }

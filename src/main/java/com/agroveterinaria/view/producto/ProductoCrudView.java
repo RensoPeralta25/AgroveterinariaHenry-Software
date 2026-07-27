@@ -96,6 +96,14 @@ public class ProductoCrudView extends VerticalLayout {
                 .setKey("precioEmpaque")
                 .setFlexGrow(1).setComparator(Producto::getPrecioEmpaque);
 
+        crud.getGrid().addColumn(producto -> producto.getPorcentajeImpuesto() != null
+                        ? String.format("%,.2f%%", producto.getPorcentajeImpuesto())
+                        : "0.00%")
+                .setHeader("Impuesto")
+                .setKey("porcentajeImpuesto")
+                .setWidth("110px")
+                .setFlexGrow(0)
+                .setComparator(Producto::getPorcentajeImpuesto);
 
         crud.getGrid().addComponentColumn(producto -> {
             boolean isActivo = producto.getStatus() == StatusEntidad.ACTIVO;
@@ -144,12 +152,12 @@ public class ProductoCrudView extends VerticalLayout {
         formFactory.setUseBeanValidation(true);
 
         formFactory.setVisibleProperties(
-                "nombre", "categoria", "unidadEmpaque", "precioEmpaque",
+                "nombre", "categoria", "unidadEmpaque", "precioEmpaque", "porcentajeImpuesto",
                 "status", "permiteFraccionamiento", "contenidoPorEmpaque", "unidadFraccion", "precioFraccion", "foto"
         );
 
         formFactory.setFieldCaptions(
-                "Nombre del producto", "Categoría", "Formato de Almacén (Empaque)", "Precio por Empaque",
+                "Nombre del producto", "Categoría", "Formato de Almacén (Empaque)", "Precio por Empaque", "Impuesto (%)",
                 "Estado del Producto", "¿Permite venta al detalle?", "Fracciones/Unidades por empaque", "Unidad al Detalle", "Precio Fracción", ""
         );
 
@@ -181,6 +189,18 @@ public class ProductoCrudView extends VerticalLayout {
             BigDecimalField bf = (BigDecimalField) field;
             bf.setPlaceholder("0.00");
             bf.setPrefixComponent(new Span("RD$"));
+            bf.setValueChangeMode(ValueChangeMode.EAGER);
+            bf.addValueChangeListener(e -> {
+                if (e.getValue() != null && e.getValue().scale() > 2) {
+                    bf.setValue(e.getValue().setScale(2, RoundingMode.DOWN));
+                }
+            });
+        });
+
+        formFactory.setFieldCreationListener("porcentajeImpuesto", field -> {
+            BigDecimalField bf = (BigDecimalField) field;
+            bf.setPlaceholder("0.00");
+            bf.setSuffixComponent(new Span("%"));
             bf.setValueChangeMode(ValueChangeMode.EAGER);
             bf.addValueChangeListener(e -> {
                 if (e.getValue() != null && e.getValue().scale() > 2) {

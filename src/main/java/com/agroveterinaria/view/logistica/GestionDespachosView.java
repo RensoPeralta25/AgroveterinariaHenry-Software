@@ -8,8 +8,10 @@ import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -176,15 +178,12 @@ public class GestionDespachosView extends VerticalLayout {
 
             Button btnVer = new Button(new Icon(VaadinIcon.EYE));
             btnVer.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            btnVer.addClickListener(e -> {
-                Notification.show("Abrir modal para el despacho " + dto.getCodigo());
-            });
+            btnVer.addClickListener(e -> abrirModalDetalles(dto));
             acciones.add(btnVer);
 
             boolean esVenta = "Venta".equals(dto.getTipo());
-            boolean noLiquidado = dto.getEstado() != null && !dto.getEstado().equalsIgnoreCase("COMPLETADO");
 
-            if (esVenta && noLiquidado) {
+            if (esVenta) {
                 Button btnLiquidar = new Button(new Icon(VaadinIcon.INVOICE));
                 btnLiquidar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
                 btnLiquidar.setTooltipText("Liquidar Retorno del Chofer");
@@ -223,5 +222,42 @@ public class GestionDespachosView extends VerticalLayout {
         paginator.setItems(despachos.stream()
                 .filter(dto -> tipo.isEmpty() || dto.getTipo().equals(tipo))
                 .toList());
+    }
+
+    private void abrirModalDetalles(DespachoResumenDTO dto) {
+        Dialog dialog = new Dialog();
+        dialog.setWidth("800px");
+
+        H3 titulo = new H3("Detalles de Despacho " + dto.getCodigo());
+        titulo.getStyle().set("margin-top", "0");
+
+        Grid<com.agroveterinaria.entity.DetalleDespacho> gridDetalles = new Grid<>(com.agroveterinaria.entity.DetalleDespacho.class, false);
+        gridDetalles.addThemeNames("row-stripes");
+        gridDetalles.setHeight("300px");
+
+        gridDetalles.addColumn(d -> d.getLote().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
+        gridDetalles.addColumn(d -> d.getLote().getNumeroLote() != null ? d.getLote().getNumeroLote() : "S/N").setHeader("Lote").setFlexGrow(1);
+
+        gridDetalles.addColumn(d -> com.agroveterinaria.util.FormatoInventarioUtil.formatearCantidad(
+                d.getCantidad(),
+                d.getLote().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
+                false
+        )).setHeader("Cantidad Cargada").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END).setFlexGrow(1);
+
+        Despacho despachoCompleto = despachoService.obtenerDespachoConDetalles(dto.getIdDespacho());
+        if (despachoCompleto != null && despachoCompleto.getDetalles() != null) {
+            gridDetalles.setItems(despachoCompleto.getDetalles());
+        }
+
+        Button btnCerrar = new Button("Cerrar", e -> dialog.close());
+        btnCerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout footer = new HorizontalLayout(btnCerrar);
+        footer.setWidthFull();
+        footer.setJustifyContentMode(JustifyContentMode.END);
+
+        dialog.add(new VerticalLayout(titulo, gridDetalles, footer));
+        dialog.open();
     }
 }

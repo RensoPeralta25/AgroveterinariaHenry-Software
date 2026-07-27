@@ -29,6 +29,7 @@ import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.AnticipoSalarioView;
+import com.agroveterinaria.view.nomina.DeduccionesView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.producto.ServicioCrudView;
@@ -77,6 +78,8 @@ public class MainView extends Div {
     private final transient AuthenticationContext authContext;
     private final PasswordEncoder passwordEncoder;
 
+    private final int heightHeadersPx = 112;
+
     public MainView(
             UsuarioService usuarioService,
             ProductoService productoService,
@@ -113,7 +116,10 @@ public class MainView extends Div {
             PeriodoFiscalService periodoFiscalService,
             AnticipoSalarioService anticipoSalarioService,
             DevolucionVentaService devolucionVentaService,
-            TransporteService transporteService) {
+            TransporteService transporteService,
+            EmbargoSalarialService embargoSalarialService,
+            PrestamoEmpleadoService prestamoEmpleadoService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -127,7 +133,8 @@ public class MainView extends Div {
                 despachoService, transferenciaService, vehiculoService, rutaService, facturaVentaPdfService,
                 cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
-                anticipoSalarioService, devolucionVentaService, transporteService);
+                anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService,
+                facturaVentaTermicaPdfService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -184,7 +191,10 @@ public class MainView extends Div {
             PeriodoFiscalService periodoFiscalService,
             AnticipoSalarioService anticipoSalarioService,
             DevolucionVentaService devolucionVentaService,
-            TransporteService transporteService
+            TransporteService transporteService,
+            EmbargoSalarialService embargoSalarialService,
+            PrestamoEmpleadoService prestamoEmpleadoService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -203,6 +213,8 @@ public class MainView extends Div {
         HorizontalLayout brand = new HorizontalLayout(logoMark, brandText);
         brand.addClassName("brand");
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
+        brand.setHeight(heightHeadersPx+"px");
+        brand.getStyle().set("box-sizing", "border-box");
 
         boolean esAdmin = authContext.hasRole("ADMINISTRADOR");
         boolean esCajero = authContext.hasRole("CAJERO");
@@ -223,7 +235,7 @@ public class MainView extends Div {
         Button recursosHumanosButton = createMenuButton(VaadinIcon.INVOICE, "Recursos Humanos");
         Button nominaButton = createSubmenuButton(VaadinIcon.INVOICE, "Nómina");
         Button vacacionesButton = createSubmenuButton(VaadinIcon.FLIGHT_TAKEOFF, "Vacaciones");
-        Button anticiposButton = createSubmenuButton(VaadinIcon.MONEY_WITHDRAW, "Anticipos");
+        Button deduccionesButton = createSubmenuButton(VaadinIcon.MONEY_WITHDRAW, "Deducciones");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -258,7 +270,7 @@ public class MainView extends Div {
         ventasSubmenu.setSpacing(false);
         ventasSubmenu.setVisible(false);
 
-        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton, anticiposButton);
+        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton, deduccionesButton);
         recursosHumanosSubMenu.addClassName("sidebar-submenu");
         recursosHumanosSubMenu.setPadding(false);
         recursosHumanosSubMenu.setSpacing(false);
@@ -294,7 +306,7 @@ public class MainView extends Div {
         empleadosButton.setEnabled(esAdmin);
         nominaButton.setEnabled(esAdmin);
         vacacionesButton.setEnabled(esAdmin);
-        anticiposButton.setEnabled(esAdmin);
+        deduccionesButton.setEnabled(esAdmin);
 
         boolean accesoAlmacen = esAdmin || esAsistente;
 
@@ -547,7 +559,7 @@ public class MainView extends Div {
                     "Registro de clientes, productos y descuentos de venta",
                     VaadinIcon.CART,
                     new VentaView(ventaService, clienteService, empleadoService, productoService, almacenService, loteService,
-                            cuentaBancariaTransferenciaPdfService)
+                            cuentaBancariaTransferenciaPdfService, facturaVentaTermicaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -560,7 +572,7 @@ public class MainView extends Div {
                     "Lista de Ventas",
                     "Consulta de ventas registradas, cobros y balances pendientes",
                     VaadinIcon.LIST,
-                    new ListaVentasView(ventaService, facturaVentaPdfService, cuentaBancariaTransferenciaPdfService)
+                    new ListaVentasView(ventaService, facturaVentaPdfService, cuentaBancariaTransferenciaPdfService, facturaVentaTermicaPdfService)
             );
             ventasButton.addClassName("menu-button-active");
         });
@@ -638,15 +650,15 @@ public class MainView extends Div {
             recursosHumanosButton.addClassName("menu-button-active");
         });
 
-        anticiposButton.addClickListener(event -> {
+        deduccionesButton.addClickListener(event -> {
             recursosHumanosSubMenu.setVisible(true);
             showModule(
-                    anticiposButton,
-                    "Gestión de Anticipos",
-                    "Panel de Anticipos",
-                    "Administración y registro de anticipos de salario a empleados",
+                    deduccionesButton,
+                    "Gestión de Deducciones",
+                    "Panel de Deducciones",
+                    "Administración de embargos, préstamos y anticipos de salario",
                     VaadinIcon.MONEY_WITHDRAW,
-                    new AnticipoSalarioView(anticipoSalarioService, empleadoService)
+                    new DeduccionesView(embargoSalarialService, anticipoSalarioService, prestamoEmpleadoService, empleadoService, configuracionNominaService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });
@@ -743,6 +755,8 @@ public class MainView extends Div {
         moduleHeader.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
         moduleHeader.setPadding(false);
         moduleHeader.setSpacing(false);
+        moduleHeader.setHeight(heightHeadersPx+"px");
+        moduleHeader.getStyle().set("box-sizing", "border-box");
 
         contentArea.addClassName("content-area");
 

@@ -4,9 +4,10 @@ import java.math.BigDecimal;
 
 public record LineaFacturaVentaPdfDTO(
         String productoNombre,
-        BigDecimal cantidad,
+        String cantidad,
         BigDecimal precioUnitario,
         BigDecimal impuesto,
-        BigDecimal subtotal
+        BigDecimal subtotal,
+        String desglosePrecios
 ) {
 }

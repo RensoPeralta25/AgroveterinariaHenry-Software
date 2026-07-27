@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,7 @@ public class VacacionEmpleadoService {
 
     public VacacionEmpleado save(VacacionEmpleado vacacionEmpleado){
         validarFechasUnicas(vacacionEmpleado);
+        validarAntiguedadMinima(vacacionEmpleado);
 
         LocalDate hoy = LocalDate.now();
 
@@ -37,6 +39,7 @@ public class VacacionEmpleadoService {
 
     public VacacionEmpleado update(VacacionEmpleado vacacionModificada){
         validarFechasUnicas(vacacionModificada);
+        validarAntiguedadMinima(vacacionModificada);
 
         LocalDate hoy = LocalDate.now();
         VacacionEmpleado original = vacacionEmpleadoRepository.findById(vacacionModificada.getId())
@@ -66,6 +69,17 @@ public class VacacionEmpleadoService {
     public void marcarComoPagada(VacacionEmpleado vacacion) {
         vacacion.setPagado(true);
         vacacionEmpleadoRepository.save(vacacion);
+    }
+
+    private void validarAntiguedadMinima(VacacionEmpleado vacacionEmpleado) {
+        long aniosAntiguedad = ChronoUnit.YEARS.between(
+                vacacionEmpleado.getEmpleado().getFechaIngreso(),
+                vacacionEmpleado.getFechaInicio()
+        );
+
+        if (aniosAntiguedad < 1) {
+            throw new IllegalStateException("Acción denegada: El empleado debe tener al menos 1 año en la empresa para registrar vacaciones.");
+        }
     }
 
     private void validarFechasUnicas(VacacionEmpleado vacacion) {

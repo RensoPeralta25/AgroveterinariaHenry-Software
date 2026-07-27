@@ -4,6 +4,7 @@ import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.enums.RolEmpleado;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.NominaService;
 import com.agroveterinaria.service.PersonaService;
@@ -72,7 +73,7 @@ public class EmpleadoView extends VerticalLayout {
             Button btnEstado = new Button();
             btnEstado.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-            if (empleado.isActivo()) {
+            if (empleado.getStatus() == StatusEntidad.ACTIVO) {
                 btnEstado.setIcon(new Icon(VaadinIcon.POWER_OFF));
                 btnEstado.addThemeVariants(ButtonVariant.LUMO_ERROR);
                 btnEstado.getElement().setProperty("title", "Dar de baja (Desactivar)");
@@ -381,7 +382,7 @@ public class EmpleadoView extends VerticalLayout {
 
         paginator.setSource(() ->
                 empleadoService.findAll().stream()
-                        .filter(emp -> mostrarInactivos || emp.isActivo())
+                        .filter(emp -> mostrarInactivos || emp.getStatus() == StatusEntidad.ACTIVO)
                         .filter(emp -> emp.getPersona() != null &&
                                 emp.getPersona().getNombre().toLowerCase().contains(filtroTexto))
                         .toList()

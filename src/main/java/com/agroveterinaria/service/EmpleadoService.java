@@ -4,6 +4,7 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.enums.RolEmpleado;
+import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.repository.EmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
@@ -88,7 +89,7 @@ public class EmpleadoService {
     }
 
     public void darDeBaja(Empleado empleado) {
-        empleado.setActivo(false);
+        empleado.setStatus(StatusEntidad.INACTIVO);
 
         if (empleado.getUsuario() != null) {
             empleado.getUsuario().setActivo(false);
@@ -98,9 +99,9 @@ public class EmpleadoService {
     }
 
     public void reactivarEmpleado(Empleado empleado) {
-        if (empleado.isActivo()) return;
+        if (empleado.getStatus() == StatusEntidad.ACTIVO) return;
 
-        empleado.setActivo(true);
+        empleado.setStatus(StatusEntidad.ACTIVO);
 
         if (empleado.getUsuario() != null) {
             empleado.getUsuario().setActivo(true);
@@ -201,8 +202,8 @@ public class EmpleadoService {
                 .toList();
     }
 
-    public List<Empleado> findByActivoTrue(){
-        return empleadoRepository.findByActivoTrue();
+    public List<Empleado> findByStatus(StatusEntidad status) {
+        return empleadoRepository.findByStatus(status);
     }
 
 }

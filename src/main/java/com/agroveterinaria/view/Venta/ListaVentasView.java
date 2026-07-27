@@ -8,6 +8,7 @@ import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.service.CuentaBancariaTransferenciaPdfService;
 import com.agroveterinaria.service.FacturaVentaPdfService;
+import com.agroveterinaria.service.FacturaVentaTermicaPdfService;
 import com.agroveterinaria.service.VentaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -47,6 +48,7 @@ public class ListaVentasView extends VerticalLayout {
     private final VentaService ventaService;
     private final FacturaVentaPdfService facturaVentaPdfService;
     private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
+    private final FacturaVentaTermicaPdfService facturaVentaTermicaPdfService;
     private final TextField buscar = new TextField();
     private final ComboBox<EstadoVenta> estadoFiltro = new ComboBox<>();
     private final Grid<VentaFila> gridVentas = new Grid<>(VentaFila.class, false);
@@ -60,11 +62,13 @@ public class ListaVentasView extends VerticalLayout {
     public ListaVentasView(
             VentaService ventaService,
             FacturaVentaPdfService facturaVentaPdfService,
-            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService
+            CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService,
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
     ) {
         this.ventaService = ventaService;
         this.facturaVentaPdfService = facturaVentaPdfService;
         this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
+        this.facturaVentaTermicaPdfService = facturaVentaTermicaPdfService;
 
         setSizeFull();
         setPadding(false);
@@ -196,12 +200,17 @@ public class ListaVentasView extends VerticalLayout {
             detalle.setAriaLabel("Ver detalle de venta");
             detalle.setTooltipText("Ver detalle");
 
-            HorizontalLayout acciones = new HorizontalLayout(detalle, crearDescargaPdf(fila), crearDescargaCuentaBancariaIcono());
+            Button imprimir = new Button(new Icon(VaadinIcon.PRINT), event -> imprimirTicketEnNavegador(fila.venta()));
+            imprimir.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+            imprimir.setAriaLabel("Imprimir ticket");
+            imprimir.setTooltipText("Imprimir ticket térmico");
+
+            HorizontalLayout acciones = new HorizontalLayout(detalle, imprimir, crearDescargaPdf(fila), crearDescargaCuentaBancariaIcono());
             acciones.setPadding(false);
             acciones.setSpacing(false);
             acciones.setAlignItems(FlexComponent.Alignment.CENTER);
             return acciones;
-        }).setHeader("Opciones").setWidth("170px").setFlexGrow(0);
+        }).setHeader("Opciones").setWidth("210px").setFlexGrow(0);
     }
 
     private Anchor crearDescargaCuentaBancaria() {
@@ -428,6 +437,28 @@ public class ListaVentasView extends VerticalLayout {
 
     private String valorOrDefault(String value, String defaultValue) {
         return value != null && !value.isBlank() ? value : defaultValue;
+    }
+
+    private void imprimirTicketEnNavegador(Venta venta) {
+        try {
+            byte[] pdfBytes = facturaVentaTermicaPdfService.generarFacturaTermicaPdf(venta.getIdVenta());
+            StreamResource resource = new StreamResource("Ticket-" + venta.getIdVenta() + ".pdf", () -> new ByteArrayInputStream(pdfBytes));
+            resource.setContentType("application/pdf");
+
+            com.vaadin.flow.server.StreamRegistration registration =
+                    com.vaadin.flow.server.VaadinSession.getCurrent().getResourceRegistry().registerResource(resource);
+
+            com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
+                    "const iframe = document.createElement('iframe');" +
+                            "iframe.style.display = 'none';" +
+                            "iframe.src = $0;" +
+                            "document.body.appendChild(iframe);" +
+                            "iframe.onload = function() { setTimeout(function() { iframe.contentWindow.print(); }, 800); };",
+                    registration.getResourceUri().toString()
+            );
+        } catch (Exception ex) {
+            com.vaadin.flow.component.notification.Notification.show("Error al imprimir el ticket: " + ex.getMessage());
+        }
     }
 
     private record VentaFila(Venta venta, BigDecimal cobrado, BigDecimal balance) {

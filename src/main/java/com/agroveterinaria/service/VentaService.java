@@ -112,16 +112,22 @@ public class VentaService {
 
             BigDecimal cantidadPedida = normalizarCantidad(linea.cantidad());
             BigDecimal precioUnitario = seleccionarPrecio(producto, cantidadPedida, linea.estrategia());
-            BigDecimal impuestoBase = normalizarMonto(linea.impuesto());
+            BigDecimal impuestoLinea = resolverImpuesto(
+                    linea.impuesto(),
+                    producto,
+                    precioUnitario,
+                    cantidadPedida
+            );
 
             if (producto.getCategoria() == CategoriaProducto.SERVICIO) {
                 DetalleVenta detalle = new DetalleVenta();
                 detalle.setProducto(producto);
                 detalle.setCantidad(cantidadPedida);
                 detalle.setPrecioUnitarioVenta(precioUnitario);
-                detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
+                detalle.setImpuesto(impuestoLinea);
                 detalle.setAlmacen(null);
                 detalle.setLote(null);
+                aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
 
                 detalles.add(detalle);
             }
@@ -152,9 +158,10 @@ public class VentaService {
                     detalle.setProducto(producto);
                     detalle.setCantidad(cantidadPedida);
                     detalle.setPrecioUnitarioVenta(precioUnitario);
-                    detalle.setImpuesto(impuestoBase.setScale(4, RoundingMode.HALF_UP));
+                    detalle.setImpuesto(impuestoLinea);
                     detalle.setAlmacen(almacen);
                     detalle.setLote(lote);
+                    aplicarSnapshotHistorico(detalle, producto, linea.estrategia());
 
                     detalles.add(detalle);
                 }
@@ -176,16 +183,18 @@ public class VentaService {
                             inventarioRepository.save(inv);
                         }
 
-                        BigDecimal proporcion = cantidadATomar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                        BigDecimal impuestoProporcional = impuestoBase.multiply(proporcion);
-
                         DetalleVenta detalleFraccionado = new DetalleVenta();
                         detalleFraccionado.setProducto(producto);
                         detalleFraccionado.setCantidad(cantidadATomar);
                         detalleFraccionado.setPrecioUnitarioVenta(precioUnitario);
-                        detalleFraccionado.setImpuesto(impuestoProporcional.setScale(4, RoundingMode.HALF_UP));
+                        detalleFraccionado.setImpuesto(distribuirImpuesto(
+                                impuestoLinea,
+                                cantidadATomar,
+                                cantidadPedida
+                        ));
                         detalleFraccionado.setAlmacen(almacen);
                         detalleFraccionado.setLote(inv.getLote());
+                        aplicarSnapshotHistorico(detalleFraccionado, producto, linea.estrategia());
 
                         detalles.add(detalleFraccionado);
                         cantidadPendientePorAsignar = cantidadPendientePorAsignar.subtract(cantidadATomar);
@@ -201,16 +210,18 @@ public class VentaService {
                             );
                         }
 
-                        BigDecimal proporcionRestante = cantidadPendientePorAsignar.divide(cantidadPedida, 6, RoundingMode.HALF_UP);
-                        BigDecimal impuestoRestante = impuestoBase.multiply(proporcionRestante);
-
                         DetalleVenta detallePendiente = new DetalleVenta();
                         detallePendiente.setProducto(producto);
                         detallePendiente.setCantidad(cantidadPendientePorAsignar);
                         detallePendiente.setPrecioUnitarioVenta(precioUnitario);
-                        detallePendiente.setImpuesto(impuestoRestante.setScale(4, RoundingMode.HALF_UP));
+                        detallePendiente.setImpuesto(distribuirImpuesto(
+                                impuestoLinea,
+                                cantidadPendientePorAsignar,
+                                cantidadPedida
+                        ));
                         detallePendiente.setAlmacen(almacen);
                         detallePendiente.setLote(null);
+                        aplicarSnapshotHistorico(detallePendiente, producto, linea.estrategia());
 
                         detalles.add(detallePendiente);
                     }
@@ -222,7 +233,13 @@ public class VentaService {
         venta.setMontoTotal(resumen.total());
 
         Venta ventaGuardada = ventaRepository.save(venta);
-        registrarCobroInicial(cliente, ventaGuardada, solicitud.metodoPago(), montoPagado);
+        registrarCobroInicial(
+                cliente,
+                ventaGuardada,
+                solicitud.metodoPago(),
+                montoPagado,
+                solicitud.datosTransferencia()
+        );
         return ventaGuardada;
     }
 
@@ -235,12 +252,17 @@ public class VentaService {
             Producto producto = productoRepository.findById(linea.idProducto())
                     .orElseThrow(() -> new IllegalArgumentException("Uno de los productos seleccionados no existe."));
             BigDecimal cantidad = normalizarCantidad(linea.cantidad());
-            BigDecimal impuesto = normalizarMonto(linea.impuesto());
             DetalleVenta detalle = new DetalleVenta();
             detalle.setProducto(producto);
             detalle.setCantidad(cantidad);
-            detalle.setPrecioUnitarioVenta(seleccionarPrecio(producto, cantidad, linea.estrategia()));
-            detalle.setImpuesto(impuesto.setScale(4, RoundingMode.HALF_UP));
+            BigDecimal precioUnitario = seleccionarPrecio(producto, cantidad, linea.estrategia());
+            detalle.setPrecioUnitarioVenta(precioUnitario);
+            detalle.setImpuesto(resolverImpuesto(
+                    linea.impuesto(),
+                    producto,
+                    precioUnitario,
+                    cantidad
+            ));
             subtotal = subtotal.add(detalle.calcularSubtotal());
         }
 
@@ -310,6 +332,17 @@ public class VentaService {
 
     @Transactional
     public Cobro registrarCobro(Cliente cliente, Venta venta, MetodoPago metodoPago, BigDecimal monto) {
+        return registrarCobro(cliente, venta, metodoPago, monto, null);
+    }
+
+    @Transactional
+    public Cobro registrarCobro(
+            Cliente cliente,
+            Venta venta,
+            MetodoPago metodoPago,
+            BigDecimal monto,
+            DatosTransferencia datosTransferencia
+    ) {
         if (cliente == null) {
             throw new IllegalArgumentException("Debes indicar el cliente del cobro.");
         }
@@ -324,6 +357,7 @@ public class VentaService {
         }
 
         validarMetodoPagoDisponible(metodoPago);
+        DatosTransferencia transferenciaValidada = validarTransferencia(metodoPago, datosTransferencia);
 
         BigDecimal deudaDespuesDelCobro = null;
         if (venta != null) {
@@ -343,6 +377,15 @@ public class VentaService {
         cobro.setVenta(venta);
         cobro.setMontoTotal(montoNormalizado);
         cobro.setMetodoPago(metodoPago);
+        if (transferenciaValidada != null) {
+            cobro.setBancoOrigen(valorNormalizado(transferenciaValidada.bancoOrigen()));
+            cobro.setTitularTransferencia(valorNormalizado(transferenciaValidada.titular()));
+            cobro.setReferenciaTransferencia(valorNormalizado(transferenciaValidada.referencia()));
+            cobro.setComprobanteTransferencia(transferenciaValidada.comprobante().clone());
+            cobro.setNombreComprobante(valorNormalizado(transferenciaValidada.nombreComprobante()));
+            cobro.setTipoContenidoComprobante(valorNormalizado(transferenciaValidada.tipoContenido()));
+            cobro.setFechaConfirmacionTransferencia(LocalDateTime.now());
+        }
         Cobro cobroGuardado = cobroRepository.save(cobro);
 
         actualizarEstadoPorDeuda(venta, deudaDespuesDelCobro);
@@ -370,11 +413,17 @@ public class VentaService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    private void registrarCobroInicial(Cliente cliente, Venta venta, MetodoPago metodoPago, BigDecimal montoPagado) {
+    private void registrarCobroInicial(
+            Cliente cliente,
+            Venta venta,
+            MetodoPago metodoPago,
+            BigDecimal montoPagado,
+            DatosTransferencia datosTransferencia
+    ) {
         if (montoPagado.compareTo(BigDecimal.ZERO) == 0) {
             return;
         }
-        registrarCobro(cliente, venta, metodoPago, montoPagado);
+        registrarCobro(cliente, venta, metodoPago, montoPagado, datosTransferencia);
     }
 
     private boolean esMismoCliente(Cliente cliente, Cliente clienteVenta) {
@@ -391,6 +440,42 @@ public class VentaService {
         if (metodoPago != MetodoPago.EFECTIVO && metodoPago != MetodoPago.TRANSFERENCIA) {
             throw new IllegalArgumentException("Por ahora solo se aceptan pagos en efectivo o transferencia bancaria.");
         }
+    }
+
+    private DatosTransferencia validarTransferencia(MetodoPago metodoPago, DatosTransferencia datos) {
+        if (metodoPago != MetodoPago.TRANSFERENCIA) {
+            return null;
+        }
+        if (datos == null) {
+            throw new IllegalArgumentException("Debes completar los datos de la transferencia.");
+        }
+        if (valorNormalizado(datos.bancoOrigen()).isBlank()) {
+            throw new IllegalArgumentException("El banco de origen es obligatorio.");
+        }
+        if (valorNormalizado(datos.titular()).isBlank()) {
+            throw new IllegalArgumentException("El titular de la transferencia es obligatorio.");
+        }
+        String referencia = valorNormalizado(datos.referencia());
+        if (referencia.isBlank()) {
+            throw new IllegalArgumentException("La referencia bancaria es obligatoria.");
+        }
+        if (cobroRepository.existsByReferenciaTransferenciaIgnoreCase(referencia)) {
+            throw new IllegalArgumentException("La referencia bancaria ya fue utilizada en otro cobro.");
+        }
+        if (datos.comprobante() == null || datos.comprobante().length == 0) {
+            throw new IllegalArgumentException("Debes adjuntar el comprobante de la transferencia.");
+        }
+        if (datos.comprobante().length > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("El comprobante no puede superar los 5 MB.");
+        }
+        String tipoContenido = valorNormalizado(datos.tipoContenido()).toLowerCase();
+        if (!List.of("image/jpeg", "image/png", "image/webp", "application/pdf").contains(tipoContenido)) {
+            throw new IllegalArgumentException("El comprobante debe ser una imagen JPG, PNG, WEBP o un PDF.");
+        }
+        if (!Boolean.TRUE.equals(datos.confirmadaPorCajero())) {
+            throw new IllegalArgumentException("Debes confirmar que revisaste la transferencia.");
+        }
+        return datos;
     }
 
     private void actualizarEstadoPorDeuda(Venta venta, BigDecimal deudaDespuesDelCobro) {
@@ -494,6 +579,43 @@ public class VentaService {
         return subtotalSinImpuesto.divide(cantidad, 6, RoundingMode.HALF_UP);
     }
 
+    private BigDecimal calcularImpuesto(Producto producto, BigDecimal precioUnitario, BigDecimal cantidad) {
+        BigDecimal porcentaje = producto != null && producto.getPorcentajeImpuesto() != null
+                ? producto.getPorcentajeImpuesto()
+                : BigDecimal.ZERO;
+
+        if (porcentaje.compareTo(BigDecimal.ZERO) < 0 || porcentaje.compareTo(new BigDecimal("100")) > 0) {
+            throw new IllegalArgumentException("El porcentaje de impuesto del producto debe estar entre 0% y 100%.");
+        }
+
+        return precioUnitario
+                .multiply(cantidad)
+                .multiply(porcentaje)
+                .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolverImpuesto(
+            BigDecimal impuestoIngresado,
+            Producto producto,
+            BigDecimal precioUnitario,
+            BigDecimal cantidad
+    ) {
+        if (impuestoIngresado != null) {
+            return normalizarMonto(impuestoIngresado).setScale(4, RoundingMode.HALF_UP);
+        }
+        return calcularImpuesto(producto, precioUnitario, cantidad);
+    }
+
+    private BigDecimal distribuirImpuesto(
+            BigDecimal impuestoTotal,
+            BigDecimal cantidadDetalle,
+            BigDecimal cantidadTotal
+    ) {
+        return impuestoTotal
+                .multiply(cantidadDetalle)
+                .divide(cantidadTotal, 4, RoundingMode.HALF_UP);
+    }
+
     private EstadoVenta calcularEstado(BigDecimal total, BigDecimal montoPagado) {
         return montoPagado.compareTo(total) >= 0 ? EstadoVenta.CERRADA : EstadoVenta.PENDIENTE;
     }
@@ -537,6 +659,14 @@ public class VentaService {
         return ventaRepository.findVentaConDetallesByIdVenta(idVenta).orElse(null);
     }
 
+    private void aplicarSnapshotHistorico(DetalleVenta detalle, Producto producto, EstrategiaPrecioVenta estrategia) {
+        detalle.setEstrategiaPrecio(estrategia != null ? estrategia : EstrategiaPrecioVenta.NORMAL);
+        if (producto != null) {
+            detalle.setPrecioEmpaqueHistorico(producto.getPrecioEmpaque());
+            detalle.setPrecioFraccionHistorico(producto.getPrecioFraccion());
+        }
+    }
+
     public record SolicitudVenta(
             ClienteVentaRequest cliente,
             Long idVendedor,
@@ -547,6 +677,7 @@ public class VentaService {
             BigDecimal descuento,
             BigDecimal montoPagado,
             MetodoPago metodoPago,
+            DatosTransferencia datosTransferencia,
             List<LineaVentaRequest> lineas
     ) {
     }
@@ -578,6 +709,17 @@ public class VentaService {
             BigDecimal montoPagado,
             BigDecimal balancePendiente,
             EstadoVenta estado
+    ) {
+    }
+
+    public record DatosTransferencia(
+            String bancoOrigen,
+            String titular,
+            String referencia,
+            byte[] comprobante,
+            String nombreComprobante,
+            String tipoContenido,
+            Boolean confirmadaPorCajero
     ) {
     }
 }

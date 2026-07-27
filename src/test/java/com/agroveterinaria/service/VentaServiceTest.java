@@ -81,8 +81,8 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenRechazaCantidadCeroONegativa() {
-        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
-        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
+        VentaService.SolicitudVenta ventaCantidadCero = solicitud(List.of(linea(100L, "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
+        VentaService.SolicitudVenta ventaCantidadNegativa = solicitud(List.of(linea(100L, "-1.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)));
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadCero));
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(ventaCantidadNegativa));
@@ -113,13 +113,13 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenCalculaSubtotalDescuentoTotalYBalance() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
         when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
 
         VentaService.ResumenVenta resumen = ventaService.calcularResumen(solicitud(
                 "25.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
+                List.of(linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(new BigDecimal("354.00"), resumen.subtotal());
@@ -128,6 +128,27 @@ class VentaServiceTest {
         assertEquals(new BigDecimal("200.00"), resumen.montoPagado());
         assertEquals(new BigDecimal("129.00"), resumen.balancePendiente());
         assertEquals(EstadoVenta.PENDIENTE, resumen.estado());
+    }
+
+    @Test
+    void calcularResumenPermiteSobrescribirElImpuestoSugeridoDelProducto() {
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
+        when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
+
+        VentaService.ResumenVenta resumen = ventaService.calcularResumen(solicitud(
+                "0.00",
+                "0.00",
+                List.of(new VentaService.LineaVentaRequest(
+                        100L,
+                        bd("2.00"),
+                        bd("10.00"),
+                        1L,
+                        1L,
+                        EstrategiaPrecioVenta.NORMAL
+                ))
+        ));
+
+        assertEquals(new BigDecimal("310.00"), resumen.subtotal());
     }
 
     @Test
@@ -143,15 +164,57 @@ class VentaServiceTest {
 
         when(cobroRepository.save(any(Cobro.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Cobro cobroTransferencia = ventaService.registrarCobro(cliente, venta, MetodoPago.TRANSFERENCIA, new BigDecimal("100.00"));
+        Cobro cobroTransferencia = ventaService.registrarCobro(
+                cliente,
+                venta,
+                MetodoPago.TRANSFERENCIA,
+                new BigDecimal("100.00"),
+                transferencia("BHD-001")
+        );
 
         assertEquals(MetodoPago.TRANSFERENCIA, cobroTransferencia.getMetodoPago());
+        assertEquals("BHD-001", cobroTransferencia.getReferenciaTransferencia());
+        assertEquals("Cliente prueba", cobroTransferencia.getTitularTransferencia());
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.TARJETA, new BigDecimal("100.00"))
         );
         assertThrows(IllegalArgumentException.class, () ->
                 ventaService.registrarCobro(cliente, venta, MetodoPago.NOTA_CREDITO, new BigDecimal("100.00"))
         );
+    }
+
+    @Test
+    void transferenciaExigeEvidenciaYConfirmacionDelCajero() {
+        Venta venta = venta(cliente, "1000.00");
+
+        IllegalArgumentException sinDatos = assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(
+                        cliente,
+                        venta,
+                        MetodoPago.TRANSFERENCIA,
+                        new BigDecimal("100.00")
+                )
+        );
+
+        assertEquals("Debes completar los datos de la transferencia.", sinDatos.getMessage());
+    }
+
+    @Test
+    void transferenciaRechazaUnaReferenciaBancariaReutilizada() {
+        Venta venta = venta(cliente, "1000.00");
+        when(cobroRepository.existsByReferenciaTransferenciaIgnoreCase("BHD-001")).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(
+                        cliente,
+                        venta,
+                        MetodoPago.TRANSFERENCIA,
+                        new BigDecimal("100.00"),
+                        transferencia("BHD-001")
+                )
+        );
+
+        assertEquals("La referencia bancaria ya fue utilizada en otro cobro.", exception.getMessage());
     }
 
     @Test
@@ -165,19 +228,19 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenAsignaEstadoPendienteOCerradaSegunPago() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
         when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
 
         VentaService.ResumenVenta pagoParcial = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "200.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
+                List.of(linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         VentaService.ResumenVenta pagoTotal = ventaService.calcularResumen(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
+                List.of(linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         assertEquals(EstadoVenta.PENDIENTE, pagoParcial.estado());
@@ -188,13 +251,13 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenRechazaMontoPagadoMayorQueTotal() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
         when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
 
         VentaService.SolicitudVenta solicitud = solicitud(
                 "0.00",
                 "355.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
+                List.of(linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         );
 
         assertThrows(IllegalArgumentException.class, () -> ventaService.calcularResumen(solicitud));
@@ -202,16 +265,16 @@ class VentaServiceTest {
 
     @Test
     void registrarVentaAsignaCadaDetalleALaVentaGuardada() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
-        Producto medicamento = producto(200L, CategoriaProducto.MEDICAMENTO, "80.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
+        Producto medicamento = producto(200L, CategoriaProducto.MEDICAMENTO, "80.00", "0.00");
         prepararVenta(alimento, medicamento);
 
         ventaService.registrarVenta(solicitud(
                 "0.00",
                 "514.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
-                        linea(200L, "2.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
+                        linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(200L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -222,6 +285,8 @@ class VentaServiceTest {
         assertEquals(2, ventaGuardada.getDetallesVentas().size());
         assertEquals(new BigDecimal("514.00"), ventaGuardada.getMontoTotal());
         assertEquals(EstadoVenta.CERRADA, ventaGuardada.getEstado());
+        assertEquals(new BigDecimal("54.0000"), ventaGuardada.getDetallesVentas().get(0).getImpuesto());
+        assertEquals(new BigDecimal("0.0000"), ventaGuardada.getDetallesVentas().get(1).getImpuesto());
 
         for (DetalleVenta detalle : ventaGuardada.getDetallesVentas()) {
             assertSame(ventaGuardada, detalle.getVenta());
@@ -230,13 +295,13 @@ class VentaServiceTest {
 
     @Test
     void registrarVentaRegistraCobroInicialAsociadoAlClienteYVentaCorrectos() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
         prepararVenta(alimento);
 
         ventaService.registrarVenta(solicitud(
                 "0.00",
                 "354.00",
-                List.of(linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
+                List.of(linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL))
         ));
 
         ArgumentCaptor<Venta> ventaCaptor = ArgumentCaptor.forClass(Venta.class);
@@ -318,8 +383,8 @@ class VentaServiceTest {
 
     @Test
     void calcularResumenSoportaMultiplesLineasMezclandoProductosYServicios() {
-        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00");
-        Producto servicio = producto(300L, CategoriaProducto.SERVICIO, "500.00");
+        Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
+        Producto servicio = producto(300L, CategoriaProducto.SERVICIO, "500.00", "0.00");
         when(productoRepository.findById(100L)).thenReturn(Optional.of(alimento));
         when(productoRepository.findById(300L)).thenReturn(Optional.of(servicio));
 
@@ -327,8 +392,8 @@ class VentaServiceTest {
                 "50.00",
                 "804.00",
                 List.of(
-                        linea(100L, "2.00", "54.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
-                        linea(300L, "1.00", "0.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
+                        linea(100L, "2.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL),
+                        linea(300L, "1.00", 1L, 1L, EstrategiaPrecioVenta.NORMAL)
                 )
         ));
 
@@ -403,21 +468,35 @@ class VentaServiceTest {
                 bd(descuento),
                 bd(montoPagado),
                 MetodoPago.EFECTIVO,
+                null,
                 lineas
         );
     }
 
-    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, String impuesto, Long idAlmacen, Long idLote, EstrategiaPrecioVenta estrategia) {
-        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), bd(impuesto), idAlmacen, idLote, estrategia);
+    private VentaService.DatosTransferencia transferencia(String referencia) {
+        return new VentaService.DatosTransferencia(
+                "BHD",
+                "Cliente prueba",
+                referencia,
+                new byte[]{1, 2, 3},
+                "comprobante.png",
+                "image/png",
+                true
+        );
     }
 
-    private Producto producto(Long idProducto, CategoriaProducto categoria, String precioEmpaque) {
+    private VentaService.LineaVentaRequest linea(Long idProducto, String cantidad, Long idAlmacen, Long idLote, EstrategiaPrecioVenta estrategia) {
+        return new VentaService.LineaVentaRequest(idProducto, bd(cantidad), null, idAlmacen, idLote, estrategia);
+    }
+
+    private Producto producto(Long idProducto, CategoriaProducto categoria, String precioEmpaque, String porcentajeImpuesto) {
         Producto producto = new Producto();
         producto.setIdProducto(idProducto);
         producto.setNombre(categoria == CategoriaProducto.SERVICIO ? "Consulta veterinaria" : "Producto " + idProducto);
         producto.setCategoria(categoria);
         producto.setUnidadEmpaque(UnidadEmpaque.UNIDAD_COMPLETA);
         producto.setPrecioEmpaque(bd(precioEmpaque));
+        producto.setPorcentajeImpuesto(bd(porcentajeImpuesto));
         producto.setPermiteFraccionamiento(false);
         producto.setStatus(StatusEntidad.ACTIVO);
         return producto;
