@@ -709,10 +709,6 @@ body {
     border: 1px solid #e2e8f0;
 }
 
-.dashboard-chart-panel:last-child {
-    grid-column: 1 / -1;
-}
-
 .dashboard-chart {
     height: 280px;
     margin-top: 14px;
@@ -833,9 +829,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-chart-panel:last-child {
-        grid-column: auto;
-    }
 }
 
 /* CRUD DE USUARIO */

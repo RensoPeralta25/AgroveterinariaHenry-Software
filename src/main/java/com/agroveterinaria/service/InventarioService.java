@@ -79,6 +79,7 @@ public class InventarioService {
     }
 
     @Transactional
+    @RolesAllowed({"ADMINISTRADOR", "CAJERO"})
     public void sumarStock(Almacen almacen, Lote lote, BigDecimal cantidadASumar) {
         if (cantidadASumar == null || cantidadASumar.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("La cantidad a sumar al inventario debe ser mayor a cero.");

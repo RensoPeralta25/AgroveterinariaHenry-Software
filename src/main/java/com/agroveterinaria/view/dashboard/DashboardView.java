@@ -87,6 +87,13 @@ public class DashboardView extends Div {
                         "#0f766e",
                         "rgba(15, 118, 110, 0.28)"
                 )),
+                createChartPanel("Gastos operativos", "Ultimos 14 dias", new DashboardChart(
+                        "bar",
+                        "Gastos operativos",
+                        data.gastosOperativosUltimosDias(),
+                        "#dc2626",
+                        "rgba(220, 38, 38, 0.24)"
+                )),
                 createChartPanel("Inventario por categoria", "Existencias globales", new DashboardChart(
                         "doughnut",
                         "Inventario",
