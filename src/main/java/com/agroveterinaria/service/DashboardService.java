@@ -13,6 +13,7 @@ import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.repository.CitaRepository;
 import com.agroveterinaria.repository.CompraRepository;
 import com.agroveterinaria.repository.DespachoRepository;
+import com.agroveterinaria.repository.GastoOperativoRepository;
 import com.agroveterinaria.repository.InventarioRepository;
 import com.agroveterinaria.repository.LoteRepository;
 import com.agroveterinaria.repository.VentaRepository;
@@ -44,6 +45,7 @@ public class DashboardService {
     private final InventarioRepository inventarioRepository;
     private final LoteRepository loteRepository;
     private final DespachoRepository despachoRepository;
+    private final GastoOperativoRepository gastoOperativoRepository;
 
     public DashboardService(
             VentaRepository ventaRepository,
@@ -51,7 +53,8 @@ public class DashboardService {
             CitaRepository citaRepository,
             InventarioRepository inventarioRepository,
             LoteRepository loteRepository,
-            DespachoRepository despachoRepository
+            DespachoRepository despachoRepository,
+            GastoOperativoRepository gastoOperativoRepository
     ) {
         this.ventaRepository = ventaRepository;
         this.compraRepository = compraRepository;
@@ -59,6 +62,7 @@ public class DashboardService {
         this.inventarioRepository = inventarioRepository;
         this.loteRepository = loteRepository;
         this.despachoRepository = despachoRepository;
+        this.gastoOperativoRepository = gastoOperativoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +77,11 @@ public class DashboardService {
         BigDecimal ventasHoy = ventaRepository.sumarMontoEntre(inicioHoy, inicioManana);
         BigDecimal ventasMes = ventaRepository.sumarMontoEntre(inicioMes, inicioManana);
         BigDecimal comprasMes = compraRepository.sumarTotalEntre(inicioMes, inicioManana);
+        BigDecimal gastosOperativosMes = gastoOperativoRepository.sumarMontoEntre(
+                inicioMes.toLocalDate(),
+                inicioManana.toLocalDate()
+        );
+        BigDecimal resultadoOperativoMes = valorSeguro(ventasMes).subtract(valorSeguro(gastosOperativosMes));
 
         long ventasPendientes = ventaRepository.countByEstado(EstadoVenta.PENDIENTE);
         BigDecimal balancePendiente = calcularBalancePendiente();
@@ -86,6 +95,20 @@ public class DashboardService {
                 new DashboardMetricDTO("ventasHoy", "Ventas de hoy", moneda(ventasHoy), "Ingresos registrados hoy", "positivo"),
                 new DashboardMetricDTO("ventasMes", "Ventas del mes", moneda(ventasMes), "Acumulado desde inicio de mes", "positivo"),
                 new DashboardMetricDTO("comprasMes", "Compras del mes", moneda(comprasMes), "Abastecimiento registrado", "neutral"),
+                new DashboardMetricDTO(
+                        "gastosOperativosMes",
+                        "Gastos operativos del mes",
+                        moneda(gastosOperativosMes),
+                        "Egresos operativos registrados",
+                        "riesgo"
+                ),
+                new DashboardMetricDTO(
+                        "resultadoOperativoMes",
+                        "Resultado operativo del mes",
+                        moneda(resultadoOperativoMes),
+                        "Ventas menos gastos operativos; no incluye costo de inventario",
+                        resultadoOperativoMes.compareTo(BigDecimal.ZERO) >= 0 ? "positivo" : "riesgo"
+                ),
                 new DashboardMetricDTO("porCobrar", "Por cobrar", moneda(balancePendiente), ventasPendientes + " ventas pendientes", "alerta"),
                 new DashboardMetricDTO("citasHoy", "Citas pendientes hoy", String.valueOf(citasPendientesHoy), "Servicios veterinarios por atender", "neutral"),
                 new DashboardMetricDTO("stockBajo", "Productos con stock bajo", String.valueOf(productosStockBajo), "Umbral: " + STOCK_MINIMO.stripTrailingZeros().toPlainString(), "riesgo"),
@@ -97,6 +120,7 @@ public class DashboardService {
                 metricas,
                 construirSerieVentas(inicioSerie),
                 construirSerieCompras(inicioSerie),
+                construirSerieGastosOperativos(inicioSerie),
                 construirInventarioPorCategoria(),
                 construirAlertas(comprasPendientes, despachosPendientes, productosStockBajo, hoy, hastaVencimiento)
         );
@@ -126,6 +150,13 @@ public class DashboardService {
         Map<LocalDate, BigDecimal> acumulado = inicializarSerie(inicioSerie);
         compraRepository.findByFechaHoraCompraGreaterThanEqualOrderByFechaHoraCompraAsc(inicioSerie.atStartOfDay())
                 .forEach(compra -> acumular(acumulado, compra.getFechaHoraCompra().toLocalDate(), compra.getTotal()));
+        return convertirSerie(acumulado);
+    }
+
+    private List<DashboardSeriesPointDTO> construirSerieGastosOperativos(LocalDate inicioSerie) {
+        Map<LocalDate, BigDecimal> acumulado = inicializarSerie(inicioSerie);
+        gastoOperativoRepository.findByFechaGreaterThanEqualOrderByFechaAsc(inicioSerie)
+                .forEach(gasto -> acumular(acumulado, gasto.getFecha(), gasto.getMonto()));
         return convertirSerie(acumulado);
     }
 

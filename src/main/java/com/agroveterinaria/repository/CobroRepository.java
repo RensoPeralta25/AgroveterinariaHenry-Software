@@ -1,6 +1,7 @@
 package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.Cobro;
+import com.agroveterinaria.entity.NotaDeCredito;
 import com.agroveterinaria.entity.Venta;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +15,8 @@ public interface CobroRepository extends JpaRepository<Cobro, Long> {
     boolean existsByReferenciaTransferenciaIgnoreCase(String referenciaTransferencia);
 
     List<Cobro> findByVenta(Venta venta);
+
+    boolean existsByNotaDeCredito(NotaDeCredito notaDeCredito);
 
     @Query("SELECT COALESCE(SUM(c.montoTotal), 0) FROM Cobro c WHERE c.venta = :venta")
     BigDecimal sumMontoByVenta(@Param("venta") Venta venta);

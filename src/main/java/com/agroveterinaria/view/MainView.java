@@ -31,6 +31,7 @@ import com.agroveterinaria.view.mascota.MascotaView;
 import com.agroveterinaria.view.nomina.AnticipoSalarioView;
 import com.agroveterinaria.view.nomina.DeduccionesView;
 import com.agroveterinaria.view.nomina.NominaView;
+import com.agroveterinaria.view.notacredito.NotasCreditoView;
 import com.agroveterinaria.view.producto.ProductoCrudView;
 import com.agroveterinaria.view.producto.ServicioCrudView;
 import com.agroveterinaria.view.proveedor.ProveedorView;
@@ -119,6 +120,7 @@ public class MainView extends Div {
             TransporteService transporteService,
             EmbargoSalarialService embargoSalarialService,
             PrestamoEmpleadoService prestamoEmpleadoService,
+            NotaDeCreditoService notaDeCreditoService,
             FacturaVentaTermicaPdfService facturaVentaTermicaPdfService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
@@ -134,7 +136,7 @@ public class MainView extends Div {
                 cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
                 anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService,
-                facturaVentaTermicaPdfService);
+                notaDeCreditoService, facturaVentaTermicaPdfService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -194,6 +196,7 @@ public class MainView extends Div {
             TransporteService transporteService,
             EmbargoSalarialService embargoSalarialService,
             PrestamoEmpleadoService prestamoEmpleadoService,
+            NotaDeCreditoService notaDeCreditoService,
             FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
     ) {
         Div logoMark = new Div();
@@ -239,6 +242,7 @@ public class MainView extends Div {
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
+        Button notasCreditoBtn = createSubmenuButton(VaadinIcon.FILE_TEXT, "Notas de Crédito");
         Button devolucionesBtn = createSubmenuButton(VaadinIcon.RECYCLE, "Devoluciones");
         Button almacenButton = createMenuButton(VaadinIcon.STOCK, "Almacén e Inventario");
         Button logisticaButton = createMenuButton(VaadinIcon.ROAD, "Logística");
@@ -264,7 +268,13 @@ public class MainView extends Div {
         logisticaSubmenu.setSpacing(false);
         logisticaSubmenu.setVisible(false);
 
-        VerticalLayout ventasSubmenu = new VerticalLayout(registrarVentaButton, listaVentasButton, cobrosButton, devolucionesBtn);
+        VerticalLayout ventasSubmenu = new VerticalLayout(
+                registrarVentaButton,
+                listaVentasButton,
+                cobrosButton,
+                notasCreditoBtn,
+                devolucionesBtn
+        );
         ventasSubmenu.addClassName("sidebar-submenu");
         ventasSubmenu.setPadding(false);
         ventasSubmenu.setSpacing(false);
@@ -293,6 +303,7 @@ public class MainView extends Div {
         registrarVentaButton.setEnabled(esAdmin || esCajero);
         listaVentasButton.setEnabled(esAdmin || esCajero);
         cobrosButton.setEnabled(esAdmin || esCajero);
+        notasCreditoBtn.setEnabled(esAdmin || esCajero);
         devolucionesBtn.setEnabled(esAdmin || esCajero);
 
         mascotasButton.setEnabled(esAdmin || esVeterinario);
@@ -586,6 +597,19 @@ public class MainView extends Div {
                     "Cartera pendiente, aplicación de pagos e historial de movimientos",
                     VaadinIcon.MONEY,
                     new CobroView(ventaService, cuentaBancariaTransferenciaPdfService)
+            );
+            ventasButton.addClassName("menu-button-active");
+        });
+
+        notasCreditoBtn.addClickListener(event -> {
+            ventasSubmenu.setVisible(true);
+            showModule(
+                    notasCreditoBtn,
+                    "Gestión de Ventas",
+                    "Notas de Crédito",
+                    "Saldos a favor disponibles por cliente y administración de notas.",
+                    VaadinIcon.FILE_TEXT,
+                    new NotasCreditoView(notaDeCreditoService, clienteService)
             );
             ventasButton.addClassName("menu-button-active");
         });
