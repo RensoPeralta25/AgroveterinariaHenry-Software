@@ -82,6 +82,7 @@ public class VentaView extends VerticalLayout {
     private boolean calculandoDescuento = false;
     private final BigDecimalField montoPagado = new BigDecimalField("Monto pagado");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
+    private final ComboBox<NotaDeCredito> notaCredito = new ComboBox<>("Nota de crédito");
     private final DatosTransferenciaForm datosTransferencia = new DatosTransferenciaForm();
 
     private final BigDecimalField costoEnvio = new BigDecimalField("Costo envío");
@@ -225,6 +226,7 @@ public class VentaView extends VerticalLayout {
                 ventaTitulo,
                 ventaFila,
                 pagoFila,
+                notaCredito,
                 datosTransferencia,
                 acciones
         );
@@ -436,15 +438,25 @@ public class VentaView extends VerticalLayout {
         montoPagado.setValueChangeMode(ValueChangeMode.EAGER);
         montoPagado.addValueChangeListener(event -> actualizarResumen());
 
-        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
+        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA, MetodoPago.NOTA_CREDITO);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
         metodoPago.addValueChangeListener(event -> {
             boolean esTransferencia = event.getValue() == MetodoPago.TRANSFERENCIA;
+            boolean esNotaCredito = event.getValue() == MetodoPago.NOTA_CREDITO;
             datosTransferencia.setVisible(esTransferencia);
+            notaCredito.setVisible(esNotaCredito);
             if (!esTransferencia) {
                 datosTransferencia.limpiar();
             }
+            if (!esNotaCredito) {
+                notaCredito.clear();
+            }
         });
+
+        notaCredito.setVisible(false);
+        notaCredito.setWidthFull();
+        notaCredito.setItemLabelGenerator(nota -> "#" + nota.getIdNotaCredito()
+                + " — disponible " + formatMoney(nota.getSaldoDisponible()));
 
         costoEnvio.setValue(BigDecimal.ZERO);
         costoEnvio.setPrefixComponent(new Span("RD$"));
@@ -568,6 +580,7 @@ public class VentaView extends VerticalLayout {
         datosTransferencia.sugerirTitular(
                 cliente.getPersona() != null ? cliente.getPersona().getNombre() : null
         );
+        cargarNotasCredito(cliente);
     }
 
     private void limpiarCliente() {
@@ -577,6 +590,20 @@ public class VentaView extends VerticalLayout {
         telefonoCliente.clear();
         direccionCliente.clear();
         tipoCliente.clear();
+        notaCredito.clear();
+        notaCredito.setItems(List.of());
+    }
+
+    private void cargarNotasCredito(Cliente cliente) {
+        List<NotaDeCredito> notas = cliente != null
+                ? ventaService.listarNotasCreditoDisponibles(cliente.getIdCliente())
+                : List.of();
+        notaCredito.setItems(notas);
+        if (notas.size() == 1) {
+            notaCredito.setValue(notas.getFirst());
+        } else {
+            notaCredito.clear();
+        }
     }
 
     private void agregarLinea() {
@@ -678,6 +705,9 @@ public class VentaView extends VerticalLayout {
                 metodoPago.getValue() == MetodoPago.TRANSFERENCIA
                         ? datosTransferencia.obtenerDatos()
                         : null,
+                notaCredito.getValue() != null
+                        ? notaCredito.getValue().getIdNotaCredito()
+                        : null,
                 lineas.stream()
                         .map(linea -> new VentaService.LineaVentaRequest(
                                 linea.getProducto().getIdProducto(),
@@ -755,6 +785,8 @@ public class VentaView extends VerticalLayout {
         descuentoPorcentaje.setValue(BigDecimal.ZERO);
         montoPagado.setValue(BigDecimal.ZERO);
         metodoPago.clear();
+        notaCredito.clear();
+        notaCredito.setItems(List.of());
         datosTransferencia.limpiar();
         producto.clear();
         cbAlmacen.clear();

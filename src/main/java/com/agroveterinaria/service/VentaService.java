@@ -29,6 +29,7 @@ public class VentaService {
     private final AlmacenRepository almacenRepository;
     private final InventarioRepository inventarioRepository;
     private final LoteRepository loteRepository;
+    private final NotaDeCreditoRepository notaDeCreditoRepository;
     private final PersonaService personaService;
 
     public VentaService(
@@ -41,7 +42,8 @@ public class VentaService {
             PersonaService personaService,
             AlmacenRepository almacenRepository,
             InventarioRepository inventarioRepository,
-            LoteRepository loteRepository
+            LoteRepository loteRepository,
+            NotaDeCreditoRepository notaDeCreditoRepository
     ) {
         this.ventaRepository = ventaRepository;
         this.clienteRepository = clienteRepository;
@@ -53,6 +55,7 @@ public class VentaService {
         this.almacenRepository = almacenRepository;
         this.inventarioRepository = inventarioRepository;
         this.loteRepository = loteRepository;
+        this.notaDeCreditoRepository = notaDeCreditoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -238,7 +241,8 @@ public class VentaService {
                 ventaGuardada,
                 solicitud.metodoPago(),
                 montoPagado,
-                solicitud.datosTransferencia()
+                solicitud.datosTransferencia(),
+                solicitud.idNotaCredito()
         );
         return ventaGuardada;
     }
@@ -332,7 +336,7 @@ public class VentaService {
 
     @Transactional
     public Cobro registrarCobro(Cliente cliente, Venta venta, MetodoPago metodoPago, BigDecimal monto) {
-        return registrarCobro(cliente, venta, metodoPago, monto, null);
+        return registrarCobro(cliente, venta, metodoPago, monto, null, null);
     }
 
     @Transactional
@@ -342,6 +346,18 @@ public class VentaService {
             MetodoPago metodoPago,
             BigDecimal monto,
             DatosTransferencia datosTransferencia
+    ) {
+        return registrarCobro(cliente, venta, metodoPago, monto, datosTransferencia, null);
+    }
+
+    @Transactional
+    public Cobro registrarCobro(
+            Cliente cliente,
+            Venta venta,
+            MetodoPago metodoPago,
+            BigDecimal monto,
+            DatosTransferencia datosTransferencia,
+            Long idNotaCredito
     ) {
         if (cliente == null) {
             throw new IllegalArgumentException("Debes indicar el cliente del cobro.");
@@ -358,6 +374,13 @@ public class VentaService {
 
         validarMetodoPagoDisponible(metodoPago);
         DatosTransferencia transferenciaValidada = validarTransferencia(metodoPago, datosTransferencia);
+        NotaDeCredito notaAplicada = validarYConsumirNotaCredito(
+                cliente,
+                venta,
+                metodoPago,
+                montoNormalizado,
+                idNotaCredito
+        );
 
         BigDecimal deudaDespuesDelCobro = null;
         if (venta != null) {
@@ -377,6 +400,7 @@ public class VentaService {
         cobro.setVenta(venta);
         cobro.setMontoTotal(montoNormalizado);
         cobro.setMetodoPago(metodoPago);
+        cobro.setNotaDeCredito(notaAplicada);
         if (transferenciaValidada != null) {
             cobro.setBancoOrigen(valorNormalizado(transferenciaValidada.bancoOrigen()));
             cobro.setTitularTransferencia(valorNormalizado(transferenciaValidada.titular()));
@@ -418,12 +442,13 @@ public class VentaService {
             Venta venta,
             MetodoPago metodoPago,
             BigDecimal montoPagado,
-            DatosTransferencia datosTransferencia
+            DatosTransferencia datosTransferencia,
+            Long idNotaCredito
     ) {
         if (montoPagado.compareTo(BigDecimal.ZERO) == 0) {
             return;
         }
-        registrarCobro(cliente, venta, metodoPago, montoPagado, datosTransferencia);
+        registrarCobro(cliente, venta, metodoPago, montoPagado, datosTransferencia, idNotaCredito);
     }
 
     private boolean esMismoCliente(Cliente cliente, Cliente clienteVenta) {
@@ -437,9 +462,66 @@ public class VentaService {
     }
 
     private void validarMetodoPagoDisponible(MetodoPago metodoPago) {
-        if (metodoPago != MetodoPago.EFECTIVO && metodoPago != MetodoPago.TRANSFERENCIA) {
-            throw new IllegalArgumentException("Por ahora solo se aceptan pagos en efectivo o transferencia bancaria.");
+        if (metodoPago != MetodoPago.EFECTIVO
+                && metodoPago != MetodoPago.TRANSFERENCIA
+                && metodoPago != MetodoPago.NOTA_CREDITO) {
+            throw new IllegalArgumentException(
+                    "Solo se aceptan pagos en efectivo, transferencia bancaria o nota de crédito."
+            );
         }
+    }
+
+    private NotaDeCredito validarYConsumirNotaCredito(
+            Cliente cliente,
+            Venta venta,
+            MetodoPago metodoPago,
+            BigDecimal monto,
+            Long idNotaCredito
+    ) {
+        if (metodoPago != MetodoPago.NOTA_CREDITO) {
+            if (idNotaCredito != null) {
+                throw new IllegalArgumentException(
+                        "Solo debes indicar una nota cuando el método de pago es Nota de crédito."
+                );
+            }
+            return null;
+        }
+        if (venta == null) {
+            throw new IllegalArgumentException("La nota de crédito solo puede aplicarse al pago de una venta.");
+        }
+        if (idNotaCredito == null) {
+            throw new IllegalArgumentException("Debes seleccionar la nota de crédito que deseas aplicar.");
+        }
+
+        NotaDeCredito nota = notaDeCreditoRepository.buscarPorIdParaActualizar(idNotaCredito)
+                .orElseThrow(() -> new IllegalArgumentException("La nota de crédito seleccionada no existe."));
+        if (!esMismoCliente(cliente, nota.getCliente())) {
+            throw new IllegalArgumentException("La nota de crédito pertenece a otro cliente.");
+        }
+        BigDecimal saldo = nota.getSaldoDisponible() != null
+                ? nota.getSaldoDisponible()
+                : BigDecimal.ZERO;
+        if (monto.compareTo(saldo) > 0) {
+            throw new IllegalArgumentException(
+                    "La nota seleccionada solo tiene " + saldo.setScale(2, RoundingMode.HALF_UP)
+                            + " disponibles."
+            );
+        }
+
+        nota.setSaldoDisponible(saldo.subtract(monto).setScale(2, RoundingMode.HALF_UP));
+        return notaDeCreditoRepository.save(nota);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NotaDeCredito> listarNotasCreditoDisponibles(Long idCliente) {
+        if (idCliente == null) {
+            return List.of();
+        }
+        return notaDeCreditoRepository
+                .findByClienteIdClienteAndSaldoDisponibleGreaterThanOrderByFechaEmisionAsc(
+                        idCliente,
+                        BigDecimal.ZERO
+                );
     }
 
     private DatosTransferencia validarTransferencia(MetodoPago metodoPago, DatosTransferencia datos) {
@@ -678,6 +760,7 @@ public class VentaService {
             BigDecimal montoPagado,
             MetodoPago metodoPago,
             DatosTransferencia datosTransferencia,
+            Long idNotaCredito,
             List<LineaVentaRequest> lineas
     ) {
     }

@@ -5,6 +5,7 @@ import com.agroveterinaria.component.DatosTransferenciaForm;
 import com.agroveterinaria.entity.Cliente;
 import com.agroveterinaria.entity.Cobro;
 import com.agroveterinaria.entity.Empleado;
+import com.agroveterinaria.entity.NotaDeCredito;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.EstadoVenta;
@@ -70,6 +71,7 @@ public class CobroView extends VerticalLayout {
     private final Span vencimientoSeleccionado = new Span("-");
     private final BigDecimalField monto = new BigDecimalField("Monto a cobrar");
     private final ComboBox<MetodoPago> metodoPago = new ComboBox<>("Metodo de pago");
+    private final ComboBox<NotaDeCredito> notaCredito = new ComboBox<>("Nota de crédito");
     private final DatosTransferenciaForm datosTransferencia = new DatosTransferenciaForm();
     private final Button registrar = new Button("Registrar cobro", new Icon(VaadinIcon.CHECK));
 
@@ -180,6 +182,7 @@ public class CobroView extends VerticalLayout {
                 resumen,
                 monto,
                 metodoPago,
+                notaCredito,
                 datosTransferencia,
                 crearDescargaCuentaBancaria(),
                 registrar
@@ -267,18 +270,28 @@ public class CobroView extends VerticalLayout {
         monto.setEnabled(false);
         monto.setWidthFull();
 
-        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
+        metodoPago.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA, MetodoPago.NOTA_CREDITO);
         metodoPago.setItemLabelGenerator(MetodoPago::getEtiqueta);
         metodoPago.setValue(MetodoPago.EFECTIVO);
         metodoPago.setEnabled(false);
         metodoPago.setWidthFull();
         metodoPago.addValueChangeListener(event -> {
             boolean esTransferencia = event.getValue() == MetodoPago.TRANSFERENCIA;
+            boolean esNotaCredito = event.getValue() == MetodoPago.NOTA_CREDITO;
             datosTransferencia.setVisible(esTransferencia);
+            notaCredito.setVisible(esNotaCredito);
             if (!esTransferencia) {
                 datosTransferencia.limpiar();
             }
+            if (!esNotaCredito) {
+                notaCredito.clear();
+            }
         });
+
+        notaCredito.setVisible(false);
+        notaCredito.setWidthFull();
+        notaCredito.setItemLabelGenerator(nota -> "#" + nota.getIdNotaCredito()
+                + " — disponible " + formatMoney(nota.getSaldoDisponible()));
 
         registrar.setEnabled(false);
     }
@@ -324,6 +337,13 @@ public class CobroView extends VerticalLayout {
         gridHistorial.addColumn(cobro -> cobro.getMetodoPago() != null ? cobro.getMetodoPago().getEtiqueta() : "")
                 .setHeader("Metodo")
                 .setFlexGrow(1);
+
+        gridHistorial.addColumn(cobro -> cobro.getNotaDeCredito() != null
+                        ? "#" + cobro.getNotaDeCredito().getIdNotaCredito()
+                        : "-")
+                .setHeader("Nota")
+                .setWidth("90px")
+                .setFlexGrow(0);
 
         gridHistorial.addColumn(cobro -> valorOrDefault(cobro.getReferenciaTransferencia(), "-"))
                 .setHeader("Referencia")
@@ -455,6 +475,16 @@ public class CobroView extends VerticalLayout {
         monto.setValue(tieneVenta ? fila.balance() : null);
         if (tieneVenta) {
             datosTransferencia.sugerirTitular(nombreCliente(fila.venta().getCliente()));
+            List<NotaDeCredito> notas = ventaService.listarNotasCreditoDisponibles(
+                    fila.venta().getCliente().getIdCliente()
+            );
+            notaCredito.setItems(notas);
+            if (notas.size() == 1) {
+                notaCredito.setValue(notas.getFirst());
+            }
+        } else {
+            notaCredito.clear();
+            notaCredito.setItems(List.of());
         }
     }
 
@@ -472,6 +502,9 @@ public class CobroView extends VerticalLayout {
                     monto.getValue(),
                     metodoPago.getValue() == MetodoPago.TRANSFERENCIA
                             ? datosTransferencia.obtenerDatos()
+                            : null,
+                    notaCredito.getValue() != null
+                            ? notaCredito.getValue().getIdNotaCredito()
                             : null
             );
             Notification notification = Notification.show(

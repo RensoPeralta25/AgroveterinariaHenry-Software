@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -39,4 +40,22 @@ public class NotaDeCredito {
     @Digits(integer = 12, fraction = 2, message = "El monto solo puede tener hasta 2 decimales")
     @Column(name = "monto", nullable = false, precision = 12, scale = 2)
     private BigDecimal monto;
+
+    @NotNull
+    @Digits(integer = 12, fraction = 2, message = "El saldo solo puede tener hasta 2 decimales")
+    @Column(name = "saldo_disponible", nullable = false, precision = 12, scale = 2)
+    private BigDecimal saldoDisponible;
+
+    @NotNull
+    @Column(name = "fecha_emision", nullable = false)
+    private LocalDateTime fechaEmision;
+
+    @Column(name = "motivo", length = 255)
+    private String motivo;
+
+    public BigDecimal getMontoUtilizado() {
+        BigDecimal montoSeguro = monto != null ? monto : BigDecimal.ZERO;
+        BigDecimal saldoSeguro = saldoDisponible != null ? saldoDisponible : BigDecimal.ZERO;
+        return montoSeguro.subtract(saldoSeguro).max(BigDecimal.ZERO);
+    }
 }

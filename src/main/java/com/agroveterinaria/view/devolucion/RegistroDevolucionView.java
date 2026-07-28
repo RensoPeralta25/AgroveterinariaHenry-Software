@@ -198,8 +198,9 @@ public class RegistroDevolucionView extends VerticalLayout {
         for (LineaDevolucionUI linea : lineasVista) {
             BigDecimal cant = linea.getCantidadIngresada();
             if (cant.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal precioUnitario = linea.getDetalleOriginal().getPrecioUnitarioVenta();
-                montoReembolsoCalculado = montoReembolsoCalculado.add(cant.multiply(precioUnitario));
+                montoReembolsoCalculado = montoReembolsoCalculado.add(
+                        devolucionService.calcularMontoDetalle(linea.getDetalleOriginal(), cant)
+                );
             }
         }
 
