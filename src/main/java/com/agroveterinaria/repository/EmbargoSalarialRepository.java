@@ -2,14 +2,14 @@ package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.EmbargoSalarial;
 import com.agroveterinaria.entity.Empleado;
-import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.enums.EstadoEmbargo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
 public interface EmbargoSalarialRepository extends JpaRepository<EmbargoSalarial, Long> {
-    List<EmbargoSalarial> findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(Empleado empleado, StatusEntidad estado);
+    List<EmbargoSalarial> findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(Empleado empleado, EstadoEmbargo estado);
 
     boolean existsByEmpleado(Empleado empleado);
 

@@ -1463,3 +1463,18 @@ body {
 .dialog-baja-empleado::part(footer) {
     flex-direction: row-reverse;
 }
+
+.roles-container {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+
+.rol-badge {
+    background-color: #e2e8f0;
+    color: #475569;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}

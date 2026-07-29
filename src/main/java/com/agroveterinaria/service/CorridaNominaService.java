@@ -51,8 +51,11 @@ public class CorridaNominaService {
                 throw new IllegalStateException("Debe seleccionar un empleado para generar vacaciones anticipadas.");
             }
 
-            List<VacacionEmpleado> pendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(empleadoEspecifico);
-            if (pendientes == null || pendientes.isEmpty()) {
+            List<VacacionEmpleado> pendientes = vacacionEmpleadoService.findByEmpleadoYNoPagadas(empleadoEspecifico).stream()
+                    .filter(v -> v.getEstado() == EstadoVacacion.APROBADA)
+                    .collect(Collectors.toList());
+
+            if (pendientes.isEmpty()) {
                 throw new IllegalStateException("El empleado seleccionado no tiene vacaciones aprobadas pendientes de pago.");
             }
 
@@ -110,14 +113,19 @@ public class CorridaNominaService {
                 : Collections.emptyMap();
 
         for (Empleado empleado : empleados) {
-            if (corrida.getTipo() != TipoCorrida.REGALIA_PASCUAL) {
-                prestamoEmpleadoService.validarIntegridadPrestamos(empleado);
-            }
-
             Nomina nomina = new Nomina(empleado, corrida);
             Set<DetalleNomina> detalles = new LinkedHashSet<>();
 
             NovedadNominaDTO novedadDelEmpleado = mapaNovedades.get(empleado.getIdEmpleado());
+
+            if (novedadDelEmpleado != null && corrida.getTipo() == TipoCorrida.ORDINARIA) {
+                int maxDiasPermitidos = switch (corrida.getPeriodo()) {
+                    case MES -> corrida.getFechaEmision().lengthOfMonth();
+                    case SEMANAL -> 6;
+                    case QUINCENA -> (corrida.getFechaEmision().getDayOfMonth() <= 15) ? 15 : (corrida.getFechaEmision().lengthOfMonth() - 15);
+                };
+                validarIntegridadNovedades(novedadDelEmpleado, periodo, maxDiasPermitidos, empleado);
+            }
 
             switch (corrida.getTipo()) {
                 case ORDINARIA:
@@ -185,7 +193,7 @@ public class CorridaNominaService {
 
             int maxDiasPermitidos = switch (corrida.getPeriodo()) {
                 case MES -> corrida.getFechaEmision().lengthOfMonth();
-                case SEMANAL -> 7;
+                case SEMANAL -> 6;
                 case QUINCENA -> (corrida.getFechaEmision().getDayOfMonth() <= 15) ? 15 : (corrida.getFechaEmision().lengthOfMonth() - 15);
             };
 
@@ -221,21 +229,20 @@ public class CorridaNominaService {
                 for (PrestamoEmpleado prestamo : prestamos) {
                     if (remanenteCobrado.compareTo(BigDecimal.ZERO) <= 0) break;
 
-                    BigDecimal abonoAlPrestamo = remanenteCobrado.min(prestamo.getBalancePendiente());
-                    prestamo.setBalancePendiente(prestamo.getBalancePendiente().subtract(abonoAlPrestamo));
+                    BigDecimal abonoAlPrestamo = remanenteCobrado.min(prestamo.getBalanceCapitalPendiente());
+                    prestamoEmpleadoService.procesarCuotaMensual(prestamo, abonoAlPrestamo);
                     remanenteCobrado = remanenteCobrado.subtract(abonoAlPrestamo);
-
-                    if (prestamo.getBalancePendiente().compareTo(BigDecimal.ZERO) == 0) {
-                        prestamo.setEstado(EstadoPrestamo.SALDADO);
-                    }
-                    prestamoEmpleadoService.save(prestamo);
                 }
             }
 
             int mesActual = corrida.getFechaEmision().getMonthValue();
             int anioActual = corrida.getFechaEmision().getYear();
 
-            List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(nomina.getEmpleado());
+            List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(nomina.getEmpleado())
+                    .stream()
+                    .filter(e -> !e.getFechaNotificacion().isAfter(corrida.getFechaEmision()))
+                    .collect(Collectors.toList());
+
 
             if (corrida.getTipo() == TipoCorrida.REGALIA_PASCUAL || corrida.getTipo() == TipoCorrida.BONIFICACION) {
                 embargos = embargos.stream()
@@ -277,9 +284,11 @@ public class CorridaNominaService {
                     .anyMatch(d -> d.getTipo() == TipoConcepto.PAGO_VACACIONES);
 
             if (tienePagoVacaciones) {
-                List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(nomina.getEmpleado());
+                List<VacacionEmpleado> vacacionesNoPagadas = vacacionEmpleadoService.findByEmpleadoYNoPagadas(nomina.getEmpleado());
                 for (VacacionEmpleado vacacion : vacacionesNoPagadas) {
-                    vacacionEmpleadoService.marcarComoPagada(vacacion);
+                    if (vacacion.getEstado() == EstadoVacacion.APROBADA) {
+                        vacacionEmpleadoService.marcarComoPagada(vacacion);
+                    }
                 }
             }
         }
@@ -402,7 +411,7 @@ public class CorridaNominaService {
 
                 boolean inicianEnEstePeriodo = !vacacion.getFechaInicio().isBefore(inicioPeriodo) && !vacacion.getFechaInicio().isAfter(finPeriodo);
 
-                if (!vacacion.isPagado() && inicianEnEstePeriodo) {
+                if (vacacion.getEstado() == EstadoVacacion.APROBADA && inicianEnEstePeriodo) {
                     BigDecimal montoVacacion = salarioDiarioComputable.multiply(BigDecimal.valueOf(vacacion.getCantidadDiasAPagar()));
 
                     detalles.add(crearDetalle(nomina, TipoConcepto.PAGO_VACACIONES,
@@ -458,7 +467,11 @@ public class CorridaNominaService {
             BigDecimal sfs = configuracionNominaService.calcularSFS(totalDevengado);
             detalles.add(crearDetalle(nomina, TipoConcepto.SEGURO_FAMILIAR_SALUD, "SFS", sfs, 1.0));
 
-            BigDecimal isr = configuracionNominaService.calcularISR(totalDevengado, periodo);
+            BigDecimal deduccionesTss = afp.add(sfs);
+            BigDecimal baseGravable = totalDevengado.subtract(deduccionesTss);
+
+            BigDecimal isr = configuracionNominaService.calcularISR(baseGravable, periodo);
+
             if (isr.compareTo(BigDecimal.ZERO) > 0) {
                 detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR", isr, 1.0));
             }
@@ -469,13 +482,18 @@ public class CorridaNominaService {
             BigDecimal porcentajeLimite = configuracionNominaService.getPorcentajeLimiteEmbargo();
             BigDecimal limiteEmbargable = salarioNeto.multiply(porcentajeLimite);
 
-            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable, salarioNeto);
+            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable);
         }
 
     }
 
-    private void ejecutarDeduccionesPorPrioridad(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible, BigDecimal salarioNeto) {
-        List<EmbargoSalarial> embargosActivos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado);
+    private void ejecutarDeduccionesPorPrioridad(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible) {
+        List<EmbargoSalarial> embargosActivos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado)
+                .stream()
+                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaEmision()))
+                .collect(Collectors.toList());
+
+
         int mesActual = nomina.getCorrida().getFechaEmision().getMonthValue();
         int anioActual = nomina.getCorrida().getFechaEmision().getYear();
 
@@ -503,7 +521,7 @@ public class CorridaNominaService {
                 for (EmbargoSalarial embargo : embargosNivel) {
                     BigDecimal montoACobrar = calcularMontoRequeridoEmbargo(embargo, mesActual,  anioActual, periodoActual);
                     if (montoACobrar.compareTo(BigDecimal.ZERO) > 0) {
-                        String descripcionUnica = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                        String descripcionUnica = embargo.getTipoEmbargo().getDescripcion() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
                         detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
                                 descripcionUnica, montoACobrar, 1.0));
                         limiteDisponible = limiteDisponible.subtract(montoACobrar);
@@ -563,11 +581,23 @@ public class CorridaNominaService {
 
     private BigDecimal procesarPrestamosConLimite(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible) {
         List<PrestamoEmpleado> prestamos = prestamoEmpleadoService.findByEmpleadoAndEstado(empleado);
+        LocalDate fechaNomina = nomina.getCorrida().getFechaEmision();
 
         for (PrestamoEmpleado prestamo : prestamos) {
             if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;
 
-            BigDecimal montoRequerido = prestamo.getCuotaPeriodica().min(prestamo.getBalancePendiente());
+            if (prestamo.getFechaAprobacion() != null && prestamo.getFechaAprobacion().isAfter(fechaNomina)) {
+                continue;
+            }
+
+            BigDecimal cuotaEsperadaPeriodo = calcularCuotaEsperadaPorPeriodo(prestamo.getCuotaPeriodica(), nomina.getCorrida().getPeriodo());
+
+            BigDecimal interesProyectado = prestamo.getBalanceCapitalPendiente()
+                    .multiply(prestamo.getTasaInteres().divide(new BigDecimal("100"), 8, RoundingMode.HALF_UP)
+                            .divide(new BigDecimal("12"), 8, RoundingMode.HALF_UP));
+            BigDecimal balanceTotalAlCierre = prestamo.getBalanceCapitalPendiente().add(interesProyectado);
+
+            BigDecimal montoRequerido = cuotaEsperadaPeriodo.min(balanceTotalAlCierre);
             BigDecimal montoACobrar = montoRequerido.min(limiteDisponible);
 
             detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
@@ -681,7 +711,9 @@ public class CorridaNominaService {
     }
 
     private void procesarVacacionesAnticipadas(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles) {
-        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoService.findByEmpleadoAndPagadoFalse(empleado);
+        List<VacacionEmpleado> vacacionesPendientes = vacacionEmpleadoService.findByEmpleadoYNoPagadas(empleado).stream()
+                .filter(v -> v.getEstado() == EstadoVacacion.APROBADA)
+                .collect(Collectors.toList());
         BigDecimal totalDevengado = BigDecimal.ZERO;
 
         for (VacacionEmpleado vacacion : vacacionesPendientes) {
@@ -716,7 +748,7 @@ public class CorridaNominaService {
             BigDecimal porcentajeLimite = configuracionNominaService.getPorcentajeLimiteEmbargo();
             BigDecimal limiteEmbargable = salarioNeto.multiply(porcentajeLimite);
 
-            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable, salarioNeto);
+            ejecutarDeduccionesPorPrioridad(empleado, nomina, detalles, limiteEmbargable);
         }
     }
 
@@ -865,6 +897,7 @@ public class CorridaNominaService {
     private void ejecutarDeduccionesEspeciales(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible, TipoEmbargo tipoPermitido) {
         List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado)
                 .stream()
+                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaEmision()))
                 .filter(e -> e.getTipoEmbargo() == tipoPermitido)
                 .toList();
 
@@ -883,11 +916,50 @@ public class CorridaNominaService {
             if (montoRequerido.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal montoACobrar = montoRequerido.min(limiteDisponible);
 
-                String descripcionUnica = embargo.getTipoEmbargo().name() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
+                String descripcionUnica = embargo.getTipoEmbargo().getDescripcion() + ": " + embargo.getEntidadDemandante() + " (Ref: #" + embargo.getIdEmbargo() + ")";
                 detalles.add(crearDetalle(nomina, TipoConcepto.EMBARGO_SALARIAL,
                         descripcionUnica, montoACobrar, 1.0));
 
                 limiteDisponible = limiteDisponible.subtract(montoACobrar);
+            }
+        }
+    }
+
+    private void validarIntegridadNovedades(NovedadNominaDTO novedad, PeriodoNomina periodo, int maxDiasAusencia, Empleado empleado) {
+        String nombre = empleado.getPersona().getNombre();
+
+        if (novedad.getHorasExtras() != null) {
+            if (novedad.getHorasExtras() < 0) {
+                throw new IllegalStateException("Las horas extras de " + nombre + " no pueden ser negativas.");
+            }
+
+            int maxHoras = switch(periodo) {
+                case SEMANAL -> configuracionNominaService.getMaxHorasExtrasSemanal();
+                case QUINCENA -> configuracionNominaService.getMaxHorasExtrasQuincenal();
+                case MES -> configuracionNominaService.getMaxHorasExtrasMensual();
+            };
+
+            if (novedad.getHorasExtras() > maxHoras) {
+                throw new IllegalStateException("Las horas extras de " + nombre + " (" + novedad.getHorasExtras() + ") superan el límite legal/lógico del período (" + maxHoras + " hrs).");
+            }
+        }
+
+        if (novedad.getComisionesRegulares() != null && novedad.getComisionesRegulares().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("Las comisiones de " + nombre + " no pueden ser negativas.");
+        }
+        if (novedad.getComisionesExtraordinarias() != null && novedad.getComisionesExtraordinarias().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("Los bonos extra de " + nombre + " no pueden ser negativos.");
+        }
+        if (novedad.getDietasViaticos() != null && novedad.getDietasViaticos().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("Los viáticos de " + nombre + " no pueden ser negativos.");
+        }
+
+        if (novedad.getAusenciasNoPagadasDias() != null) {
+            if (novedad.getAusenciasNoPagadasDias() < 0) {
+                throw new IllegalStateException("Las ausencias de " + nombre + " no pueden ser negativas.");
+            }
+            if (novedad.getAusenciasNoPagadasDias() > maxDiasAusencia) {
+                throw new IllegalStateException("Las ausencias de " + nombre + " superan los días totales del período.");
             }
         }
     }

@@ -362,7 +362,7 @@ public class MainView extends Div {
                 "Panel de Usuarios",
                 "Accesos internos y credenciales del sistema",
                 VaadinIcon.USERS,
-                new UsuarioView(usuarioService, empleadoService, passwordEncoder)
+                new UsuarioView(usuarioService, empleadoService, passwordEncoder, securityService)
         ));
 
         empleadosButton.addClickListener(event -> {
@@ -373,7 +373,7 @@ public class MainView extends Div {
                     "Panel de Empleados",
                     "Información general del equipo de trabajo y roles",
                     VaadinIcon.GROUP,
-                    new EmpleadoView(empleadoService, personaService, nominaService)
+                    new EmpleadoView(empleadoService, personaService, nominaService, securityService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });
@@ -730,7 +730,7 @@ public class MainView extends Div {
                 "Configuración de Usuario",
                 "Perfil, foto de usuario y contraseña",
                 VaadinIcon.COG,
-                new ConfiguracionUsuarioView(securityService, () -> actualizarAvatarUsuario(avatarButton, securityService))
+                new ConfiguracionUsuarioView(securityService, () -> actualizarAvatarUsuario(avatarButton, securityService), authContext)
         ));
         userMenu.addItem("Salir", event -> authContext.logout());
 

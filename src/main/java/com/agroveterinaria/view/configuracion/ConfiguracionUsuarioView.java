@@ -20,6 +20,7 @@ import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.server.streams.UploadEvent;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
@@ -31,7 +32,7 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
     private final Image previewFoto = new Image();
     private final Span iniciales = new Span();
 
-    public ConfiguracionUsuarioView(SecurityService securityService, Runnable onPerfilActualizado) {
+    public ConfiguracionUsuarioView(SecurityService securityService, Runnable onPerfilActualizado, AuthenticationContext authContext) {
         setSizeFull();
         setPadding(false);
         setSpacing(false);
@@ -48,13 +49,21 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
         Persona persona = empleado.getPersona();
         fotoPerfil = usuario.getFotoPerfil();
 
+        TextField cedulaField = crearCampoTexto("Cédula");
+        cedulaField.setValue(valor(persona.getCedula()));
+        cedulaField.setReadOnly(true);
+
         TextField nombreField = crearCampoTexto("Nombre");
         nombreField.setValue(valor(persona.getNombre()));
-        nombreField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
+        nombreField.setReadOnly(true);
 
-        TextField apellidoField = crearCampoTexto("Apellido");
+        TextField apellidoField = crearCampoTexto("Apellidos");
         apellidoField.setValue(valor(persona.getApellido()));
-        apellidoField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
+        apellidoField.setReadOnly(true);
+
+        TextField rolField = crearCampoTexto("Rol");
+        rolField.setValue(formatearRoles(empleado));
+        rolField.setReadOnly(true);
 
         TextField telefonoField = crearCampoTexto("Teléfono");
         telefonoField.setValue(valor(persona.getTelefono()));
@@ -62,9 +71,9 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
         telefonoField.setAllowedCharPattern("[0-9-]");
         telefonoField.setMaxLength(12);
 
-        TextField rolField = crearCampoTexto("Rol");
-        rolField.setValue(formatearRoles(empleado));
-        rolField.setReadOnly(true);
+        TextField direccionField = crearCampoTexto("Dirección");
+        direccionField.setValue(valor(persona.getDireccion()));
+        direccionField.setClearButtonVisible(true);
 
         Upload uploadFoto = crearUploadFoto();
         Button eliminarFotoButton = new Button("Eliminar foto", VaadinIcon.TRASH.create());
@@ -91,9 +100,8 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
         Button guardarPerfilButton = new Button("Guardar perfil", VaadinIcon.CHECK.create(), event -> {
             try {
                 Empleado actualizado = securityService.actualizarPerfilAutenticado(
-                        nombreField.getValue(),
-                        apellidoField.getValue(),
                         telefonoField.getValue(),
+                        direccionField.getValue(),
                         fotoPerfil
                 );
                 actualizarPreviewFoto(actualizado.getPersona());
@@ -109,9 +117,13 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
         Div perfilSection = crearSeccion(
                 "Perfil",
                 fotoPerfilLayout,
-                crearGridCampos(nombreField, apellidoField, telefonoField, rolField),
+                crearGridCampos(nombreField, apellidoField, rolField, telefonoField, direccionField),
                 crearAcciones(guardarPerfilButton)
         );
+
+        TextField usernameField = crearCampoTexto("Nombre de usuario");
+        usernameField.setValue(valor(usuario.getUsername()));
+        usernameField.setReadOnly(true);
 
         PasswordField passwordActualField = crearCampoPassword("Contraseña actual");
         PasswordField passwordNuevaField = crearCampoPassword("Nueva contraseña");
@@ -124,10 +136,8 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
                         passwordNuevaField.getValue(),
                         confirmacionPasswordField.getValue()
                 );
-                passwordActualField.clear();
-                passwordNuevaField.clear();
-                confirmacionPasswordField.clear();
-                mostrarExito("Contraseña actualizada correctamente");
+
+                authContext.logout();
             } catch (IllegalArgumentException | IllegalStateException ex) {
                 mostrarError(ex.getMessage());
             }
@@ -137,7 +147,7 @@ public class ConfiguracionUsuarioView extends VerticalLayout {
 
         Div cuentaSection = crearSeccion(
                 "Cuenta",
-                crearGridCampos(passwordActualField, passwordNuevaField, confirmacionPasswordField),
+                crearGridCampos(usernameField, passwordActualField, passwordNuevaField, confirmacionPasswordField),
                 crearAcciones(cambiarPasswordButton)
         );
 

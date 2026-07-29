@@ -27,11 +27,13 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.textfield.TextField;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -39,17 +41,15 @@ import java.util.Locale;
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class AnticipoSalarioView extends VerticalLayout {
     private final AnticipoSalarioService anticipoService;
-    private final PrestamoEmpleadoService prestamoEmpleadoService;
     private final EmpleadoService empleadoService;
     private final Grid<AnticipoSalario> gridAnticipos;
     private final GridPaginator<AnticipoSalario> paginator;
-    private final com.vaadin.flow.component.textfield.TextField txtFiltroEmpleado;
+    private final TextField txtFiltroEmpleado;
     private final ComboBox<EstadoAnticipo> cmbFiltroEstado;
 
-    public AnticipoSalarioView(AnticipoSalarioService anticipoService, EmpleadoService empleadoService, PrestamoEmpleadoService prestamoEmpleadoService) {
+    public AnticipoSalarioView(AnticipoSalarioService anticipoService, EmpleadoService empleadoService) {
         this.anticipoService = anticipoService;
         this.empleadoService = empleadoService;
-        this.prestamoEmpleadoService = prestamoEmpleadoService;
         this.gridAnticipos = new Grid<>(AnticipoSalario.class, false);
         this.paginator = new GridPaginator<>(gridAnticipos, 10, "anticipos");
 
@@ -88,7 +88,7 @@ public class AnticipoSalarioView extends VerticalLayout {
     }
 
     private void configurarGrid() {
-        gridAnticipos.addColumn(a -> a.getEmpleado().getPersona().getNombre())
+        gridAnticipos.addColumn(a -> a.getEmpleado().getPersona().getNombre() + " " + a.getEmpleado().getPersona().getApellido())
                 .setHeader("Empleado").setSortable(true).setFlexGrow(1);
 
         gridAnticipos.addColumn(AnticipoSalario::getFechaRegistro)
@@ -174,7 +174,7 @@ public class AnticipoSalarioView extends VerticalLayout {
 
         ComboBox<Empleado> cmbEmpleado = new ComboBox<>("Empleado");
         cmbEmpleado.setItems(empleadoService.findByStatus(StatusEntidad.ACTIVO));
-        cmbEmpleado.setItemLabelGenerator(e -> e.getPersona().getNombre());
+        cmbEmpleado.setItemLabelGenerator(e -> e.getPersona().getNombre() + " " + e.getPersona().getApellido());
         cmbEmpleado.setWidthFull();
 
         DatePicker fechaField = new DatePicker("Fecha de Emisión");
@@ -228,15 +228,6 @@ public class AnticipoSalarioView extends VerticalLayout {
             Empleado empleadoSeleccionado = event.getValue();
 
             if (empleadoSeleccionado != null) {
-                boolean bloqueado = prestamoEmpleadoService.existsByEmpleadoAndEstado(empleadoSeleccionado, EstadoPrestamo.ACTIVO);
-
-                if (bloqueado) {
-                    mostrarError("Este empleado tiene un Préstamo activo. No puede recibir anticipos.");
-                    btnGuardar.setEnabled(false);
-                } else {
-                    btnGuardar.setEnabled(true);
-                }
-
                 var limites = anticipoService.calcularLimitesParaUI(empleadoSeleccionado);
 
                 montoOriginalField.setHelperText("Permitido: RD$ " + formatearMonto(limites.get("minMonto")) +

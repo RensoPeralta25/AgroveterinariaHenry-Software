@@ -56,13 +56,13 @@ public class AnticipoSalarioService {
                 throw new IllegalStateException("El empleado ya posee un anticipo activo o en proceso de aprobación.");
             }
 
-            boolean tienePrestamoActivo = prestamoEmpleadoRepository.existsByEmpleadoAndEstado(
+            boolean tienePrestamoActivo = prestamoEmpleadoRepository.existsByEmpleadoAndEstadoIn(
                     anticipo.getEmpleado(),
-                    EstadoPrestamo.ACTIVO
+                    Arrays.asList(EstadoPrestamo.PENDIENTE, EstadoPrestamo.APROBADO)
             );
 
             if (tienePrestamoActivo) {
-                throw new IllegalStateException("El empleado tiene un Préstamo Activo. No puede solicitar un Anticipo.");
+                throw new IllegalStateException("El empleado tiene un Préstamo Activo o Pendiente. No puede solicitar un Anticipo.");
             }
 
             anticipo.setSaldoPendiente(anticipo.getMontoOriginal());

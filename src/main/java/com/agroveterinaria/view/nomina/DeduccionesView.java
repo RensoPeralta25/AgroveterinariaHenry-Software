@@ -42,8 +42,8 @@ public class DeduccionesView extends VerticalLayout {
         tabs.getStyle().set("width", "fit-content");
 
         VerticalLayout contenidoEmbargos = new EmbargoSalarialView(embargoSalarialService,empleadoService, configuracionNominaService, anticipoSalarioService);
-        VerticalLayout contenidoPrestamos = new VerticalLayout(new Span("Módulo de Préstamos en construcción..."));
-        VerticalLayout contenidoAnticipos = new AnticipoSalarioView(anticipoSalarioService,empleadoService, prestamoEmpleadoService);
+        VerticalLayout contenidoPrestamos = new PrestamoEmpleadoView(prestamoEmpleadoService, empleadoService);
+        VerticalLayout contenidoAnticipos = new AnticipoSalarioView(anticipoSalarioService,empleadoService);
 
         contenidoPrestamos.setVisible(false);
         contenidoEmbargos.setVisible(false);

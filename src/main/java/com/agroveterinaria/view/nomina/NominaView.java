@@ -31,8 +31,10 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
@@ -167,7 +169,14 @@ public class NominaView extends VerticalLayout {
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             btnEditar.setEnabled(corrida.getEstado() == EstadoCorrida.PENDIENTE);
             btnEditar.setVisible(corrida.getTipo() == TipoCorrida.ORDINARIA);
-            btnEditar.addClickListener(e -> dialogResultadoCorrida(corrida, paginator, true));
+            btnEditar.addClickListener(e -> {
+                List<NovedadNominaDTO> novedadesPrevias = extraerNovedadesDeCorrida(corrida);
+
+                dialogPreparacionNovedades(
+                        corrida.getPeriodo(), corrida.getFechaEmision(), corrida.getTipo(),
+                        corrida.getPeriodoFiscal(), null, novedadesPrevias, paginator, corrida
+                );
+            });
 
             Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK));
             btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -315,7 +324,7 @@ public class NominaView extends VerticalLayout {
 
             dialog.close();
             if (tipo == TipoCorrida.ORDINARIA) {
-                dialogPreparacionNovedades(periodo, fecha, tipo, cmbPeriodoFiscal.getValue(), cmbEmpleado.getValue(), novedadesMemoria, paginator);
+                dialogPreparacionNovedades(periodo, fecha, tipo, cmbPeriodoFiscal.getValue(), cmbEmpleado.getValue(), novedadesMemoria, paginator, null);
             } else {
                 try {
                     CorridaNomina corrida = corridaNominaService.generarCorrida(
@@ -337,10 +346,11 @@ public class NominaView extends VerticalLayout {
     private void dialogPreparacionNovedades(
             PeriodoNomina periodo, LocalDate fecha, TipoCorrida tipo,
             PeriodoFiscal periodoFiscal, Empleado empleadoUnico,
-            List<NovedadNominaDTO> novedades, GridPaginator<CorridaNomina> paginator) {
+            List<NovedadNominaDTO> novedades, GridPaginator<CorridaNomina> paginator,
+            CorridaNomina corridaOriginal) {
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Preparación de Novedades");
+        dialog.setHeaderTitle(corridaOriginal == null ? "Preparación de Novedades" : "Edición de Novedades");
         dialog.setWidth("80vw");
         dialog.setMaxWidth("900px");
 
@@ -361,7 +371,15 @@ public class NominaView extends VerticalLayout {
             return btnEditar;
         }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
 
-        gridNovedades.setItems(novedades);
+        List<NovedadNominaDTO> novedadesOrdenadas = novedades.stream()
+                .sorted(java.util.Comparator.comparing(dto -> {
+                    String nombre = dto.getEmpleado().getPersona().getNombre() != null ? dto.getEmpleado().getPersona().getNombre() : "";
+                    String apellido = dto.getEmpleado().getPersona().getApellido() != null ? dto.getEmpleado().getPersona().getApellido() : "";
+                    return (nombre + " " + apellido).trim().toLowerCase();
+                }))
+                .toList();
+
+        gridNovedades.setItems(novedadesOrdenadas);
         gridNovedades.setHeight("400px");
 
         Button btnCancelar = new Button("Cancelar", e -> dialog.close());
@@ -371,6 +389,10 @@ public class NominaView extends VerticalLayout {
         btnGenerar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SUCCESS);
         btnGenerar.addClickListener(e -> {
             try {
+                if (corridaOriginal != null) {
+                    corridaNominaService.delete(corridaOriginal);
+                }
+
                 CorridaNomina corrida = corridaNominaService.generarCorrida(
                         periodo, fecha, tipo, periodoFiscal, empleadoUnico, novedades
                 );
@@ -395,37 +417,41 @@ public class NominaView extends VerticalLayout {
         dialog.setWidth("80vw");
         dialog.setMaxWidth("900px");
 
+        int maxDias = switch (periodo) {
+            case MES -> fechaCorrida.lengthOfMonth();
+            case SEMANAL -> 6;
+            case QUINCENA -> (fechaCorrida.getDayOfMonth() <= 15) ? 15 : (fechaCorrida.lengthOfMonth() - 15);
+        };
+
+        int maxHorasExtras = switch (periodo) {
+            case SEMANAL -> configuracionNominaService.getMaxHorasExtrasSemanal();
+            case QUINCENA -> configuracionNominaService.getMaxHorasExtrasQuincenal();
+            case MES -> configuracionNominaService.getMaxHorasExtrasMensual();
+        };
+
         NumberField horasExtras = new NumberField("Horas extras");
         horasExtras.setMin(0);
         horasExtras.setPlaceholder("0");
         horasExtras.setWidthFull();
-        horasExtras.setValue(dto.getHorasExtras() != null ? dto.getHorasExtras().doubleValue() : 0d);
+        horasExtras.setValue((dto.getHorasExtras() != null && dto.getHorasExtras() > 0) ? dto.getHorasExtras().doubleValue() : null);
 
         BigDecimalField comisionesRegulares = crearCampoMoneda("Comisiones Regulares");
-        comisionesRegulares.setValue(dto.getComisionesRegulares());
+        comisionesRegulares.setValue((dto.getComisionesRegulares() != null && dto.getComisionesRegulares().compareTo(BigDecimal.ZERO) > 0) ? dto.getComisionesRegulares() : null);
 
         BigDecimalField comisionesExtraordinarias = crearCampoMoneda("Comisiones Extraordinarias / Bonos");
-        comisionesExtraordinarias.setValue(dto.getComisionesExtraordinarias());
+        comisionesExtraordinarias.setValue((dto.getComisionesExtraordinarias() != null && dto.getComisionesExtraordinarias().compareTo(BigDecimal.ZERO) > 0) ? dto.getComisionesExtraordinarias() : null);
 
         BigDecimalField dietasYViaticos = crearCampoMoneda("Dietas y viáticos");
-        dietasYViaticos.setValue(dto.getDietasViaticos());
+        dietasYViaticos.setValue((dto.getDietasViaticos() != null && dto.getDietasViaticos().compareTo(BigDecimal.ZERO) > 0) ? dto.getDietasViaticos() : null);
 
         NumberField ausencias = new NumberField("Ausencias no pagadas (días)");
         ausencias.setMin(0);
 
-        int maxDias;
-        if (periodo == PeriodoNomina.MES) {
-            maxDias = fechaCorrida.lengthOfMonth();
-        } else if (periodo == PeriodoNomina.SEMANAL) {
-            maxDias = 7;
-        } else {
-            maxDias = (fechaCorrida.getDayOfMonth() <= 15) ? 15 : (fechaCorrida.lengthOfMonth() - 15);
-        }
         ausencias.setMax(maxDias);
         ausencias.setStep(0.5);
         ausencias.setPlaceholder("0");
         ausencias.setWidthFull();
-        ausencias.setValue(dto.getAusenciasNoPagadasDias() != null ? dto.getAusenciasNoPagadasDias().doubleValue() : 0d);
+        ausencias.setValue((dto.getAusenciasNoPagadasDias() != null && dto.getAusenciasNoPagadasDias() > 0) ? dto.getAusenciasNoPagadasDias().doubleValue() : null);
 
         FormLayout formIngresos = new FormLayout(horasExtras, comisionesRegulares, comisionesExtraordinarias, dietasYViaticos);
         formIngresos.setResponsiveSteps(
@@ -457,9 +483,28 @@ public class NominaView extends VerticalLayout {
         btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         btnGuardar.addClickListener(e -> {
-            if (ausencias.getValue() != null && ausencias.getValue() > maxDias) {
-                mostrarError("La cantidad de ausencias (" + ausencias.getValue()
-                        + ") excede el límite máximo de " + maxDias + " días para este período.");
+            if (ausencias.getValue() != null && (ausencias.getValue() < 0 || ausencias.getValue() > maxDias)) {
+                mostrarError("Las ausencias deben estar entre 0 y " + maxDias + " días para este período.");
+                return;
+            }
+
+            if (horasExtras.getValue() != null && (horasExtras.getValue() < 0 || horasExtras.getValue() > maxHorasExtras)) {
+                mostrarError("Las horas extras deben estar entre 0 y " + maxHorasExtras + " para este período.");
+                return;
+            }
+
+            if (comisionesRegulares.getValue() != null && comisionesRegulares.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                mostrarError("Las comisiones regulares no pueden ser negativas.");
+                return;
+            }
+
+            if (comisionesExtraordinarias.getValue() != null && comisionesExtraordinarias.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                mostrarError("Las comisiones extraordinarias no pueden ser negativas.");
+                return;
+            }
+
+            if (dietasYViaticos.getValue() != null && dietasYViaticos.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                mostrarError("Las dietas y viáticos no pueden ser negativos.");
                 return;
             }
 
@@ -484,6 +529,10 @@ public class NominaView extends VerticalLayout {
             GridPaginator<CorridaNomina> paginator,
             boolean esModoEdicion
     ) {
+        List<Nomina> nominasOrdenadas = corrida.getNominas().stream()
+                .sorted(Comparator.comparing(n -> n.getEmpleado().getPersona().getNombre() + " " + n.getEmpleado().getPersona().getApellido()))
+                .collect(Collectors.toList());
+
         Dialog dialog = new Dialog();
 
         String tituloDialog;
@@ -499,7 +548,7 @@ public class NominaView extends VerticalLayout {
         dialog.setMaxWidth("850px");
 
         Grid<Nomina> gridNominas = new Grid<>(Nomina.class, false);
-        gridNominas.addColumn(n -> n.getEmpleado().getPersona().getNombre())
+        gridNominas.addColumn(n -> n.getEmpleado().getPersona().getNombre() + " " + n.getEmpleado().getPersona().getApellido())
                 .setHeader("Empleado").setFlexGrow(1);
         gridNominas.addColumn(n -> "RD$ " + formatearMonto(n.getTotalDevengado()))
                 .setHeader("Devengado").setWidth("150px").setFlexGrow(0);
@@ -516,7 +565,7 @@ public class NominaView extends VerticalLayout {
             return btnVer;
         }).setWidth("90px").setFlexGrow(0).setHeader("Acciones");
 
-        gridNominas.setItems(corrida.getNominas());
+        gridNominas.setItems(nominasOrdenadas);
         gridNominas.setHeight("300px");
 
         Span totalGeneral = new Span("Total general: RD$ " + formatearMonto(corrida.getTotalGeneral()));
@@ -557,8 +606,8 @@ public class NominaView extends VerticalLayout {
     private void dialogDetalleNomina(Nomina nomina) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Detalle — " + nomina.getEmpleado().getPersona().getNombre());
-        dialog.setWidth("75vw");
-        dialog.setMaxWidth("600px");
+        dialog.setWidth("80vw");
+        dialog.setMaxWidth("750px");
 
         Grid<DetalleNomina> gridDetalle = new Grid<>(DetalleNomina.class, false);
         gridDetalle.addColumn(DetalleNomina::getDescripcion).setHeader("Concepto").setFlexGrow(1);
@@ -646,5 +695,28 @@ public class NominaView extends VerticalLayout {
                 .toList();
 
         paginator.setItems(listaFiltrada);
+    }
+
+    private List<NovedadNominaDTO> extraerNovedadesDeCorrida(CorridaNomina corrida) {
+        List<NovedadNominaDTO> listaNovedades = new ArrayList<>();
+
+        for (Nomina nomina : corrida.getNominas()) {
+            NovedadNominaDTO dto = new NovedadNominaDTO(nomina.getEmpleado());
+
+            for (DetalleNomina detalle : nomina.getDetalles()) {
+                switch (detalle.getTipo()) {
+                    case HORAS_EXTRAS -> dto.setHorasExtras(detalle.getCantidad().intValue());
+                    case COMISIONES_REGULARES -> dto.setComisionesRegulares(detalle.getMonto());
+                    case COMISIONES_EXTRAORDINARIAS -> dto.setComisionesExtraordinarias(detalle.getMonto());
+                    case AUSENCIAS_NO_PAGADAS -> dto.setAusenciasNoPagadasDias(detalle.getCantidad().intValue());
+                }
+            }
+
+            if (dto.getHorasExtras() != null || dto.getComisionesRegulares() != null ||
+                    dto.getComisionesExtraordinarias() != null || dto.getAusenciasNoPagadasDias() != null) {
+                listaNovedades.add(dto);
+            }
+        }
+        return listaNovedades;
     }
 }

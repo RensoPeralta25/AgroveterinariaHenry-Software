@@ -61,6 +61,7 @@ public class EmpleadoService {
         Persona personaForm = emp.getPersona();
 
         if (personaExistente != null && personaForm != null) {
+            personaExistente.setCedula(personaForm.getCedula());
             personaExistente.setNombre(personaForm.getNombre());
             personaExistente.setTelefono(personaForm.getTelefono());
             personaExistente.setDireccion(personaForm.getDireccion());
@@ -144,6 +145,11 @@ public class EmpleadoService {
 
         if (empleado.getCargos() == null || empleado.getCargos().isEmpty()) {
             throw new IllegalArgumentException("Error: El empleado debe tener al menos un rol asignado.");
+        }
+
+        if (empleado.getCargos().contains(RolEmpleado.ADMINISTRADOR) && empleado.getCargos().size() > 1) {
+            empleado.getCargos().clear();
+            empleado.getCargos().add(RolEmpleado.ADMINISTRADOR);
         }
     }
 

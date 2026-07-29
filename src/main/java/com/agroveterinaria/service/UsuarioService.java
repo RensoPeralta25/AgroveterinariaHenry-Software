@@ -27,7 +27,7 @@ public class UsuarioService {
             throw new IllegalArgumentException("Error: El nombre de usuario '" + u.getUsername() + "' ya está en uso");
         }
 
-        if (u.getIdUsuario() == null || u.getPassword().length() < 60) {
+        if (u.getIdUsuario() == null || (u.getPassword() != null && !u.getPassword().startsWith("$2a$"))) {
             u.setPassword(passwordEncoder.encode(u.getPassword()));
         }
 
