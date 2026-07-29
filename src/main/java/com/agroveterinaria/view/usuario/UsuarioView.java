@@ -3,6 +3,7 @@ package com.agroveterinaria.view.usuario;
 import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Usuario;
+import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.UsuarioService;
 import com.vaadin.flow.component.button.Button;
@@ -20,6 +21,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
@@ -35,7 +37,7 @@ public class UsuarioView extends VerticalLayout {
     private final EmpleadoService empleadoService;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioView(UsuarioService usuarioService, EmpleadoService empleadoService, PasswordEncoder passwordEncoder) {
+    public UsuarioView(UsuarioService usuarioService, EmpleadoService empleadoService, PasswordEncoder passwordEncoder, SecurityService securityService) {
         this.usuarioService = usuarioService;
         this.empleadoService = empleadoService;
         this.passwordEncoder = passwordEncoder;
@@ -51,13 +53,12 @@ public class UsuarioView extends VerticalLayout {
 
         DefaultCrudFormFactory<Usuario> formFactory = (DefaultCrudFormFactory<Usuario>) crudUsuario.getCrudFormFactory();
 
-        crudUsuario.getGrid().setColumns("idUsuario", "username");
-        crudUsuario.getGrid().getColumnByKey("idUsuario").setHeader("ID");
-        crudUsuario.getGrid().getColumnByKey("username").setHeader("Usuario");
+        crudUsuario.getGrid().setColumns("username");
+        crudUsuario.getGrid().getColumnByKey("username").setHeader("Usuario").setSortable(true);
 
         crudUsuario.getGrid().addColumn(usuario -> {
             Empleado emp = empleadoService.findByUsuario(usuario);
-            return emp != null && emp.getPersona() != null ? emp.getPersona().getNombre() : "Sin asignar";
+            return emp != null && emp.getPersona() != null ? emp.getPersona().getNombre() + " " + emp.getPersona().getApellido() : "Sin asignar";
         }).setHeader("Empleado").setFlexGrow(1);
 
         crudUsuario.getGrid().addComponentColumn(usuario -> {
@@ -73,6 +74,17 @@ public class UsuarioView extends VerticalLayout {
                 crudUsuario.getGrid().select(usuario);
                 crudUsuario.getDeleteButton().click();
             });
+
+            Usuario actual = securityService.obtenerUsuarioAutenticado();
+            boolean esUsuarioActual = actual != null &&
+                    actual.getUsername() != null &&
+                    usuario.getUsername() != null &&
+                    usuario.getUsername().equals(actual.getUsername());
+
+            if (esUsuarioActual) {
+                btnEditar.setEnabled(false);
+                btnEliminar.setEnabled(false);
+            }
 
             HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEliminar);
             acciones.setSpacing(false);
@@ -110,11 +122,11 @@ public class UsuarioView extends VerticalLayout {
         HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, buscarUsuario);
         toolbar.setWidthFull();
         toolbar.setAlignItems(Alignment.CENTER);
+        toolbar.expand(buscarUsuario);
         toolbar.addClassName("usuario-toolbar");
 
-        formFactory.setVisibleProperties("username", "password");
-        formFactory.setFieldCaptions("Nombre de Usuario", "Contraseña");
-        formFactory.setFieldType("password", PasswordField.class);
+        formFactory.setVisibleProperties(CrudOperation.DELETE, "username");
+        formFactory.setFieldCaptions(CrudOperation.DELETE, "Usuario a eliminar");
 
         formFactory.setButtonCaption(CrudOperation.DELETE, "Sí, eliminar");
         formFactory.setCancelButtonCaption("Cancelar");
@@ -167,7 +179,7 @@ public class UsuarioView extends VerticalLayout {
         gridEmpleados.setHeight("250px");
 
         gridEmpleados.addColumn(emp ->
-                emp.getPersona() != null ? emp.getPersona().getNombre() : ""
+                emp.getPersona() != null ? emp.getPersona().getNombre() + " " + emp.getPersona().getApellido() : ""
         ).setHeader("Nombre").setFlexGrow(1);
 
         gridEmpleados.addColumn(emp ->
@@ -195,11 +207,13 @@ public class UsuarioView extends VerticalLayout {
                 usernameField.setErrorMessage("El nombre de usuario es obligatorio");
                 return;
             }
-            if (passwordField.isEmpty()) {
+
+            if (passwordField.isEmpty() || passwordField.getValue().length() < 6) {
                 passwordField.setInvalid(true);
-                passwordField.setErrorMessage("La contraseña es obligatoria");
+                passwordField.setErrorMessage("La contraseña debe tener al menos 6 caracteres");
                 return;
             }
+
             if (empleadoSeleccionado == null) {
                 Notification notif = Notification.show(
                         "Debes seleccionar un empleado", 3500, Notification.Position.MIDDLE);
@@ -266,7 +280,8 @@ public class UsuarioView extends VerticalLayout {
 
         PasswordField passwordField = new PasswordField("Contraseña");
         passwordField.setWidthFull();
-        passwordField.setValue(usuario.getPassword() != null ? usuario.getPassword() : "");
+        passwordField.setPlaceholder("Dejar en blanco para conservar la actual");
+        passwordField.setClearButtonVisible(true);
 
         usernameField.addValueChangeListener(e -> usernameField.setInvalid(false));
         passwordField.addValueChangeListener(e -> passwordField.setInvalid(false));
@@ -277,15 +292,14 @@ public class UsuarioView extends VerticalLayout {
                 usernameField.setErrorMessage("El nombre de usuario es obligatorio");
                 return;
             }
-            if (passwordField.isEmpty()) {
-                passwordField.setInvalid(true);
-                passwordField.setErrorMessage("La contraseña es obligatoria");
-                return;
-            }
 
             try {
                 usuario.setUsername(usernameField.getValue().trim());
-                usuario.setPassword(passwordField.getValue());
+
+                if (!passwordField.isEmpty()) {
+                    usuario.setPassword(passwordField.getValue());
+                }
+
                 usuarioService.save(usuario);
 
                 dialog.close();
@@ -318,6 +332,14 @@ public class UsuarioView extends VerticalLayout {
 
         dialog.add(contenido);
         dialog.open();
+    }
+
+    private String getUsuarioLogueado() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
+            return authentication.getName();
+        }
+        return null;
     }
 
 }

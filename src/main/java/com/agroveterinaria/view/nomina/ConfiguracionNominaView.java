@@ -64,6 +64,7 @@ public class ConfiguracionNominaView extends VerticalLayout {
         valorField.setValue(config.getValor());
         valorField.setWidthFull();
         valorField.setPrefixComponent(new Span("#"));
+        valorField.setClearButtonVisible(true);
 
         VerticalLayout contenido = new VerticalLayout(valorField);
         contenido.setPadding(false);
@@ -78,11 +79,22 @@ public class ConfiguracionNominaView extends VerticalLayout {
                 mostrarError("El valor no puede estar vacío.");
                 return;
             }
+
+            if (valorField.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                mostrarError("El valor de configuración no puede ser negativo.");
+                return;
+            }
             config.setValor(valorField.getValue());
-            configuracionNominaService.actualizar(config);
-            paginator.setItems(configuracionNominaService.findAll());
-            dialog.close();
-            mostrarExito("Configuración actualizada correctamente.");
+
+
+            try {
+                configuracionNominaService.actualizar(config);
+                paginator.setItems(configuracionNominaService.findAll());
+                dialog.close();
+                mostrarExito("Configuración actualizada correctamente.");
+            } catch (Exception ex) {
+                mostrarError("Error al guardar: " + ex.getMessage());
+            }
         });
 
         dialog.add(contenido);

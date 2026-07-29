@@ -64,7 +64,7 @@ public class SecurityService {
     }
 
     @Transactional
-    public Empleado actualizarPerfilAutenticado(String nombre, String apellido, String telefono, byte[] fotoPerfil) {
+    public Empleado actualizarPerfilAutenticado(String telefono, String direccion, byte[] fotoPerfil) {
         Usuario usuarioActual = obtenerUsuarioAutenticado();
         Empleado empleadoActual = obtenerEmpleadoAutenticado();
 
@@ -72,12 +72,8 @@ public class SecurityService {
             throw new IllegalStateException("No se pudo encontrar el perfil del usuario autenticado.");
         }
 
-        String nombreNormalizado = normalizar(nombre);
-        String apellidoNormalizado = normalizar(apellido);
         String telefonoNormalizado = normalizar(telefono);
-
-        validarNombre("nombre", nombreNormalizado);
-        validarNombre("apellido", apellidoNormalizado);
+        String direccionNormalizada = normalizar(direccion);
 
         if (telefonoNormalizado.isBlank()) {
             throw new IllegalArgumentException("El teléfono es obligatorio.");
@@ -87,10 +83,13 @@ public class SecurityService {
             throw new IllegalArgumentException("El teléfono debe tener el formato 000-000-0000.");
         }
 
+        if (direccionNormalizada.isBlank()) {
+            throw new IllegalArgumentException("La dirección es obligatoria.");
+        }
+
         Persona persona = empleadoActual.getPersona();
-        persona.setNombre(nombreNormalizado);
-        persona.setApellido(apellidoNormalizado);
         persona.setTelefono(telefonoNormalizado);
+        persona.setDireccion(direccionNormalizada);
         personaRepository.save(persona);
 
         usuarioActual.setFotoPerfil(fotoPerfil);

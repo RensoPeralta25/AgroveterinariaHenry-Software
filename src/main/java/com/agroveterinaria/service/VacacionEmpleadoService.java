@@ -2,6 +2,7 @@ package com.agroveterinaria.service;
 
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.VacacionEmpleado;
+import com.agroveterinaria.enums.EstadoVacacion;
 import com.agroveterinaria.repository.VacacionEmpleadoRepository;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
@@ -37,6 +38,15 @@ public class VacacionEmpleadoService {
         return vacacionEmpleadoRepository.save(vacacionEmpleado);
     }
 
+    public void aprobarVacacion(VacacionEmpleado vacacion, Empleado aprobador) {
+        if (vacacion.getEstado() != EstadoVacacion.PENDIENTE) {
+            throw new IllegalStateException("Solo se pueden aprobar vacaciones en estado PENDIENTE.");
+        }
+        vacacion.setEstado(EstadoVacacion.APROBADA);
+        vacacion.setAprobadoPor(aprobador);
+        vacacionEmpleadoRepository.save(vacacion);
+    }
+
     public VacacionEmpleado update(VacacionEmpleado vacacionModificada){
         validarFechasUnicas(vacacionModificada);
         validarAntiguedadMinima(vacacionModificada);
@@ -45,8 +55,8 @@ public class VacacionEmpleadoService {
         VacacionEmpleado original = vacacionEmpleadoRepository.findById(vacacionModificada.getId())
                 .orElseThrow(() -> new IllegalArgumentException("La vacación no existe."));
 
-        if (original.isPagado()) {
-            throw new IllegalStateException("Acción denegada: No se pueden modificar los datos de una vacación que ya fue procesada y pagada en nómina.");
+        if (original.getEstado() != EstadoVacacion.PENDIENTE) {
+            throw new IllegalStateException("Acción denegada: No se pueden modificar los datos de una vacación que ya fue aprobada o pagada.");
         }
 
         if (!original.getEmpleado().getIdEmpleado().equals(vacacionModificada.getEmpleado().getIdEmpleado())) {
@@ -67,7 +77,7 @@ public class VacacionEmpleadoService {
     }
 
     public void marcarComoPagada(VacacionEmpleado vacacion) {
-        vacacion.setPagado(true);
+        vacacion.setEstado(EstadoVacacion.PAGADA);
         vacacionEmpleadoRepository.save(vacacion);
     }
 
@@ -99,14 +109,14 @@ public class VacacionEmpleadoService {
     }
 
     public void delete(VacacionEmpleado vacacionEmpleado){
-        if (vacacionEmpleado.isPagado()) {
-            throw new IllegalStateException("Acción denegada: No se puede eliminar un registro de vacaciones que ya ha sido pagado en nómina.");
+        if (vacacionEmpleado.getEstado() != EstadoVacacion.PENDIENTE) {
+            throw new IllegalStateException("Acción denegada: No se puede eliminar un registro de vacaciones que ya ha sido aprobado o pagado.");
         }
         vacacionEmpleadoRepository.delete(vacacionEmpleado);
     }
 
-    public List<VacacionEmpleado> findByEmpleadoAndPagadoFalse(Empleado empleado){
-        return vacacionEmpleadoRepository.findByEmpleadoAndPagadoFalse(empleado);
+    public List<VacacionEmpleado> findByEmpleadoYNoPagadas(Empleado empleado){
+        return vacacionEmpleadoRepository.findByEmpleadoAndEstadoNot(empleado, EstadoVacacion.PAGADA);
     }
 
     public boolean existsByEmpleado(Empleado empleado){

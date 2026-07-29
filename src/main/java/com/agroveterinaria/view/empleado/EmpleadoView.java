@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.NominaService;
 import com.agroveterinaria.service.PersonaService;
@@ -26,20 +27,25 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
 import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class EmpleadoView extends VerticalLayout {
     private static final String CEDULA_PATTERN = "\\d{3}-\\d{7}-\\d{1}";
 
-    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService, NominaService nominaService) {
+    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService, NominaService nominaService, SecurityService securityService) {
         setSizeFull();
         setPadding(true);
         setSpacing(false);
@@ -54,12 +60,33 @@ public class EmpleadoView extends VerticalLayout {
 
         crudEmpleado.getGrid().removeAllColumns();
 
-        crudEmpleado.getGrid().addColumn(Empleado::getIdEmpleado).setHeader("ID").setSortable(true);
         crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getCedula() : "").setHeader("Cédula");
-        crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getNombre() : "").setHeader("Nombre");
+        crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getNombre() + " " + e.getPersona().getApellido() : "").setHeader("Nombre").setSortable(true);
         crudEmpleado.getGrid().addColumn(e -> e.getPersona() != null ? e.getPersona().getTelefono() : "").setHeader("Teléfono");
         crudEmpleado.getGrid().addColumn(Empleado::getFechaIngreso).setHeader("Fecha de Ingreso").setSortable(true);
-        crudEmpleado.getGrid().addColumn(Empleado::getSalario).setHeader("Salario");
+        crudEmpleado.getGrid().addColumn(e -> formatearSueldo(e.getSalario())).setHeader("Salario");
+
+        crudEmpleado.getGrid().addComponentColumn(empleado -> {
+            if (empleado.getCargos() == null || empleado.getCargos().isEmpty()) {
+                return new Span("Sin roles");
+            }
+
+            HorizontalLayout layoutBadges = new HorizontalLayout();
+            layoutBadges.addClassName("roles-container");
+            layoutBadges.setPadding(false);
+            layoutBadges.setMargin(false);
+
+            for (RolEmpleado rol : empleado.getCargos()) {
+                Span badge = new Span(rol.getDescripcion());
+
+                badge.getElement().getThemeList().add("badge");
+                badge.addClassName("rol-badge");
+
+                layoutBadges.add(badge);
+            }
+
+            return layoutBadges;
+        }).setHeader("Roles").setFlexGrow(2);
 
         crudEmpleado.getGrid().addComponentColumn(empleado -> {
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
@@ -108,6 +135,18 @@ public class EmpleadoView extends VerticalLayout {
                 crudEmpleado.getGrid().select(empleado);
                 crudEmpleado.getDeleteButton().click();
             });
+
+            Empleado actual = securityService.obtenerEmpleadoAutenticado();
+            boolean esUsuarioActual = actual != null &&
+                    actual.getUsuario() != null &&
+                    empleado.getUsuario() != null &&
+                    empleado.getUsuario().getUsername().equals(actual.getUsuario().getUsername());
+
+            if (esUsuarioActual) {
+                btnEditar.setEnabled(false);
+                btnEstado.setEnabled(false);
+                btnEliminar.setEnabled(false);
+            }
 
             HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEstado, btnEliminar);
             acciones.setSpacing(false);
@@ -162,6 +201,7 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setVisibleProperties(
                 "persona.cedula",
                 "persona.nombre",
+                "persona.apellido",
                 "persona.telefono",
                 "persona.direccion",
                 "fechaIngreso",
@@ -172,6 +212,7 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setFieldCaptions(
                 "Cédula",
                 "Nombre",
+                "Apellidos",
                 "Teléfono",
                 "Dirección",
                 "Fecha de ingreso",
@@ -179,49 +220,81 @@ public class EmpleadoView extends VerticalLayout {
                 "Cargos"
         );
 
-        TextField cedulaField = crearCampoCedula();
-        TextField telefonoField = crearCampoTelefono();
+        formFactory.setFieldProvider("persona.telefono", empleado -> crearCampoTelefono());
+        formFactory.setFieldProvider("persona.direccion", empleado -> {
+            TextField direccionField = new TextField("Dirección");
+            direccionField.setClearButtonVisible(true);
+            return direccionField;
+        });
+        formFactory.setFieldProvider("salario", empleado -> crearCampoSalario());
 
-        TextField nombreField = new TextField("Nombre");
-        nombreField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
-        nombreField.setClearButtonVisible(true);
-
-        TextField direccionField = new TextField("Dirección");
-        direccionField.setClearButtonVisible(true);
-
-        cedulaField.setValueChangeMode(ValueChangeMode.ON_BLUR);
-        cedulaField.addValueChangeListener(event -> {
-            if (event.isFromClient()) {
-                String cedula = event.getValue();
-
-                if (cedula != null && cedula.matches(CEDULA_PATTERN)) {
-                    Optional<Persona> persona = personaService.findByCedula(cedula);
-
-                    if (persona.isPresent()) {
-                        Persona p = persona.get();
-
-                        nombreField.setValue(p.getNombre());
-                        telefonoField.setValue(p.getTelefono());
-                        direccionField.setValue(p.getDireccion());
-
-                        nombreField.setReadOnly(true);
-                        telefonoField.setReadOnly(true);
-                        direccionField.setReadOnly(true);
-
-                    } else {
-                        reiniciarCampos(nombreField, telefonoField, direccionField);
-                    }
-                } else {
-                    reiniciarCampos(nombreField, telefonoField, direccionField);
-                }
-            }
+        formFactory.setFieldProvider("persona.nombre", empleado -> {
+            TextField nombreField = new TextField("Nombre");
+            nombreField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
+            nombreField.setClearButtonVisible(true);
+            return nombreField;
         });
 
-        formFactory.setFieldProvider("persona.cedula", empleado -> cedulaField);
-        formFactory.setFieldProvider("persona.telefono", empleado -> telefonoField);
-        formFactory.setFieldProvider("persona.nombre", empleado -> nombreField);
-        formFactory.setFieldProvider("persona.direccion", empleado -> direccionField);
-        formFactory.setFieldProvider("salario", empleado -> crearCampoSalario());
+        formFactory.setFieldProvider("persona.apellido", empleado -> {
+            TextField apellidoField = new TextField("Apellidos");
+            apellidoField.setAllowedCharPattern("[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]");
+            apellidoField.setClearButtonVisible(true);
+            return apellidoField;
+        });
+
+        formFactory.setFieldProvider("persona.cedula", obj -> {
+            Empleado empleado = (Empleado) obj;
+
+            TextField cedulaField = crearCampoCedula();
+
+            if (empleado.getIdEmpleado() == null) {
+                cedulaField.addValueChangeListener(event -> {
+                    if (event.isFromClient()) {
+                        String cedula = event.getValue();
+
+                        if (cedula != null && cedula.matches(CEDULA_PATTERN)) {
+                            Optional<Persona> persona = personaService.findByCedula(cedula);
+
+                            cedulaField.getParent().ifPresent(parent -> {
+                                parent.getChildren().forEach(component -> {
+                                    if (component instanceof TextField txt) {
+                                        if ("Nombre".equals(txt.getLabel())) {
+                                            txt.setValue(persona.isPresent() ? persona.get().getNombre() : "");
+                                            txt.setReadOnly(persona.isPresent());
+                                        } else if ("Apellidos".equals(txt.getLabel())) {
+                                            txt.setValue(persona.isPresent() && persona.get().getApellido() != null ? persona.get().getApellido() : "");
+                                            txt.setReadOnly(persona.isPresent());
+                                        } else if ("Teléfono".equals(txt.getLabel())) {
+                                            txt.setValue(persona.isPresent() ? persona.get().getTelefono() : "");
+                                            txt.setReadOnly(persona.isPresent());
+                                        } else if ("Dirección".equals(txt.getLabel())) {
+                                            txt.setValue(persona.isPresent() ? persona.get().getDireccion() : "");
+                                            txt.setReadOnly(persona.isPresent());
+                                        }
+                                    }
+                                });
+                            });
+                        } else {
+                            cedulaField.getParent().ifPresent(parent -> {
+                                parent.getChildren().forEach(component -> {
+                                    if (component instanceof TextField txt) {
+                                        if ("Nombre".equals(txt.getLabel()) || "Apellidos".equals(txt.getLabel()) ||
+                                                "Teléfono".equals(txt.getLabel()) || "Dirección".equals(txt.getLabel())) {
+                                            txt.clear();
+                                            txt.setReadOnly(false);
+                                        }
+                                    }
+                                });
+                            });
+                        }
+                    }
+                });
+            } else {
+                cedulaField.setReadOnly(true);
+            }
+
+            return cedulaField;
+        });
 
         formFactory.setFieldProvider("fechaIngreso", empleado -> {
             DatePicker fechaIngresoField = new DatePicker("Fecha de ingreso");
@@ -233,11 +306,21 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setFieldProvider("cargos", empleado -> {
             MultiSelectComboBox<RolEmpleado> combo = new MultiSelectComboBox<>("Roles");
             combo.setItems(RolEmpleado.values());
-            combo.setItemLabelGenerator(rol ->
-                    rol.name().charAt(0) + rol.name().substring(1).toLowerCase()
-            );
+            combo.setItemLabelGenerator(RolEmpleado::getDescripcion);
             combo.setWidthFull();
             combo.setClearButtonVisible(true);
+
+            combo.addValueChangeListener(event -> {
+                Set<RolEmpleado> seleccionados = event.getValue();
+                if (seleccionados != null && seleccionados.contains(RolEmpleado.ADMINISTRADOR) && seleccionados.size() > 1) {
+                    combo.setValue(Set.of(RolEmpleado.ADMINISTRADOR));
+
+                    Notification.show("El rol de Administrador tiene acceso total y no requiere roles adicionales.",
+                                    3000, Notification.Position.MIDDLE)
+                            .addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+                }
+            });
+
             return combo;
         });
 
@@ -296,7 +379,7 @@ public class EmpleadoView extends VerticalLayout {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.addClassName("dialog-baja-empleado");
         dialog.setHeader("Dar de baja al empleado");
-        dialog.setText("¿Está seguro que desea dar de baja a " + empleado.getPersona().getNombre() + "? Se le cortará el acceso al sistema inmediatamente.");
+        dialog.setText("¿Está seguro que desea dar de baja a " + empleado.getPersona().getNombre() + " " + empleado.getPersona().getApellido() + "? Se le cortará el acceso al sistema inmediatamente.");
         dialog.setConfirmText("Sí, dar de baja");
         dialog.setConfirmButtonTheme("error tonal");
         dialog.setCancelable(true);
@@ -358,10 +441,13 @@ public class EmpleadoView extends VerticalLayout {
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 
-    private void reiniciarCampos(TextField nombre, TextField telefono, TextField direccion) {
+    private void reiniciarCampos(TextField nombre, TextField apellido, TextField telefono, TextField direccion) {
         if (nombre.isReadOnly() || telefono.isReadOnly() || direccion.isReadOnly()) {
             nombre.clear();
             nombre.setReadOnly(false);
+
+            apellido.clear();
+            apellido.setReadOnly(false);
 
             telefono.clear();
             telefono.setReadOnly(false);
@@ -383,11 +469,33 @@ public class EmpleadoView extends VerticalLayout {
         paginator.setSource(() ->
                 empleadoService.findAll().stream()
                         .filter(emp -> mostrarInactivos || emp.getStatus() == StatusEntidad.ACTIVO)
-                        .filter(emp -> emp.getPersona() != null &&
-                                emp.getPersona().getNombre().toLowerCase().contains(filtroTexto))
+                        .filter(emp -> {
+                            if (emp.getPersona() == null) return false;
+
+                            String nombre = emp.getPersona().getNombre() != null ? emp.getPersona().getNombre().toLowerCase() : "";
+                            String apellido = emp.getPersona().getApellido() != null ? emp.getPersona().getApellido().toLowerCase() : "";
+
+                            return nombre.contains(filtroTexto) || apellido.contains(filtroTexto);
+                        })
                         .toList()
         );
         crud.setFindAllOperation(paginator::pageItems);
         paginator.reset();
+    }
+
+    private String formatearSueldo(BigDecimal sueldo) {
+        if (sueldo == null) return "RD$ 0.00";
+        NumberFormat formato = NumberFormat.getNumberInstance(new Locale("es", "DO"));
+        formato.setMinimumFractionDigits(2);
+        formato.setMaximumFractionDigits(2);
+        return "RD$ " + formato.format(sueldo);
+    }
+
+    private String getUsuarioLogueado() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
+            return authentication.getName();
+        }
+        return null;
     }
 }

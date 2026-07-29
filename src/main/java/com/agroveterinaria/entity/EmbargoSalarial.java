@@ -1,6 +1,6 @@
 package com.agroveterinaria.entity;
 
-import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.enums.EstadoEmbargo;
 import com.agroveterinaria.enums.TipoEmbargo;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -48,10 +48,7 @@ public class EmbargoSalarial {
 
     @NotNull(message = "El estado es obligatorio")
     @Enumerated(EnumType.STRING)
-    private StatusEntidad estado = StatusEntidad.ACTIVO;
-
-    @Version
-    private Long version;
+    private EstadoEmbargo estado = EstadoEmbargo.ACTIVO;
 
     @NotNull(message = "El tipo de embargo es obligatorio")
     @Enumerated(EnumType.STRING)

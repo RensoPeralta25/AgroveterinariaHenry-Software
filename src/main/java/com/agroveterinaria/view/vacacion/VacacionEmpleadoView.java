@@ -4,6 +4,7 @@ import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.DiaFeriado;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.VacacionEmpleado;
+import com.agroveterinaria.enums.EstadoVacacion;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.ConfiguracionNominaService;
 import com.agroveterinaria.service.DiaFeriadoService;
@@ -60,36 +61,47 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
         crudVacaciones.getGrid().addComponentColumn(vacacion -> {
             Span circulo = new Span();
-            circulo.getStyle().set("width", "10px");
-            circulo.getStyle().set("height", "10px");
-            circulo.getStyle().set("border-radius", "50%");
-            circulo.getStyle().set("display", "inline-block");
+            circulo.getStyle().set("width", "10px").set("height", "10px")
+                    .set("border-radius", "50%").set("display", "inline-block");
 
-            circulo.getStyle().set("background-color", vacacion.isPagado() ? "#2e7d32" : "#d32f2f");
+            String color;
+            if (vacacion.getEstado() == EstadoVacacion.PAGADA) {
+                color = "#2e7d32";
+            } else if (vacacion.getEstado() == EstadoVacacion.APROBADA) {
+                color = "#1976d2";
+            } else {
+                color = "#f59e0b";
+            }
 
-            Span texto = new Span(vacacion.isPagado() ? "Sí" : "No");
-            texto.getStyle().set("color", vacacion.isPagado() ? "#2e7d32" : "#d32f2f");
-            texto.getStyle().set("font-weight", "500");
+            circulo.getStyle().set("background-color", color);
+            Span texto = new Span(vacacion.getEstado().getDescripcion());
+            texto.getStyle().set("color", color).set("font-weight", "500");
 
             HorizontalLayout layout = new HorizontalLayout(circulo, texto);
             layout.setAlignItems(Alignment.CENTER);
             layout.setSpacing(true);
 
             return layout;
-        }).setHeader("Pagado");
+        }).setHeader("Estado");
 
         crudVacaciones.getGrid().addComponentColumn(vacacion -> {
+            boolean isPendiente = vacacion.getEstado() == EstadoVacacion.PENDIENTE;
+
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
-            if (vacacion.isPagado()) {
+            Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK_CIRCLE));
+            btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+
+            if (!isPendiente) {
                 btnEditar.setEnabled(false);
                 btnEliminar.setEnabled(false);
-                btnEditar.getElement().setProperty("title", "Bloqueado: Vacaciones ya pagadas");
-                btnEliminar.getElement().setProperty("title", "Bloqueado: Vacaciones ya pagadas");
+                btnAprobar.setVisible(false);
+                btnEditar.getElement().setProperty("title", "Bloqueado: Vacación procesada");
+                btnEliminar.getElement().setProperty("title", "Bloqueado: Vacación procesada");
             } else {
                 btnEditar.getElement().setProperty("title", "Editar vacación");
                 btnEditar.addClickListener(e -> {
@@ -102,13 +114,26 @@ public class VacacionEmpleadoView extends VerticalLayout {
                     crudVacaciones.getGrid().select(vacacion);
                     crudVacaciones.getDeleteButton().click();
                 });
+
+                btnAprobar.getElement().setProperty("title", "Aprobar solicitud");
+                btnAprobar.addClickListener(e -> {
+                    try {
+                        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                        Empleado aprobador = empleadoService.findByUsuarioUsername(auth.getName());
+                        vacacionEmpleadoService.aprobarVacacion(vacacion, aprobador);
+                        mostrarExito("Vacaciones aprobadas correctamente.");
+                        crudVacaciones.refreshGrid();
+                    } catch (Exception ex) {
+                        mostrarError(ex);
+                    }
+                });
             }
 
-            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEliminar);
+            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnAprobar, btnEliminar);
             acciones.setSpacing(false);
             acciones.setPadding(false);
             return acciones;
-        }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
+        }).setHeader("Acciones").setWidth("140px").setFlexGrow(0);
 
         crudVacaciones.getGrid().addThemeNames("row-stripes");
 
@@ -132,11 +157,12 @@ public class VacacionEmpleadoView extends VerticalLayout {
         buscarVacacion.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
         buscarVacacion.setValueChangeMode(ValueChangeMode.LAZY);
 
-        ComboBox<String> filtroEstado = new ComboBox<>();
-        filtroEstado.setPlaceholder("Estado de pago");
-        filtroEstado.setItems("Todas", "Pendientes", "Pagadas");
-        filtroEstado.setValue("Todas"); // Valor por defecto
-        filtroEstado.setWidth("180px");
+        ComboBox<EstadoVacacion> filtroEstado = new ComboBox<>();
+        filtroEstado.setPlaceholder("Todos los estados");
+        filtroEstado.setItems(EstadoVacacion.values());
+        filtroEstado.setItemLabelGenerator(EstadoVacacion::getDescripcion);
+        filtroEstado.setClearButtonVisible(true);
+        filtroEstado.setWidth("200px");
 
         buscarVacacion.addValueChangeListener(e ->
                 actualizarFiltroGrid(crudVacaciones, paginator, buscarVacacion.getValue(), filtroEstado.getValue(), vacacionEmpleadoService)
@@ -153,7 +179,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
         toolbar.getStyle().set("margin-bottom", "0");
         toolbar.getStyle().set("padding-top", "10px");
 
-        actualizarFiltroGrid(crudVacaciones, paginator, "", "Todas", vacacionEmpleadoService);
+        actualizarFiltroGrid(crudVacaciones, paginator, "", null, vacacionEmpleadoService);
 
         DefaultCrudFormFactory<VacacionEmpleado> formFactory = (DefaultCrudFormFactory<VacacionEmpleado>) crudVacaciones.getCrudFormFactory();
         formFactory.setUseBeanValidation(true);
@@ -168,7 +194,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
         formFactory.setFieldProvider("empleado", v -> {
             this.vacacionActual = (VacacionEmpleado) v;
             combo.setItems(empleadoService.findByStatus(StatusEntidad.ACTIVO));
-            combo.setItemLabelGenerator(e -> e.getPersona().getNombre());
+            combo.setItemLabelGenerator(e -> e.getPersona().getNombre()+ " " + e.getPersona().getApellido());
             combo.setWidthFull();
             return combo;
         });
@@ -246,17 +272,8 @@ public class VacacionEmpleadoView extends VerticalLayout {
         formFactory.setCaption(CrudOperation.UPDATE, "Editar Vacación");
         formFactory.setCaption(CrudOperation.DELETE, "¿Eliminar Registro?");
 
-        crudVacaciones.setAddOperation(vacacion -> {
-            vacacion.setPagado(false);
-            registrarAprobador(vacacion, empleadoService);
-            return vacacionEmpleadoService.save(vacacion);
-        });
-
-        crudVacaciones.setUpdateOperation(vacacion -> {
-            registrarAprobador(vacacion, empleadoService);
-            return vacacionEmpleadoService.update(vacacion);
-        });
-
+        crudVacaciones.setAddOperation(vacacionEmpleadoService::save);
+        crudVacaciones.setUpdateOperation(vacacionEmpleadoService::update);
         crudVacaciones.setDeleteOperation(vacacionEmpleadoService::delete);
 
         add(toolbar, paginator, crudVacaciones);
@@ -347,36 +364,21 @@ public class VacacionEmpleadoView extends VerticalLayout {
         }
     }
 
-
-    private void registrarAprobador(VacacionEmpleado vacacion, EmpleadoService empleadoService) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated()) {
-            String username = auth.getName();
-            Empleado empleadoAprobador = empleadoService.findByUsuarioUsername(username);
-            if (empleadoAprobador != null) {
-                vacacion.setAprobadoPor(empleadoAprobador);
-            }
-        }
-    }
-
     private void actualizarFiltroGrid(
             GridCrud<VacacionEmpleado> crud,
             CrudGridPaginator<VacacionEmpleado> paginator,
             String busqueda,
-            String estadoFiltro,
+            EstadoVacacion estadoFiltro,
             VacacionEmpleadoService service
     ) {
         String filtroTexto = busqueda == null ? "" : busqueda.toLowerCase().trim();
 
-        boolean aplicarFiltroEstado = estadoFiltro != null && !estadoFiltro.equals("Todas");
-        boolean buscarPagadas = "Pagadas".equals(estadoFiltro);
-
         paginator.setSource(() ->
                 service.findAll().stream()
                         .filter(v -> v.getEmpleado().getPersona().getNombre().toLowerCase().contains(filtroTexto))
-                        .filter(v -> !aplicarFiltroEstado || v.isPagado() == buscarPagadas)
+                        .filter(v -> estadoFiltro == null || v.getEstado() == estadoFiltro)
                         .sorted(Comparator
-                                .comparing(VacacionEmpleado::isPagado)
+                                .comparing((VacacionEmpleado v) -> v.getEstado() == EstadoVacacion.PAGADA ? 1 : 0)
                                 .thenComparing(VacacionEmpleado::getFechaInicio, Comparator.reverseOrder()))
                         .toList()
         );
@@ -396,5 +398,10 @@ public class VacacionEmpleadoView extends VerticalLayout {
 
         Notification notification = Notification.show(mensaje, 5000, Notification.Position.MIDDLE);
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    private void mostrarExito(String mensaje) {
+        Notification notification = Notification.show(mensaje, 3000, Notification.Position.MIDDLE);
+        notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
     }
 }
