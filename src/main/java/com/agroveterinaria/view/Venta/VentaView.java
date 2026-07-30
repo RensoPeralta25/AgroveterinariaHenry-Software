@@ -630,19 +630,48 @@ public class VentaView extends VerticalLayout {
             notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
 
             if (chkImprimirTicket.getValue()) {
-                byte[] pdfBytes = facturaVentaTermicaPdfService.generarFacturaTermicaPdf(venta.getIdVenta());
-                StreamResource resource = new StreamResource("Ticket-" + venta.getIdVenta() + ".pdf", () -> new ByteArrayInputStream(pdfBytes));
+                StreamResource resource = new StreamResource("Ticket-" + venta.getIdVenta() + ".pdf", () -> {
+                    byte[] pdfBytes = facturaVentaTermicaPdfService.generarFacturaTermicaPdf(venta.getIdVenta());
+                    return new ByteArrayInputStream(pdfBytes);
+                });
+
                 resource.setContentType("application/pdf");
+                resource.setHeader("Content-Disposition", "inline; filename=\"Ticket-" + venta.getIdVenta() + ".pdf\"");
 
                 com.vaadin.flow.server.StreamRegistration registration =
                         com.vaadin.flow.server.VaadinSession.getCurrent().getResourceRegistry().registerResource(resource);
 
                 com.vaadin.flow.component.UI.getCurrent().getPage().executeJs(
-                        "const iframe = document.createElement('iframe');" +
-                                "iframe.style.display = 'none';" +
-                                "iframe.src = $0;" +
-                                "document.body.appendChild(iframe);" +
-                                "iframe.onload = function() { setTimeout(function() { iframe.contentWindow.print(); }, 800); };",
+                        "const url = $0;" +
+                                "const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);" +
+                                "const isAndroid = /Android/i.test(navigator.userAgent);" +
+                                "if (isIOS) {" +
+                                "    /* Truco iOS: Safari bloquea popups asíncronos. Redirigimos en la misma pestaña. */" +
+                                "    window.location.assign(url);" +
+                                "} else if (isAndroid) {" +
+                                "    /* Truco Android: Simulamos un clic nativo en un enlace invisible */" +
+                                "    const link = document.createElement('a');" +
+                                "    link.href = url;" +
+                                "    link.target = '_blank';" +
+                                "    document.body.appendChild(link);" +
+                                "    link.click();" +
+                                "    link.remove();" +
+                                "} else {" +
+                                "    /* Truco PC: El clásico iframe invisible para imprimir silenciosamente */" +
+                                "    const iframe = document.createElement('iframe');" +
+                                "    iframe.style.display = 'none';" +
+                                "    iframe.src = url;" +
+                                "    document.body.appendChild(iframe);" +
+                                "    iframe.onload = function() {" +
+                                "        setTimeout(function() {" +
+                                "            try {" +
+                                "                iframe.contentWindow.print();" +
+                                "            } catch (e) {" +
+                                "                window.location.assign(url);" +
+                                "            }" +
+                                "        }, 800);" +
+                                "    };" +
+                                "}",
                         registration.getResourceUri().toString()
                 );
             }
