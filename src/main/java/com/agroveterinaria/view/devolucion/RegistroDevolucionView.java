@@ -114,7 +114,9 @@ public class RegistroDevolucionView extends VerticalLayout {
                 linea.getDetalleOriginal().getCantidad(),
                 linea.getDetalleOriginal().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(linea.getDetalleOriginal().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(linea.getDetalleOriginal().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(linea.getDetalleOriginal().getProducto())
         )).setHeader("Comprado").setFlexGrow(1);
 
         gridItems.addComponentColumn(linea -> linea.getFieldCantidad()).setHeader("Cant. a Devolver").setWidth("280px").setFlexGrow(0);
@@ -288,7 +290,9 @@ public class RegistroDevolucionView extends VerticalLayout {
             this.fieldCantidad.configurarProducto(
                     prod.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
             );
             this.fieldCantidad.setValue(BigDecimal.ZERO);
             this.fieldCantidad.addValueChangeListener(e -> onValueChange.run());

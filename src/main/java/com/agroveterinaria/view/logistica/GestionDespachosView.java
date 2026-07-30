@@ -5,6 +5,7 @@ import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.entity.Despacho;
 import com.agroveterinaria.entity.Transporte;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
@@ -242,7 +243,9 @@ public class GestionDespachosView extends VerticalLayout {
                 d.getCantidad(),
                 d.getLote().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(d.getLote().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(d.getLote().getProducto())
         )).setHeader("Cantidad Cargada").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END).setFlexGrow(1);
 
         Despacho despachoCompleto = despachoService.obtenerDespachoConDetalles(dto.getIdDespacho());

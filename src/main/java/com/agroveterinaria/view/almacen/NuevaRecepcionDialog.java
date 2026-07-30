@@ -156,7 +156,7 @@ public class NuevaRecepcionDialog extends Dialog {
         gridRecepcion.addComponentColumn(item -> {
             Producto prod = item.getProducto();
             CantidadFraccionadaField txtCant = new CantidadFraccionadaField();
-            txtCant.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
+            txtCant.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false, FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod), FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod));
             txtCant.setValue(item.getCantidadRecibida());
 
             txtCant.addValueChangeListener(e -> {
@@ -167,7 +167,7 @@ public class NuevaRecepcionDialog extends Dialog {
                 BigDecimal maxPermitido = item.getCantidadMaximaPermitida().subtract(sumaOtros);
 
                 if (nuevaCant.compareTo(maxPermitido) > 0) {
-                    String maxFormateado = FormatoInventarioUtil.formatearCantidad(maxPermitido, prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
+                    String maxFormateado = FormatoInventarioUtil.formatearCantidad(maxPermitido, prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false, FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod), FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod));
                     Notification.show("Máximo permitido: " + maxFormateado, 3500, Notification.Position.MIDDLE).addThemeVariants(NotificationVariant.LUMO_WARNING);
                     txtCant.setValue(maxPermitido);
                     item.setCantidadRecibida(maxPermitido);
@@ -182,7 +182,7 @@ public class NuevaRecepcionDialog extends Dialog {
         gridRecepcion.addComponentColumn(item -> {
             Producto prod = item.getProducto();
             CantidadFraccionadaField txtMerma = new CantidadFraccionadaField();
-            txtMerma.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false);
+            txtMerma.configurarProducto(prod.getContenidoPorEmpaque(), Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false, FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod), FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod));
             txtMerma.setValue(item.getCantidadMerma());
 
             txtMerma.addValueChangeListener(e -> {
@@ -221,7 +221,9 @@ public class NuevaRecepcionDialog extends Dialog {
                     valFinal,
                     prod.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
             );
         }).setHeader("Pendiente Global").setWidth("130px").setFlexGrow(0);
 

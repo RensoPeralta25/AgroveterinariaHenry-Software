@@ -144,7 +144,9 @@ public class NuevoDespachoDialog extends Dialog {
                     dto.getCantidadPendiente(),
                     prod.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
             );
         }).setHeader("Pendiente").setFlexGrow(0).setWidth("130px").setTextAlign(ColumnTextAlign.END);
 
@@ -156,7 +158,9 @@ public class NuevoDespachoDialog extends Dialog {
             field.configurarProducto(
                     prod.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
             );
 
             field.setValue(dto.getCantidadADespacharActual());

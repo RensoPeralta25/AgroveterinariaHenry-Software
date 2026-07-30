@@ -161,7 +161,9 @@ public class DevolucionesView extends VerticalLayout {
                 d.getCantidadDevuelta(),
                 d.getDetalleVenta().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(d.getDetalleVenta().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(d.getDetalleVenta().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(d.getDetalleVenta().getProducto())
         )).setHeader("Cant. Devuelta").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         gridItems.setItems(devolucionService.obtenerDetallesDeDevolucion(dev.getIdDevolucionVenta()));

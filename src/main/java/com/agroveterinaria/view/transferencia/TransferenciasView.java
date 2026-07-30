@@ -163,7 +163,9 @@ public class TransferenciasView extends VerticalLayout {
                 d.getCantidad(),
                 d.getLote().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(d.getLote().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(d.getLote().getProducto())
         )).setHeader("Cantidad Enviada").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         Transferencia tCompleta = transferenciaService.obtenerTransferenciaConDetalles(transferencia.getIdTransferencia());

@@ -84,14 +84,11 @@ public class InventarioGlobalView extends VerticalLayout {
 
         gridGlobal.addColumn(dto -> {
             Producto p = dto.getProducto();
-
-            String empaque = p.getUnidadEmpaque() != null ? p.getUnidadEmpaque().name() : "N/A";
-
+            String empaque = p.getUnidadEmpaque() != null ? p.getUnidadEmpaque().getEtiqueta() : "N/A";
             if (Boolean.TRUE.equals(p.getPermiteFraccionamiento()) && p.getUnidadFraccion() != null) {
-                String fraccion = p.getUnidadFraccion().name();
+                String fraccion = p.getUnidadFraccion().getEtiqueta();
                 return empaque + " - " + fraccion;
             }
-
             return empaque;
         }).setHeader("Presentación").setFlexGrow(1).setSortable(true);
 
@@ -101,7 +98,9 @@ public class InventarioGlobalView extends VerticalLayout {
                             dto.getTotalGlobal(),
                             p.getContenidoPorEmpaque(),
                             Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
-                            false
+                            false,
+                            FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(p),
+                            FormatoInventarioUtil.getNombreUnidadFraccionSafe(p)
                     );
                 })
                 .setHeader("Existencia Total")
@@ -188,7 +187,9 @@ public class InventarioGlobalView extends VerticalLayout {
                             inv.getCantidadActual(),
                             producto.getContenidoPorEmpaque(),
                             Boolean.TRUE.equals(producto.getPermiteFraccionamiento()),
-                            false
+                            false,
+                            FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(producto),
+                            FormatoInventarioUtil.getNombreUnidadFraccionSafe(producto)
                     );
                 })
                 .setHeader("Cantidad").setFlexGrow(1).setTextAlign(ColumnTextAlign.END);

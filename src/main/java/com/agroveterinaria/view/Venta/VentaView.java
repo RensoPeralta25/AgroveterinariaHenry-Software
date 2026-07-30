@@ -373,7 +373,9 @@ public class VentaView extends VerticalLayout {
                 cantidad.configurarProducto(
                         p.getContenidoPorEmpaque(),
                         p.getPermiteFraccionamiento(),
-                        false
+                        false,
+                        FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(p),
+                        FormatoInventarioUtil.getNombreUnidadFraccionSafe(p)
                 );
                 cantidad.setValue(BigDecimal.ONE);
                 montoIngresado.clear();
@@ -546,7 +548,10 @@ public class VentaView extends VerticalLayout {
                         linea.getCantidad(),
                         linea.getProducto().getContenidoPorEmpaque(),
                         Boolean.TRUE.equals(linea.getProducto().getPermiteFraccionamiento()),
-                        false)
+                        false,
+                        FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(linea.getProducto()),
+                        FormatoInventarioUtil.getNombreUnidadFraccionSafe(linea.getProducto())
+                )
                 ).setHeader("Cantidad").setWidth("160px").setFlexGrow(0);
 
         gridLineas.addColumn(LineaVentaForm::getEstrategiaPrecio).setHeader("Estrategia").setWidth("120px").setFlexGrow(0);
