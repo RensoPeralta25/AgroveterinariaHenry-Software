@@ -190,7 +190,9 @@ public class RegistroCompraView extends VerticalLayout {
                     stock != null ? stock : BigDecimal.ZERO,
                     obtenerFactorSeguro(producto),
                     Boolean.TRUE.equals(producto.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(producto),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(producto)
             );
         }).setHeader("Stock Actual").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 

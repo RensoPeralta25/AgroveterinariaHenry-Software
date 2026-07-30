@@ -1,15 +1,15 @@
 package com.agroveterinaria.enums;
 
 public enum UnidadMedida {
-    LIBRA("Libra (lb)"),
-    QUINTAL("Quintal (q)"),
-    MILIGRAMO("Miligramo (mg)"),
-    GRAMO("Gramo (g)"),
-    KILOGRAMO("Kilogramo (kg)"),
-    CC("Centrímento cúbico (cc)"),
-    LITRO("Litro (L)"),
-    MILILITRO("Mililitro (ml)"),
-    UNIDAD("Unidad (objeto)");
+    LIBRA("Libra"),
+    QUINTAL("Quintal"),
+    MILIGRAMO("Miligramo"),
+    GRAMO("Gramo"),
+    KILOGRAMO("Kilogramo"),
+    CC("cc"),
+    LITRO("Litro"),
+    MILILITRO("ml"),
+    UNIDAD("Unidad");
 
     private final String etiqueta;
     UnidadMedida(String etiqueta) { this.etiqueta = etiqueta; }
