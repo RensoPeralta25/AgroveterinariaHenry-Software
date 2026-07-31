@@ -7,9 +7,12 @@ import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 
 import java.math.BigDecimal;
+import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -38,6 +41,21 @@ public class AbonoAnticipo {
     @NotNull(message = "El método de pago es obligatorio")
     @Enumerated(EnumType.STRING)
     private MetodoPago metodoPago;
+
+    private String bancoOrigen;
+    private String titularTransferencia;
+    private String referenciaTransferencia;
+
+    @JdbcTypeCode(Types.BINARY)
+    private byte[] comprobanteTransferencia;
+
+    private String nombreComprobante;
+    private String tipoContenidoComprobante;
+    private LocalDateTime fechaConfirmacionTransferencia;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_empleado_registrador")
+    private Empleado empleadoRegistrador;
 
     @PrePersist
     public void prePersist() {

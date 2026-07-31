@@ -8,9 +8,12 @@ import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
 
 import java.math.BigDecimal;
+import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -43,6 +46,21 @@ public class AbonoPrestamo {
     @NotNull(message = "Debe especificar cómo recalcular el préstamo")
     @Enumerated(EnumType.STRING)
     private TipoRecalculoPrestamo tipoRecalculo;
+
+    private String bancoOrigen;
+    private String titularTransferencia;
+    private String referenciaTransferencia;
+
+    @JdbcTypeCode(Types.BINARY)
+    private byte[] comprobanteTransferencia;
+
+    private String nombreComprobante;
+    private String tipoContenidoComprobante;
+    private LocalDateTime fechaConfirmacionTransferencia;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_empleado_registrador")
+    private Empleado empleadoRegistrador;
 
     @PrePersist
     public void prePersist() {

@@ -1,6 +1,7 @@
 package com.agroveterinaria.view.nomina;
 
 import com.agroveterinaria.entity.*;
+import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.*;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.html.Span;
@@ -16,15 +17,20 @@ public class DeduccionesView extends VerticalLayout {
     private final PrestamoEmpleadoService prestamoEmpleadoService;
     private final EmpleadoService empleadoService;
     private final ConfiguracionNominaService configuracionNominaService;
+    private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
+    private final SecurityService securityService;
 
 
     public DeduccionesView(EmbargoSalarialService embargoSalarialService, AnticipoSalarioService anticipoSalarioService,
-                           PrestamoEmpleadoService prestamoEmpleadoService, EmpleadoService empleadoService, ConfiguracionNominaService configuracionNominaService) {
+                           PrestamoEmpleadoService prestamoEmpleadoService, EmpleadoService empleadoService, ConfiguracionNominaService configuracionNominaService,
+                           CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService, SecurityService securityService) {
         this.embargoSalarialService = embargoSalarialService;
         this.anticipoSalarioService = anticipoSalarioService;
         this.prestamoEmpleadoService = prestamoEmpleadoService;
         this.empleadoService = empleadoService;
         this.configuracionNominaService = configuracionNominaService;
+        this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
+        this.securityService = securityService;
 
         setSizeFull();
         setPadding(true);
@@ -42,8 +48,8 @@ public class DeduccionesView extends VerticalLayout {
         tabs.getStyle().set("width", "fit-content");
 
         VerticalLayout contenidoEmbargos = new EmbargoSalarialView(embargoSalarialService,empleadoService, configuracionNominaService, anticipoSalarioService);
-        VerticalLayout contenidoPrestamos = new PrestamoEmpleadoView(prestamoEmpleadoService, empleadoService);
-        VerticalLayout contenidoAnticipos = new AnticipoSalarioView(anticipoSalarioService,empleadoService);
+        VerticalLayout contenidoPrestamos = new PrestamoEmpleadoView(prestamoEmpleadoService, empleadoService, cuentaBancariaTransferenciaPdfService, securityService);
+        VerticalLayout contenidoAnticipos = new AnticipoSalarioView(anticipoSalarioService,empleadoService, cuentaBancariaTransferenciaPdfService, securityService);
 
         contenidoPrestamos.setVisible(false);
         contenidoEmbargos.setVisible(false);

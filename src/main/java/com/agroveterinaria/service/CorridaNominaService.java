@@ -555,7 +555,7 @@ public class CorridaNominaService {
             }
         }
 
-        if (limiteDisponible.compareTo(BigDecimal.ZERO) > 0) {
+        if (limiteDisponible.compareTo(BigDecimal.ZERO) >= 0) {
             limiteDisponible = procesarPrestamosConLimite(empleado, nomina, detalles, limiteDisponible);
         }
 
@@ -584,8 +584,6 @@ public class CorridaNominaService {
         LocalDate fechaNomina = nomina.getCorrida().getFechaEmision();
 
         for (PrestamoEmpleado prestamo : prestamos) {
-            if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;
-
             if (prestamo.getFechaAprobacion() != null && prestamo.getFechaAprobacion().isAfter(fechaNomina)) {
                 continue;
             }
@@ -598,12 +596,15 @@ public class CorridaNominaService {
             BigDecimal balanceTotalAlCierre = prestamo.getBalanceCapitalPendiente().add(interesProyectado);
 
             BigDecimal montoRequerido = cuotaEsperadaPeriodo.min(balanceTotalAlCierre);
-            BigDecimal montoACobrar = montoRequerido.min(limiteDisponible);
+            if (limiteDisponible.compareTo(montoRequerido) >= 0) {
+                detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
+                        "Cuota Préstamo: " + prestamo.getConcepto(), montoRequerido, 1.0));
 
-            detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
-                    "Cuota Préstamo: " + prestamo.getConcepto(), montoACobrar, 1.0));
-
-            limiteDisponible = limiteDisponible.subtract(montoACobrar);
+                limiteDisponible = limiteDisponible.subtract(montoRequerido);
+            } else {
+                detalles.add(crearDetalle(nomina, TipoConcepto.PRESTAMO_EMPRESA,
+                        "Préstamo omitido (Fondos insuficientes): " + prestamo.getConcepto(), BigDecimal.ZERO, 1.0));
+            }
         }
         return limiteDisponible;
     }
