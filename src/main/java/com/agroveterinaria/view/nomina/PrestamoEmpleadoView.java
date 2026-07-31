@@ -1,13 +1,20 @@
 package com.agroveterinaria.view.nomina;
 
+import com.agroveterinaria.component.DatosTransferenciaForm;
 import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.dto.nomina.CuotaAmortizacionDTO;
+import com.agroveterinaria.entity.AbonoPrestamo;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.PrestamoEmpleado;
 import com.agroveterinaria.enums.EstadoPrestamo;
+import com.agroveterinaria.enums.MetodoPago;
 import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.enums.TipoRecalculoPrestamo;
+import com.agroveterinaria.security.SecurityService;
+import com.agroveterinaria.service.CuentaBancariaTransferenciaPdfService;
 import com.agroveterinaria.service.EmpleadoService;
 import com.agroveterinaria.service.PrestamoEmpleadoService;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -15,6 +22,7 @@ import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -25,10 +33,14 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.server.StreamResource;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -37,14 +49,20 @@ import java.util.Locale;
 public class PrestamoEmpleadoView extends VerticalLayout {
     private final PrestamoEmpleadoService prestamoService;
     private final EmpleadoService empleadoService;
+    private final CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService;
+    private final SecurityService securityService;
+
     private final Grid<PrestamoEmpleado> gridPrestamos;
     private final GridPaginator<PrestamoEmpleado> paginator;
     private final TextField txtFiltroEmpleado;
     private final ComboBox<EstadoPrestamo> cmbFiltroEstado;
 
-    public PrestamoEmpleadoView(PrestamoEmpleadoService prestamoService, EmpleadoService empleadoService) {
+    public PrestamoEmpleadoView(PrestamoEmpleadoService prestamoService, EmpleadoService empleadoService,
+                                CuentaBancariaTransferenciaPdfService cuentaBancariaTransferenciaPdfService, SecurityService securityService) {
         this.prestamoService = prestamoService;
         this.empleadoService = empleadoService;
+        this.cuentaBancariaTransferenciaPdfService = cuentaBancariaTransferenciaPdfService;
+        this.securityService = securityService;
         this.gridPrestamos = new Grid<>(PrestamoEmpleado.class, false);
         this.paginator = new GridPaginator<>(gridPrestamos, 10, "préstamos");
 
@@ -153,6 +171,20 @@ public class PrestamoEmpleadoView extends VerticalLayout {
                 btnEliminar.addClickListener(e -> confirmarEliminacion(prestamo));
 
                 acciones.add(btnAprobar, btnEditar, btnEliminar);
+            } else if (prestamo.getEstado() == EstadoPrestamo.APROBADO || prestamo.getEstado() == EstadoPrestamo.SALDADO) {
+                if (prestamo.getEstado() == EstadoPrestamo.APROBADO) {
+                    Button btnAbonar = new Button(new Icon(VaadinIcon.DOLLAR));
+                    btnAbonar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+                    btnAbonar.setTooltipText("Registrar Abono al Préstamo");
+                    btnAbonar.addClickListener(e -> dialogAbonoExtraordinario(prestamo));
+                    acciones.add(btnAbonar);
+                }
+
+                Button btnHistorial = new Button(new Icon(VaadinIcon.CLOCK));
+                btnHistorial.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                btnHistorial.setTooltipText("Ver Historial de Abonos");
+                btnHistorial.addClickListener(e -> dialogHistorialAbonos(prestamo));
+                acciones.add(btnHistorial);
             }
             return acciones;
         }).setHeader("Acciones").setWidth("170px").setFlexGrow(0);
@@ -318,6 +350,124 @@ public class PrestamoEmpleadoView extends VerticalLayout {
         dialog.open();
     }
 
+    private void dialogAbonoExtraordinario(PrestamoEmpleado prestamo) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Registrar Abono Extraordinario");
+        dialog.setWidth("500px");
+
+        Span lblInfo = new Span("Balance Pendiente actual: RD$ " + formatearMonto(prestamo.getBalanceCapitalPendiente()));
+        lblInfo.getStyle().set("font-weight", "bold").set("color", "var(--lumo-primary-text-color)");
+
+        BigDecimalField txtMonto = crearCampoMoneda("Monto a Abonar (Capital)");
+        txtMonto.setAutofocus(true);
+
+        ComboBox<MetodoPago> cmbMetodo = new ComboBox<>("Método de Pago");
+        cmbMetodo.setItems(MetodoPago.EFECTIVO, MetodoPago.TRANSFERENCIA);
+        cmbMetodo.setItemLabelGenerator(MetodoPago::getEtiqueta);
+        cmbMetodo.setWidthFull();
+
+        ComboBox<TipoRecalculoPrestamo> cmbRecalculo = new ComboBox<>("Impacto del Abono");
+        cmbRecalculo.setItems(TipoRecalculoPrestamo.values());
+        cmbRecalculo.setItemLabelGenerator(TipoRecalculoPrestamo::getDescripcion);
+        cmbRecalculo.setWidthFull();
+
+        DatosTransferenciaForm datosTransferencia = new DatosTransferenciaForm();
+        datosTransferencia.setVisible(false);
+
+        Anchor btnDescargarCuenta = crearDescargaCuentaBancaria();
+        btnDescargarCuenta.setVisible(false);
+
+        cmbMetodo.addValueChangeListener(e -> {
+            boolean esTransferencia = e.getValue() == MetodoPago.TRANSFERENCIA;
+            datosTransferencia.setVisible(esTransferencia);
+            btnDescargarCuenta.setVisible(esTransferencia);
+
+            if (!esTransferencia) {
+                datosTransferencia.limpiar();
+            } else {
+                datosTransferencia.sugerirTitular(prestamo.getEmpleado().getPersona().getNombre() + " " + prestamo.getEmpleado().getPersona().getApellido());
+            }
+        });
+
+        txtMonto.addValueChangeListener(e -> {
+            BigDecimal monto = e.getValue();
+            if (monto != null && monto.compareTo(prestamo.getBalanceCapitalPendiente()) >= 0) {
+                cmbRecalculo.setValue(TipoRecalculoPrestamo.REDUCIR_PLAZO);
+                cmbRecalculo.setReadOnly(true);
+                cmbRecalculo.setHelperText("El préstamo será saldado en su totalidad.");
+            } else {
+                cmbRecalculo.setReadOnly(false);
+                cmbRecalculo.setHelperText("");
+            }
+        });
+
+        Button btnGuardar = new Button("Aplicar Abono", new Icon(VaadinIcon.CHECK), e -> {
+            if (txtMonto.isEmpty() || cmbMetodo.isEmpty() || cmbRecalculo.isEmpty()) {
+                mostrarError("Complete todos los campos base para registrar el abono.");
+                return;
+            }
+
+            AbonoPrestamo abono = new AbonoPrestamo();
+            abono.setPrestamo(prestamo);
+            abono.setMonto(txtMonto.getValue());
+            abono.setMetodoPago(cmbMetodo.getValue());
+            abono.setTipoRecalculo(cmbRecalculo.getValue());
+            abono.setFechaAbono(LocalDate.now());
+            abono.setEmpleadoRegistrador(securityService.obtenerEmpleadoAutenticado());
+
+            if (cmbMetodo.getValue() == MetodoPago.TRANSFERENCIA) {
+                try {
+                    var dt = datosTransferencia.obtenerDatos();
+                    if (dt == null) {
+                        mostrarError("Debes completar los datos y el comprobante de la transferencia.");
+                        return;
+                    }
+
+                    if (dt.comprobante() == null || dt.comprobante().length == 0) {
+                        mostrarError("Es obligatorio adjuntar la imagen o PDF del comprobante.");
+                        return;
+                    }
+
+                    if (!dt.confirmadaPorCajero()) {
+                        mostrarError("Debes marcar la casilla confirmando que revisaste el comprobante.");
+                        return;
+                    }
+
+                    abono.setBancoOrigen(dt.bancoOrigen());
+                    abono.setTitularTransferencia(dt.titular());
+                    abono.setReferenciaTransferencia(dt.referencia());
+                    abono.setComprobanteTransferencia(dt.comprobante());
+                    abono.setNombreComprobante(dt.nombreComprobante());
+                    abono.setTipoContenidoComprobante(dt.tipoContenido());
+                    abono.setFechaConfirmacionTransferencia(LocalDateTime.now());
+                } catch (Exception ex) {
+                    mostrarError(ex.getMessage());
+                    return;
+                }
+            }
+
+            try {
+                prestamoService.registrarAbonoExtraordinario(abono);
+                mostrarExito("Abono procesado correctamente.");
+                dialog.close();
+                updateList();
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
+        });
+        btnGuardar.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+        btnCancelar.addClassName("btn-borde");
+
+        FormLayout layout = new FormLayout(lblInfo, txtMonto, cmbMetodo, btnDescargarCuenta, datosTransferencia, cmbRecalculo);
+        layout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+
+        dialog.add(layout);
+        dialog.getFooter().add(btnGuardar, btnCancelar);
+        dialog.open();
+    }
+
     private void dialogAmortizacion(PrestamoEmpleado prestamo) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Amortización Proyectada - " + prestamo.getConcepto());
@@ -358,6 +508,76 @@ public class PrestamoEmpleadoView extends VerticalLayout {
 
         dialog.add(gridAmortizacion);
         dialog.open();
+    }
+
+    private void dialogHistorialAbonos(PrestamoEmpleado prestamo) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Historial de Abonos - " + prestamo.getConcepto());
+        dialog.setWidth("850px");
+
+        Grid<AbonoPrestamo> gridAbonos = new Grid<>(AbonoPrestamo.class, false);
+        gridAbonos.addThemeNames("row-stripes");
+        gridAbonos.setHeight("350px");
+
+        gridAbonos.addColumn(abono -> abono.getFechaAbono().toString())
+                .setHeader("Fecha")
+                .setWidth("110px").setFlexGrow(0);
+
+        gridAbonos.addColumn(abono -> "RD$ " + formatearMonto(abono.getMonto()))
+                .setHeader("Monto")
+                .setWidth("140px").setFlexGrow(0);
+
+        gridAbonos.addColumn(abono -> abono.getMetodoPago().getEtiqueta())
+                .setHeader("Método")
+                .setWidth("130px").setFlexGrow(0);
+
+        gridAbonos.addColumn(abono -> {
+            if (abono.getEmpleadoRegistrador() != null && abono.getEmpleadoRegistrador().getPersona() != null) {
+                return abono.getEmpleadoRegistrador().getPersona().getNombre() + " " +
+                        abono.getEmpleadoRegistrador().getPersona().getApellido();
+            }
+            return "Sistema";
+        }).setHeader("Registrado Por").setWidth("160px").setFlexGrow(0);
+
+        gridAbonos.addColumn(abono -> abono.getReferenciaTransferencia() != null ? abono.getReferenciaTransferencia() : "-")
+                .setHeader("Referencia")
+                .setFlexGrow(1);
+
+        gridAbonos.addColumn(abono -> abono.getTipoRecalculo() != null ? abono.getTipoRecalculo().getDescripcion() : "-")
+                .setHeader("Recálculo")
+                .setWidth("140px").setFlexGrow(0);
+
+        gridAbonos.addComponentColumn(this::crearDescargaComprobanteAbono)
+                .setHeader("Comprobante")
+                .setWidth("120px").setFlexGrow(0);
+
+        gridAbonos.setItems(prestamoService.obtenerHistorialAbonos(prestamo.getIdPrestamo()));
+        gridAbonos.addClassName("abono-grid");
+
+        Button btnCerrar = new Button("Cerrar", e -> dialog.close());
+        btnCerrar.addClassName("btn-borde");
+
+        dialog.getFooter().add(btnCerrar);
+        dialog.add(gridAbonos);
+        dialog.open();
+    }
+
+    private Component crearDescargaComprobanteAbono(AbonoPrestamo abono) {
+        byte[] contenido = abono.getComprobanteTransferencia();
+        if (contenido == null || contenido.length == 0) {
+            return new Span("-");
+        }
+
+        String nombre = abono.getNombreComprobante() != null ? abono.getNombreComprobante() : "comprobante-abono";
+        String tipo = abono.getTipoContenidoComprobante() != null ? abono.getTipoContenidoComprobante() : "application/octet-stream";
+
+        StreamResource resource = new StreamResource(nombre, () -> new ByteArrayInputStream(contenido));
+        resource.setContentType(tipo);
+        resource.setCacheTime(0);
+
+        Anchor descarga = new Anchor(resource, "Descargar");
+        descarga.getElement().setAttribute("download", true);
+        return descarga;
     }
 
     private void confirmarAprobacion(PrestamoEmpleado prestamo) {
@@ -425,6 +645,24 @@ public class PrestamoEmpleadoView extends VerticalLayout {
                 .toList();
 
         paginator.setItems(filtrados);
+    }
+
+    private Anchor crearDescargaCuentaBancaria() {
+        StreamResource resource = new StreamResource("cuenta-bancaria-transferencia.pdf", () ->
+                new ByteArrayInputStream(cuentaBancariaTransferenciaPdfService.generarCuentaBancariaPdf()));
+        resource.setContentType("application/pdf");
+        resource.setCacheTime(0);
+
+        Button descargar = new Button("Ver Cuenta Bancaria", new Icon(VaadinIcon.MONEY));
+        descargar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        descargar.setWidthFull();
+        descargar.setTooltipText("Descargar PDF con los datos bancarios de la empresa");
+
+        Anchor anchor = new Anchor(resource, "");
+        anchor.getElement().setAttribute("download", true);
+        anchor.setWidthFull();
+        anchor.add(descargar);
+        return anchor;
     }
 
     private BigDecimalField crearCampoMoneda(String label) {

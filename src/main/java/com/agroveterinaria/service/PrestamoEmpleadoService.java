@@ -5,6 +5,7 @@ import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoAnticipo;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.EstadoPrestamo;
+import com.agroveterinaria.enums.TipoRecalculoPrestamo;
 import com.agroveterinaria.repository.*;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.*;
 public class PrestamoEmpleadoService {
     private final PrestamoEmpleadoRepository prestamoEmpleadoRepository;
     private final AnticipoSalarioRepository anticipoSalarioRepository;
+    private final AbonoPrestamoRepository abonoPrestamoRepository;
     private final ConfiguracionNominaService configuracionNominaService;
     private CorridaNominaRepository corridaNominaRepository;
     private EmbargoSalarialService embargoSalarialService;
@@ -110,12 +112,40 @@ public class PrestamoEmpleadoService {
     }
 
     public AbonoPrestamo registrarAbonoExtraordinario(AbonoPrestamo abono) {
+        validarNominaPendienteParaAbono();
+
         PrestamoEmpleado prestamo = abono.getPrestamo();
+
+        if (prestamo.getEstado() != EstadoPrestamo.APROBADO) {
+            throw new IllegalStateException("Solo se pueden registrar abonos a préstamos activos (APROBADOS).");
+        }
+
+        if (abono.getMonto().compareTo(prestamo.getBalanceCapitalPendiente()) > 0) {
+            throw new IllegalArgumentException("El monto del abono (RD$ " + abono.getMonto() +
+                    ") no puede ser mayor al balance pendiente (RD$ " + prestamo.getBalanceCapitalPendiente() + ").");
+        }
+
+        if (abono.getMetodoPago() == com.agroveterinaria.enums.MetodoPago.TRANSFERENCIA) {
+            String ref = abono.getReferenciaTransferencia();
+            if (ref == null || ref.isBlank()) {
+                throw new IllegalArgumentException("La referencia bancaria es obligatoria para transferencias.");
+            }
+
+            if (abono.getComprobanteTransferencia() == null || abono.getComprobanteTransferencia().length == 0) {
+                throw new IllegalArgumentException("El comprobante de transferencia es obligatorio.");
+            }
+
+            if (abonoPrestamoRepository.existsByReferenciaTransferenciaIgnoreCase(ref)) {
+                throw new IllegalArgumentException("Error: La referencia bancaria '" + ref + "' ya fue utilizada en otro abono de préstamo.");
+            }
+        }
+
         BigDecimal nuevoBalance = prestamo.getBalanceCapitalPendiente().subtract(abono.getMonto());
 
         if (nuevoBalance.compareTo(BigDecimal.ZERO) <= 0) {
             prestamo.setBalanceCapitalPendiente(BigDecimal.ZERO);
             prestamo.setEstado(EstadoPrestamo.SALDADO);
+            abono.setTipoRecalculo(TipoRecalculoPrestamo.REDUCIR_PLAZO);
         } else {
             prestamo.setBalanceCapitalPendiente(nuevoBalance);
             switch (abono.getTipoRecalculo()) {
@@ -130,7 +160,7 @@ public class PrestamoEmpleadoService {
             }
         }
         prestamoEmpleadoRepository.save(prestamo);
-        return abono;
+        return abonoPrestamoRepository.save(abono);
     }
 
     public Map<String, BigDecimal> calcularLimitesParaUI(Empleado empleado) {
@@ -195,6 +225,17 @@ public class PrestamoEmpleadoService {
     private void validarNominaPendiente() {
         if (corridaNominaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
             throw new IllegalStateException("Hay una corrida de nómina PENDIENTE. Debe aprobarla o eliminarla antes de procesar préstamos.");
+        }
+    }
+
+    private void validarNominaPendienteParaAbono() {
+        if (corridaNominaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
+            throw new IllegalStateException(
+                    "Hay una corrida de nómina PENDIENTE. " +
+                            "No se pueden registrar abonos mientras la nómina esté en proceso, " +
+                            "ya que alteraría los balances y descuadraría los descuentos ya calculados. " +
+                            "Por favor, apruebe o elimine la nómina actual antes de aplicar el abono."
+            );
         }
     }
 
@@ -339,6 +380,10 @@ public class PrestamoEmpleadoService {
 
     public List<PrestamoEmpleado> findByEmpleadoAndEstado(Empleado empleado) {
         return prestamoEmpleadoRepository.findByEmpleadoAndEstado(empleado, EstadoPrestamo.APROBADO);
+    }
+
+    public List<AbonoPrestamo> obtenerHistorialAbonos(Long idPrestamo) {
+        return abonoPrestamoRepository.findByPrestamo_IdPrestamoOrderByFechaAbonoDesc(idPrestamo);
     }
 
     public boolean existsByEmpleado(Empleado empleado){

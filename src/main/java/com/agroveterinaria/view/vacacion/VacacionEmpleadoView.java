@@ -14,6 +14,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.datepicker.DatePicker;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -39,9 +40,14 @@ import java.util.List;
 public class VacacionEmpleadoView extends VerticalLayout {
 
     private VacacionEmpleado vacacionActual;
+    private final EmpleadoService empleadoService;
+    private final VacacionEmpleadoService vacacionEmpleadoService;
 
     public VacacionEmpleadoView(VacacionEmpleadoService vacacionEmpleadoService, EmpleadoService empleadoService,
                                 DiaFeriadoService diaFeriadoService, ConfiguracionNominaService configuracionNominaService) {
+
+        this.empleadoService = empleadoService;
+        this.vacacionEmpleadoService = vacacionEmpleadoService;
         setSizeFull();
         setPadding(true);
         setSpacing(false);
@@ -93,7 +99,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
             btnEliminar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
 
-            Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK_CIRCLE));
+            Button btnAprobar = new Button(new Icon(VaadinIcon.CHECK));
             btnAprobar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
 
             if (!isPendiente) {
@@ -116,17 +122,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
                 });
 
                 btnAprobar.getElement().setProperty("title", "Aprobar solicitud");
-                btnAprobar.addClickListener(e -> {
-                    try {
-                        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                        Empleado aprobador = empleadoService.findByUsuarioUsername(auth.getName());
-                        vacacionEmpleadoService.aprobarVacacion(vacacion, aprobador);
-                        mostrarExito("Vacaciones aprobadas correctamente.");
-                        crudVacaciones.refreshGrid();
-                    } catch (Exception ex) {
-                        mostrarError(ex);
-                    }
-                });
+                btnAprobar.addClickListener(e -> confirmarAprobacion(vacacion, crudVacaciones));
             }
 
             HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnAprobar, btnEliminar);
@@ -261,7 +257,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
         formFactory.setFieldProvider("cantidadDiasDescanso", v -> numDiasDescanso);
         formFactory.setFieldProvider("cantidadDiasAPagar", v -> numDiasAPagar);
 
-        formFactory.setErrorListener(this::mostrarError);
+        formFactory.setErrorListener(this::mostrarErrorGridCrud);
 
         formFactory.setButtonCaption(CrudOperation.ADD, "Registrar");
         formFactory.setButtonCaption(CrudOperation.UPDATE, "Guardar cambios");
@@ -277,6 +273,34 @@ public class VacacionEmpleadoView extends VerticalLayout {
         crudVacaciones.setDeleteOperation(vacacionEmpleadoService::delete);
 
         add(toolbar, paginator, crudVacaciones);
+    }
+
+    private void confirmarAprobacion(VacacionEmpleado vacacion, GridCrud<VacacionEmpleado> crudVacaciones) {
+        Dialog confirm = new Dialog();
+        confirm.setHeaderTitle("Aprobar Vacaciones");
+
+        confirm.add(new Span("¿Estás seguro de aprobar estas vacaciones? Una vez aprobadas, el motor de nómina las tomará en cuenta para el pago correspondiente (anticipado u ordinario)."));
+
+        Button btnSi = new Button("Sí, Aprobar", e -> {
+            try {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                Empleado aprobador = empleadoService.findByUsuarioUsername(auth.getName());
+
+                vacacionEmpleadoService.aprobarVacacion(vacacion, aprobador);
+                mostrarExito("Vacaciones aprobadas correctamente.");
+                confirm.close();
+                crudVacaciones.refreshGrid();
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
+        });
+        btnSi.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button btnNo = new Button("Cancelar", e -> confirm.close());
+        btnNo.addClassName("btn-borde");
+
+        confirm.getFooter().add(btnSi, btnNo);
+        confirm.open();
     }
 
     private void calcularDias(VacacionEmpleado vacacionActual, DatePicker inicio, DatePicker fin, ComboBox<Empleado> comboEmpleado,
@@ -386,7 +410,7 @@ public class VacacionEmpleadoView extends VerticalLayout {
         paginator.reset();
     }
 
-    private void mostrarError(Exception error) {
+    private void mostrarErrorGridCrud(Exception error) {
         Throwable causa = error;
         while (causa.getCause() != null) {
             causa = causa.getCause();
@@ -396,7 +420,11 @@ public class VacacionEmpleadoView extends VerticalLayout {
                 ? causa.getMessage()
                 : "Ocurrió un error al procesar la vacación.";
 
-        Notification notification = Notification.show(mensaje, 5000, Notification.Position.MIDDLE);
+        mostrarError(mensaje);
+    }
+    
+    private void mostrarError(String mensaje) {
+        Notification notification = Notification.show(mensaje, 4000, Notification.Position.MIDDLE);
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 

@@ -1,13 +1,10 @@
 package com.agroveterinaria.service;
 
-import com.agroveterinaria.entity.AnticipoSalario;
-import com.agroveterinaria.entity.CuotaExtraEmbargo;
-import com.agroveterinaria.entity.EmbargoSalarial;
-import com.agroveterinaria.entity.Empleado;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoAnticipo;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.EstadoPrestamo;
-import com.agroveterinaria.enums.StatusEntidad;
+import com.agroveterinaria.repository.AbonoAnticipoRepository;
 import com.agroveterinaria.repository.AnticipoSalarioRepository;
 import com.agroveterinaria.repository.CorridaNominaRepository;
 import com.agroveterinaria.repository.PrestamoEmpleadoRepository;
@@ -35,6 +32,7 @@ public class AnticipoSalarioService {
     private final CorridaNominaRepository corridaNominaRepository;
     private final ConfiguracionNominaService configuracionNominaService;
     private final EmbargoSalarialService embargoSalarialService;
+    private AbonoAnticipoRepository abonoAnticipoRepository;
 
     @Transactional(readOnly = true)
     public List<AnticipoSalario> findAll() {
@@ -99,11 +97,68 @@ public class AnticipoSalarioService {
         anticipoSalarioRepository.delete(anticipo);
     }
 
+    public List<AbonoAnticipo> obtenerHistorialAbonos(Long idAnticipo) {
+        return abonoAnticipoRepository.findByAnticipoSalario_IdOrderByFechaAbonoDesc(idAnticipo);
+    }
+
+    @Transactional
+    public AbonoAnticipo registrarAbonoExtraordinario(AbonoAnticipo abono) {
+        validarNominaPendienteParaAbono();
+
+        AnticipoSalario anticipo = abono.getAnticipoSalario();
+
+        if (anticipo.getEstado() != EstadoAnticipo.APROBADO) {
+            throw new IllegalStateException("Solo se pueden registrar abonos a anticipos activos (APROBADOS).");
+        }
+
+        if (abono.getMonto().compareTo(anticipo.getSaldoPendiente()) > 0) {
+            throw new IllegalArgumentException("El monto abonado no puede ser mayor al saldo pendiente.");
+        }
+
+        if (abono.getMetodoPago() == com.agroveterinaria.enums.MetodoPago.TRANSFERENCIA) {
+            String ref = abono.getReferenciaTransferencia();
+            if (ref == null || ref.isBlank()) {
+                throw new IllegalArgumentException("La referencia bancaria es obligatoria para transferencias.");
+            }
+
+            if (abono.getComprobanteTransferencia() == null || abono.getComprobanteTransferencia().length == 0) {
+                throw new IllegalArgumentException("El comprobante de transferencia es obligatorio.");
+            }
+
+            if (abonoAnticipoRepository.existsByReferenciaTransferenciaIgnoreCase(ref)) {
+                throw new IllegalArgumentException("Error: La referencia bancaria '" + ref + "' ya fue utilizada en otro abono de anticipo.");
+            }
+        }
+
+        BigDecimal nuevoSaldo = anticipo.getSaldoPendiente().subtract(abono.getMonto());
+
+        anticipo.setMontoDescontado(anticipo.getMontoDescontado().add(abono.getMonto()));
+        anticipo.setSaldoPendiente(nuevoSaldo);
+
+        if (nuevoSaldo.compareTo(BigDecimal.ZERO) <= 0) {
+            anticipo.setEstado(EstadoAnticipo.SALDADO);
+        }
+
+        anticipoSalarioRepository.save(anticipo);
+        return abonoAnticipoRepository.save(abono);
+    }
+
     private void validarNominaPendiente() {
         if (corridaNominaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
             throw new IllegalStateException(
                     "Hay una corrida de nómina PENDIENTE. Para incluir este anticipo en el período actual, " +
                             "elimine esa corrida, registre el anticipo, y vuelva a generar la nómina."
+            );
+        }
+    }
+
+    private void validarNominaPendienteParaAbono() {
+        if (corridaNominaRepository.existsByEstado(EstadoCorrida.PENDIENTE)) {
+            throw new IllegalStateException(
+                    "Hay una corrida de nómina PENDIENTE. " +
+                            "No se pueden registrar abonos mientras la nómina esté en proceso, " +
+                            "ya que alteraría los balances y descuadraría los descuentos ya calculados. " +
+                            "Por favor, apruebe o elimine la nómina actual antes de aplicar el abono."
             );
         }
     }

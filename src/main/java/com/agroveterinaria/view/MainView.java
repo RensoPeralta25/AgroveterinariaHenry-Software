@@ -682,7 +682,9 @@ public class MainView extends Div {
                     "Panel de Deducciones",
                     "Administración de embargos, préstamos y anticipos de salario",
                     VaadinIcon.MONEY_WITHDRAW,
-                    new DeduccionesView(embargoSalarialService, anticipoSalarioService, prestamoEmpleadoService, empleadoService, configuracionNominaService)
+                    new DeduccionesView(embargoSalarialService, anticipoSalarioService,
+                            prestamoEmpleadoService, empleadoService, configuracionNominaService,
+                            cuentaBancariaTransferenciaPdfService, securityService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });
