@@ -37,8 +37,11 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     BigDecimal sumarMontoEntre(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
     @EntityGraph(attributePaths = {"cliente.persona"})
-    @Query("SELECT DISTINCT v FROM Venta v JOIN v.detallesVentas dv " +
+    @Query("SELECT DISTINCT v FROM Venta v " +
+            "JOIN v.detallesVentas dv " +
+            "JOIN dv.producto p " +
             "WHERE v.llevaDespacho = true " +
+            "AND p.categoria != com.agroveterinaria.enums.CategoriaProducto.SERVICIO " +
             "AND dv.cantidad > (SELECT COALESCE(SUM(dd.cantidad), 0) FROM DetalleDespacho dd WHERE dd.detalleVenta = dv)")
     List<Venta> findVentasConMercanciaPendienteDeDespacho();
 }
