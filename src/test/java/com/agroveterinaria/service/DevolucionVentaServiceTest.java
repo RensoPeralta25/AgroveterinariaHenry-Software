@@ -10,10 +10,7 @@ import com.agroveterinaria.entity.Lote;
 import com.agroveterinaria.entity.NotaDeCredito;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Venta;
-import com.agroveterinaria.repository.CobroRepository;
-import com.agroveterinaria.repository.DetalleDevVentaRepository;
-import com.agroveterinaria.repository.DevolucionVentaRepository;
-import com.agroveterinaria.repository.NotaDeCreditoRepository;
+import com.agroveterinaria.repository.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -41,12 +38,15 @@ class DevolucionVentaServiceTest {
     private NotaDeCreditoRepository notaRepository;
     @Mock
     private CobroRepository cobroRepository;
+    @Mock
+    private DetalleDespachoRepository detalleDespachoRepository;
 
     @Test
     void devolverProductoReingresaInventarioYEmiteCreditoConImpuestoIncluido() {
         DevolucionVentaService service = new DevolucionVentaService(
                 devolucionRepository,
                 detalleRepository,
+                detalleDespachoRepository,
                 inventarioService,
                 notaRepository,
                 cobroRepository
