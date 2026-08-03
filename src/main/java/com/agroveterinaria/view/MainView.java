@@ -536,7 +536,7 @@ public class MainView extends Div {
                     "Gestión de Despachos",
                     "Control de salida de mercancía en vehículos de la empresa.",
                     VaadinIcon.OUTBOX,
-                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService, transporteService)
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService, transporteService, rutaService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
