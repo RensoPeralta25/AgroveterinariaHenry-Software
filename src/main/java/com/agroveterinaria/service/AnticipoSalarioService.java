@@ -24,7 +24,7 @@ import java.util.Objects;
 
 @Service
 @AllArgsConstructor
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class AnticipoSalarioService {
 
     private final AnticipoSalarioRepository anticipoSalarioRepository;

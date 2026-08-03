@@ -15,15 +15,28 @@ public class NovedadNominaDTO {
     private BigDecimal comisionesRegulares = BigDecimal.ZERO;
     private BigDecimal comisionesExtraordinarias = BigDecimal.ZERO;
     private BigDecimal dietasViaticos = BigDecimal.ZERO;
-    private Integer ausenciasNoPagadasDias = 0;
+    private BigDecimal reembolsoLicencias;
 
     public NovedadNominaDTO(Empleado empleado) {
         this.empleado = empleado;
     }
 
-    public BigDecimal getTotalIngresosFijos() {
-        return comisionesRegulares != null ? comisionesRegulares : BigDecimal.ZERO
-                .add(comisionesExtraordinarias != null ? comisionesExtraordinarias : BigDecimal.ZERO)
-                .add(dietasViaticos != null ? dietasViaticos : BigDecimal.ZERO);
+    public BigDecimal getTotalIngresosExtra() {
+        BigDecimal total = BigDecimal.ZERO;
+
+        if (comisionesRegulares != null) {
+            total = total.add(comisionesRegulares);
+        }
+        if (comisionesExtraordinarias != null) {
+            total = total.add(comisionesExtraordinarias);
+        }
+        if (dietasViaticos != null) {
+            total = total.add(dietasViaticos);
+        }
+        if (reembolsoLicencias != null) {
+            total = total.add(reembolsoLicencias);
+        }
+
+        return total;
     }
 }

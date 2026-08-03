@@ -20,7 +20,7 @@ import java.util.Optional;
 
 @AllArgsConstructor
 @Service
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 @Transactional
 public class EmbargoSalarialService {
     private final EmbargoSalarialRepository embargoSalarialRepository;

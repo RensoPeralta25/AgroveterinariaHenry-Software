@@ -20,7 +20,7 @@ import java.util.*;
 
 @AllArgsConstructor
 @Service
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 @Transactional
 public class PrestamoEmpleadoService {
     private final PrestamoEmpleadoRepository prestamoEmpleadoRepository;

@@ -15,7 +15,7 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 @Transactional
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class DetalleNominaService {
 
     private final DetalleNominaRepository detalleNominaRepository;
