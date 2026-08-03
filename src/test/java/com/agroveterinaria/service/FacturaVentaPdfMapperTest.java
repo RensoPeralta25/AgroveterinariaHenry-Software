@@ -75,7 +75,7 @@ class FacturaVentaPdfMapperTest {
 
         LineaFacturaVentaPdfDTO linea = mapear(detalle);
 
-        assertEquals("2 Unids", linea.cantidad());
+        assertEquals("2 Cajas", linea.cantidad());
         assertEquals(new BigDecimal("12.35"), linea.precioUnitario());
         assertEquals(new BigDecimal("1.24"), linea.impuesto());
         assertEquals(new BigDecimal("25.93"), linea.subtotal());
@@ -110,7 +110,7 @@ class FacturaVentaPdfMapperTest {
         String desglose = linea.desglosePrecios();
 
         assertEquals(new BigDecimal("100.00"), linea.precioUnitario());
-        assertTrue(desglose.contains("1 Cajas"));
+        assertTrue(desglose.contains("1 Caja"));
         assertTrue(desglose.contains("5 Unids"));
         assertTrue(desglose.contains("100"));
         assertTrue(desglose.contains("10"));

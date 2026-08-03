@@ -47,6 +47,9 @@ public class FormatoInventarioUtil {
         if (cantidad == 1) return palabra;
 
         String baja = palabra.toLowerCase();
+        if (baja.equals("unid")) {
+            return palabra + "s";
+        }
         if (baja.endsWith("s") || baja.equals("cc") || baja.equals("kg") || baja.equals("ml") || baja.equals("oz") || baja.equals("lb") || baja.equals("gr")) {
             return palabra;
         }

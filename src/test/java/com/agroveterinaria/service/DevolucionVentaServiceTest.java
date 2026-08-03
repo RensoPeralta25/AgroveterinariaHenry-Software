@@ -73,6 +73,7 @@ class DevolucionVentaServiceTest {
         almacen.setIdAlmacen(3L);
         Lote lote = new Lote();
         lote.setIdLote(4L);
+        detalleVenta.setLote(lote);
 
         DetalleDevVenta detalleDevuelto = new DetalleDevVenta();
         detalleDevuelto.setDetalleVenta(detalleVenta);
@@ -86,7 +87,7 @@ class DevolucionVentaServiceTest {
         devolucion.setRazonDevolucion("Cambio de producto");
         devolucion.agregarDetalle(detalleDevuelto);
 
-        when(detalleRepository.sumarCantidadesDevueltasPorDetalleVenta(10L))
+        when(detalleRepository.sumarCantidadesDevueltasPorDetalleVentaAndLote(10L, 4L))
                 .thenReturn(BigDecimal.ZERO);
         when(notaRepository.save(any(NotaDeCredito.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
