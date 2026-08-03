@@ -57,7 +57,42 @@ class DashboardChart extends HTMLElement {
       this.chart.destroy();
     }
 
-    this.chart = new Chart(this.canvas, this.chartConfig);
+    const config = this.prepareConfig(this.chartConfig);
+    this.chart = new Chart(this.canvas, config);
+  }
+
+  prepareConfig(sourceConfig) {
+    const config = JSON.parse(JSON.stringify(sourceConfig));
+    const valueFormat = config.valueFormat;
+    delete config.valueFormat;
+
+    const numberFormatter = new Intl.NumberFormat('es-DO', {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    });
+    const formatValue = (value) => {
+      const compactValue = numberFormatter.format(Number(value));
+      return valueFormat === 'currency' ? `RD$ ${compactValue}` : compactValue;
+    };
+
+    config.options ??= {};
+    config.options.plugins ??= {};
+    config.options.plugins.tooltip ??= {};
+    config.options.plugins.tooltip.callbacks = {
+      label: (context) => {
+        const label = context.label || context.dataset.label || '';
+        const suffix = valueFormat === 'count' ? ' productos' : '';
+        return `${label}: ${formatValue(context.raw)}${suffix}`;
+      },
+    };
+
+    if (config.options.scales?.y) {
+      config.options.scales.y.ticks = {
+        callback: (value) => formatValue(value),
+      };
+    }
+
+    return config;
   }
 }
 
