@@ -78,8 +78,6 @@ public class MainView extends Div {
     private final transient AuthenticationContext authContext;
     private final PasswordEncoder passwordEncoder;
 
-    private final int heightHeadersPx = 112;
-
     public MainView(
             UsuarioService usuarioService,
             ProductoService productoService,
@@ -217,8 +215,6 @@ public class MainView extends Div {
         HorizontalLayout brand = new HorizontalLayout(logoMark, brandText);
         brand.addClassName("brand");
         brand.setAlignItems(FlexComponent.Alignment.CENTER);
-        brand.setHeight(heightHeadersPx+"px");
-        brand.getStyle().set("box-sizing", "border-box");
 
         boolean esAdmin = authContext.hasRole("ADMINISTRADOR");
         boolean esCajero = authContext.hasRole("CAJERO");
@@ -798,8 +794,6 @@ public class MainView extends Div {
         moduleHeader.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
         moduleHeader.setPadding(false);
         moduleHeader.setSpacing(false);
-        moduleHeader.setHeight(heightHeadersPx+"px");
-        moduleHeader.getStyle().set("box-sizing", "border-box");
 
         contentArea.addClassName("content-area");
 
