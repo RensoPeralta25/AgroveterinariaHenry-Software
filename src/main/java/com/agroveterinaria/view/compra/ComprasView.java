@@ -153,7 +153,7 @@ public class ComprasView extends VerticalLayout {
                 btnEliminar.setTooltipText("No se puede eliminar: existen movimientos de inventario vinculados.");
             } else {
                 btnEditar.addClickListener(e -> accionNavegarRegistro.accept(compra.getIdCompra()));
-                btnEliminar.addClickListener(e -> ejecutarEliminacionCompra(compra));
+                btnEliminar.addClickListener(e -> abrirModalConfirmacionEliminarCompra(compra));
             }
 
             acciones.add(btnEditar, btnEliminar);
@@ -228,5 +228,40 @@ public class ComprasView extends VerticalLayout {
                 .toList();
 
         paginator.setItems(listaFiltrada);
+    }
+
+    private void abrirModalConfirmacionEliminarCompra(Compra compra) {
+        Dialog modal = new Dialog();
+        modal.setWidth("500px");
+
+        H3 titulo = new H3("Confirmar Eliminación");
+        titulo.getStyle().set("margin-top", "0").set("color", "var(--lumo-error-text-color)");
+
+        String proveedorInfo = compra.getProveedor() != null ? compra.getProveedor().getNombre() : "Desconocido";
+
+        VerticalLayout infoCompra = new VerticalLayout(
+                new Span("¿Estás seguro de que deseas eliminar permanentemente esta orden de compra?"),
+                new Span("ID: #" + compra.getIdCompra()),
+                new Span("Proveedor: " + proveedorInfo),
+                new Span(String.format("Total: RD$ %,.2f", compra.getTotal()))
+        );
+        infoCompra.setPadding(false);
+
+        Button btnConfirmar = new Button("Sí, eliminar", e -> {
+            ejecutarEliminacionCompra(compra);
+            modal.close();
+        });
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+
+        Button btnCancelar = new Button("Cancelar", e -> modal.close());
+        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout layoutBotones = new HorizontalLayout(btnCancelar, btnConfirmar);
+        layoutBotones.setWidthFull();
+        layoutBotones.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        layoutBotones.getStyle().set("margin-top", "20px");
+
+        modal.add(new VerticalLayout(titulo, infoCompra, layoutBotones));
+        modal.open();
     }
 }
