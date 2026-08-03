@@ -73,42 +73,60 @@ public class DashboardView extends Div {
         Div grid = new Div();
         grid.addClassName("dashboard-charts-grid");
         grid.add(
-                createChartPanel("Ventas recientes", "Ultimos 14 dias", new DashboardChart(
+                createChartPanel("Ventas netas recientes", "Últimos 14 días", data.ventasUltimosDias(), new DashboardChart(
                         "line",
-                        "Ventas",
+                        "Ventas netas",
                         data.ventasUltimosDias(),
                         "#1676f3",
-                        "rgba(22, 118, 243, 0.14)"
+                        "rgba(22, 118, 243, 0.14)",
+                        "currency"
                 )),
-                createChartPanel("Compras recientes", "Ultimos 14 dias", new DashboardChart(
+                createChartPanel("Compras confirmadas", "Últimos 14 días", data.comprasUltimosDias(), new DashboardChart(
                         "bar",
                         "Compras",
                         data.comprasUltimosDias(),
                         "#0f766e",
-                        "rgba(15, 118, 110, 0.28)"
+                        "rgba(15, 118, 110, 0.28)",
+                        "currency"
                 )),
-                createChartPanel("Gastos operativos", "Ultimos 14 dias", new DashboardChart(
+                createChartPanel("Gastos operativos", "Últimos 14 días", data.gastosOperativosUltimosDias(), new DashboardChart(
                         "bar",
                         "Gastos operativos",
                         data.gastosOperativosUltimosDias(),
                         "#dc2626",
-                        "rgba(220, 38, 38, 0.24)"
+                        "rgba(220, 38, 38, 0.24)",
+                        "currency"
                 )),
-                createChartPanel("Inventario por categoria", "Existencias globales", new DashboardChart(
+                createChartPanel("Inventario por categoría", "Productos distintos con existencias", toSeriesPoints(data.inventarioPorCategoria()), new DashboardChart(
                         "doughnut",
-                        "Inventario",
+                        "Productos",
                         toSeriesPoints(data.inventarioPorCategoria()),
                         "#f97316",
-                        "rgba(249, 115, 22, 0.32)"
+                        "rgba(249, 115, 22, 0.32)",
+                        "count"
                 ))
         );
         return grid;
     }
 
-    private Div createChartPanel(String title, String subtitle, DashboardChart chart) {
+    private Div createChartPanel(
+            String title,
+            String subtitle,
+            List<DashboardSeriesPointDTO> puntos,
+            DashboardChart chart
+    ) {
         Div panel = new Div();
         panel.addClassName("dashboard-chart-panel");
-        panel.add(createSectionTitle(title, subtitle), chart);
+        panel.add(createSectionTitle(title, subtitle));
+
+        if (puntos.stream().noneMatch(punto -> punto.valor().compareTo(java.math.BigDecimal.ZERO) != 0)) {
+            Div empty = new Div();
+            empty.addClassName("dashboard-chart-empty");
+            empty.setText("No hay datos registrados para este período.");
+            panel.add(empty);
+        } else {
+            panel.add(chart);
+        }
         return panel;
     }
 

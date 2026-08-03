@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,11 +31,19 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
     long countByEstado(EstadoVenta estado);
 
-    List<Venta> findByFechaHoraVentaGreaterThanEqualOrderByFechaHoraVentaAsc(LocalDateTime fechaInicio);
+    List<Venta> findByFechaHoraVentaGreaterThanEqualAndEstadoInOrderByFechaHoraVentaAsc(
+            LocalDateTime fechaInicio,
+            Collection<EstadoVenta> estados
+    );
 
     @Query("SELECT COALESCE(SUM(v.montoTotal), 0) FROM Venta v " +
-            "WHERE v.fechaHoraVenta >= :inicio AND v.fechaHoraVenta < :fin")
-    BigDecimal sumarMontoEntre(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+            "WHERE v.fechaHoraVenta >= :inicio AND v.fechaHoraVenta < :fin " +
+            "AND v.estado IN :estados")
+    BigDecimal sumarMontoEntre(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("estados") Collection<EstadoVenta> estados
+    );
 
     @EntityGraph(attributePaths = {"cliente.persona"})
     @Query("SELECT DISTINCT v FROM Venta v JOIN v.detallesVentas dv " +

@@ -31,9 +31,17 @@ public interface CompraRepository extends JpaRepository<Compra, Long> {
 
     long countByEstadoRecepcionIn(Collection<EstadoRecepcion> estados);
 
-    List<Compra> findByFechaHoraCompraGreaterThanEqualOrderByFechaHoraCompraAsc(LocalDateTime fechaInicio);
+    List<Compra> findByFechaHoraCompraGreaterThanEqualAndEstadoRecepcionNotOrderByFechaHoraCompraAsc(
+            LocalDateTime fechaInicio,
+            EstadoRecepcion estadoExcluido
+    );
 
     @Query("SELECT COALESCE(SUM(c.total), 0) FROM Compra c " +
-            "WHERE c.fechaHoraCompra >= :inicio AND c.fechaHoraCompra < :fin")
-    BigDecimal sumarTotalEntre(@Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+            "WHERE c.fechaHoraCompra >= :inicio AND c.fechaHoraCompra < :fin " +
+            "AND c.estadoRecepcion <> :estadoExcluido")
+    BigDecimal sumarTotalEntre(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("estadoExcluido") EstadoRecepcion estadoExcluido
+    );
 }
