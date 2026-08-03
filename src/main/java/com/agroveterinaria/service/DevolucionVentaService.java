@@ -153,6 +153,7 @@ public class DevolucionVentaService {
             detalle.setDevolucionVenta(devolucion);
             montoCalculado = montoCalculado.add(calcularMontoDetalle(detalle.getDetalleVenta(), detalle.getCantidadDevuelta()));
         }
+        devolucion.setMontoTotal(montoCalculado.setScale(2, RoundingMode.HALF_UP));
 
         devolucion.setMontoTotal(montoCalculado.setScale(2, RoundingMode.HALF_UP));
 
