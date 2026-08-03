@@ -6,6 +6,7 @@ import com.agroveterinaria.entity.DetalleCompra;
 import com.agroveterinaria.entity.Producto;
 import com.agroveterinaria.entity.Proveedor;
 import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.exception.ProveedorOperacionException;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.service.CompraService;
@@ -53,7 +54,8 @@ public class RegistroCompraView extends VerticalLayout {
     private final InventarioService inventarioService;
 
     private boolean cargandoBorrador = false;
-    private Long idBorradorActual = null;
+    private Long idCompraActual = null;
+    private boolean esBorrador = true;
 
     private ComboBox<Proveedor> cbProveedor;
     private Grid<Producto> gridProductos;
@@ -94,13 +96,14 @@ public class RegistroCompraView extends VerticalLayout {
         add(btnVolver, titulo, splitLayout);
     }
 
-    public void configurarVista(Long idBorrador, Runnable accionVolver) {
-        this.idBorradorActual = idBorrador;
+    public void configurarVista(Long idCompra, Runnable accionVolver) {
+        this.idCompraActual = idCompra;
         this.accionVolver = accionVolver;
 
-        if (idBorrador != null) {
-            cargarBorrador(idBorrador);
+        if (idCompra != null) {
+            cargarDatosCompra(idCompra);
         } else {
+            this.esBorrador = true;
             this.cargandoBorrador = true;
             this.carrito.clear();
             actualizarTotal();
@@ -109,13 +112,15 @@ public class RegistroCompraView extends VerticalLayout {
         }
     }
 
-    private void cargarBorrador(Long id) {
+    private void cargarDatosCompra(Long id) {
         cargandoBorrador = true;
 
-        compraService.buscarPorId(id).ifPresent(borrador -> {
-            cbProveedor.setValue(borrador.getProveedor());
+        compraService.buscarPorId(id).ifPresent(compra -> {
+            this.esBorrador = (compra.getEstadoRecepcion() == EstadoRecepcion.BORRADOR);
+
+            cbProveedor.setValue(compra.getProveedor());
             carrito.clear();
-            for (DetalleCompra dc : borrador.getDetalles()) {
+            for (DetalleCompra dc : compra.getDetalles()) {
                 DetalleCompraDTO dto = new DetalleCompraDTO(dc.getProducto());
                 dto.setCantidad(dc.getCantidad());
                 dto.setCostoActual(dc.getPrecioUnitarioCompra());
@@ -448,20 +453,27 @@ public class RegistroCompraView extends VerticalLayout {
 
         Button btnConfirmar = new Button("Sí, registrar compra", e -> {
             try {
-                if (idBorradorActual != null) {
-                    compraService.confirmarBorradorComoPendiente(idBorradorActual);
+                if (idCompraActual != null) {
+                    if (esBorrador) {
+                        compraService.confirmarBorradorComoPendiente(idCompraActual);
+                    } else {
+                        compraService.actualizarCompraExistente(idCompraActual, cbProveedor.getValue(), carrito);
+                    }
                 } else {
                     compraService.registrarCompra(cbProveedor.getValue(), carrito);
                 }
-                Notification notif = Notification.show("Compra registrada y enviada a recepción", 4000, Notification.Position.BOTTOM_END);
+
+                Notification notif = Notification.show("Compra procesada exitosamente", 4000, Notification.Position.BOTTOM_END);
                 notif.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                 dialog.close();
+
                 carrito.clear();
-                idBorradorActual = null;
+                idCompraActual = null;
                 gridDetalles.getDataProvider().refreshAll();
                 cbProveedor.clear();
                 actualizarTotal();
                 accionVolver.run();
+
             } catch (Exception ex) {
                 mostrarError("Ocurrió un error al procesar la compra: " + ex.getMessage());
                 dialog.close();
@@ -658,12 +670,12 @@ public class RegistroCompraView extends VerticalLayout {
     }
 
     private void ejecutarAutoGuardadoSilencioso() {
-        if (cargandoBorrador) {
+        if (cargandoBorrador || !esBorrador) {
             return;
         }
-        if (cbProveedor.getValue() != null && (!carrito.isEmpty() || idBorradorActual != null)) {
-            Compra borradorGuardado = compraService.guardarBorradorSilencioso(idBorradorActual, cbProveedor.getValue(), carrito);
-            idBorradorActual = borradorGuardado.getIdCompra();
+        if (cbProveedor.getValue() != null && (!carrito.isEmpty() || idCompraActual != null)) {
+            Compra borradorGuardado = compraService.guardarBorradorSilencioso(idCompraActual, cbProveedor.getValue(), carrito);
+            idCompraActual = borradorGuardado.getIdCompra();
         }
     }
 }
