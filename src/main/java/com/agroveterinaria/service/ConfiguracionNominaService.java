@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @Transactional
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class ConfiguracionNominaService {
     private final ConfiguracionNominaRepository configuracionNominaRepository;
 
@@ -26,6 +26,14 @@ public class ConfiguracionNominaService {
     }
 
     public ConfiguracionNomina actualizar(ConfiguracionNomina configuracion) {
+        if (configuracion.getValor() == null) {
+            throw new IllegalArgumentException("El valor de la configuración no puede ser nulo.");
+        }
+
+        if (configuracion.getValor().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalStateException("El valor de configuración no puede ser negativo.");
+        }
+
         return configuracionNominaRepository.save(configuracion);
     }
 
@@ -96,14 +104,6 @@ public class ConfiguracionNominaService {
                                 "Este valor es indispensable para el cálculo de nómina y vacaciones."));
     }
 
-    public BigDecimal getPorcentajeMaximoPrestamo() {
-        return configuracionNominaRepository.findByClave("PORCENTAJE_MAXIMO_PRESTAMO")
-                .map(ConfiguracionNomina::getValor)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Error Crítico: No se encontró la configuración 'PORCENTAJE_MAXIMO_PRESTAMO' en la base de datos. " +
-                                "Es indispensable para validar la creación de nuevos préstamos."));
-    }
-
     public BigDecimal getDiasBonificacionBase() {
         return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_BASE")
                 .map(ConfiguracionNomina::getValor)
@@ -114,12 +114,6 @@ public class ConfiguracionNominaService {
         return configuracionNominaRepository.findByClave("BONIFICACION_DIAS_TOPE")
                 .map(ConfiguracionNomina::getValor)
                 .orElseThrow(() -> new IllegalStateException("Error Crítico: Falta configuración 'BONIFICACION_DIAS_TOPE'."));
-    }
-
-    public BigDecimal getDivisorLimiteEmbargo() {
-        return configuracionNominaRepository.findByClave("DIVISOR_LIMITE_EMBARGO")
-                .map(ConfiguracionNomina::getValor)
-                .orElseThrow(() -> new IllegalStateException("Error: Falta configuración 'DIVISOR_LIMITE_EMBARGO'."));
     }
 
     public int getAniosBonificacionSenior() {
@@ -179,4 +173,38 @@ public class ConfiguracionNominaService {
     }
 
     public BigDecimal getPorcentajeLimiteEmbargo() { return obtenerValor("LIMITE_EMBARGO_PORCENTAJE"); }
+
+    public int getMaxHorasExtrasSemanal() {
+        return obtenerValor("MAX_HORAS_EXTRAS_SEMANAL").intValue();
+    }
+
+    public int getMaxHorasExtrasQuincenal() {
+        return obtenerValor("MAX_HORAS_EXTRAS_QUINCENAL").intValue();
+    }
+
+    public int getMaxHorasExtrasMensual() {
+        return obtenerValor("MAX_HORAS_EXTRAS_MENSUAL").intValue();
+    }
+
+    public BigDecimal getDivisiorLimiteCuotaPrestamo() {
+        return obtenerValor("DIVISOR_LIMITE_CUOTA_PRESTAMO");
+    }
+
+    public BigDecimal getPrestamoFactorMaximoSalario() {
+        return obtenerValor("PRESTAMO_FACTOR_MAXIMO_SALARIO");
+    }
+
+    public BigDecimal getPrestamoFactorMinimoSalario() {
+        return obtenerValor("PRESTAMO_FACTOR_MINIMO_SALARIO");
+    }
+
+    public int getPrestamoPlazoMaximoMeses() {
+        return obtenerValor("PRESTAMO_PLAZO_MAXIMO_MESES").intValue();
+    }
+
+    public BigDecimal getTasaInteresMaximaPrestamo() { return obtenerValor("TASA_INTERES_MAXIMA_PRESTAMO"); }
+
+    public long getPlazoJustificacionHoras() {
+        return obtenerValor("PLAZO_JUSTIFICACION_HORAS").longValue();
+    }
 }

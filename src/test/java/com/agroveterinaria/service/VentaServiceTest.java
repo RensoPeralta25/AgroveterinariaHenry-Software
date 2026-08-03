@@ -54,6 +54,9 @@ class VentaServiceTest {
     @Mock LoteRepository loteRepository;
 
     @Mock
+    private NotaDeCreditoRepository notaDeCreditoRepository;
+
+    @Mock
     private PersonaService personaService;
 
     private VentaService ventaService;
@@ -72,7 +75,8 @@ class VentaServiceTest {
                 personaService,
                 almacenRepository,
                 inventarioRepository,
-                loteRepository
+                loteRepository,
+                notaDeCreditoRepository
         );
 
         cliente = cliente(1L);
@@ -382,6 +386,51 @@ class VentaServiceTest {
     }
 
     @Test
+    void registrarCobroConNotaCreditoDescuentaSaldoYConservaTrazabilidad() {
+        Venta venta = venta(cliente, "1000.00");
+        NotaDeCredito nota = notaCredito(7L, cliente, "500.00");
+        when(notaDeCreditoRepository.buscarPorIdParaActualizar(7L)).thenReturn(Optional.of(nota));
+        when(notaDeCreditoRepository.save(any(NotaDeCredito.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(cobroRepository.save(any(Cobro.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Cobro cobro = ventaService.registrarCobro(
+                cliente,
+                venta,
+                MetodoPago.NOTA_CREDITO,
+                new BigDecimal("200.00"),
+                null,
+                7L
+        );
+
+        assertEquals(new BigDecimal("300.00"), nota.getSaldoDisponible());
+        assertSame(nota, cobro.getNotaDeCredito());
+        assertEquals(MetodoPago.NOTA_CREDITO, cobro.getMetodoPago());
+        assertEquals(new BigDecimal("200.00"), cobro.getMontoTotal());
+    }
+
+    @Test
+    void registrarCobroConNotaCreditoRechazaMontoMayorAlSaldo() {
+        Venta venta = venta(cliente, "1000.00");
+        NotaDeCredito nota = notaCredito(7L, cliente, "150.00");
+        when(notaDeCreditoRepository.buscarPorIdParaActualizar(7L)).thenReturn(Optional.of(nota));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                ventaService.registrarCobro(
+                        cliente,
+                        venta,
+                        MetodoPago.NOTA_CREDITO,
+                        new BigDecimal("200.00"),
+                        null,
+                        7L
+                )
+        );
+
+        assertEquals(new BigDecimal("150.00"), nota.getSaldoDisponible());
+    }
+
+    @Test
     void calcularResumenSoportaMultiplesLineasMezclandoProductosYServicios() {
         Producto alimento = producto(100L, CategoriaProducto.ALIMENTO, "150.00", "18.00");
         Producto servicio = producto(300L, CategoriaProducto.SERVICIO, "500.00", "0.00");
@@ -469,6 +518,7 @@ class VentaServiceTest {
                 bd(montoPagado),
                 MetodoPago.EFECTIVO,
                 null,
+                null,
                 lineas
         );
     }
@@ -517,6 +567,15 @@ class VentaServiceTest {
         cliente.setPersona(persona);
         cliente.setTipoCliente(tipoCliente);
         return cliente;
+    }
+
+    private NotaDeCredito notaCredito(Long id, Cliente cliente, String saldo) {
+        NotaDeCredito nota = new NotaDeCredito();
+        nota.setIdNotaCredito(id);
+        nota.setCliente(cliente);
+        nota.setMonto(bd(saldo));
+        nota.setSaldoDisponible(bd(saldo));
+        return nota;
     }
 
     private Empleado vendedor(Long idEmpleado) {

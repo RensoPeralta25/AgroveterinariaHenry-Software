@@ -138,7 +138,9 @@ public class RegistroTransferenciaView extends VerticalLayout {
                 i.getCantidadActual(),
                 i.getLote().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(i.getLote().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(i.getLote().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(i.getLote().getProducto())
         )).setHeader("Stock").setTextAlign(ColumnTextAlign.END).setFlexGrow(1).setComparator(Inventario::getCantidadActual);
 
         gridInventario.addComponentColumn(this::crearBotonAgregar).setHeader("Acción").setTextAlign(ColumnTextAlign.CENTER);
@@ -203,7 +205,9 @@ public class RegistroTransferenciaView extends VerticalLayout {
         field.configurarProducto(
                 prod.getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
         );
 
         field.setValue(dto.getCantidad());
@@ -221,7 +225,9 @@ public class RegistroTransferenciaView extends VerticalLayout {
 
                 String maxFormateado = FormatoInventarioUtil.formatearCantidad(
                         dto.getExistenciaMaxima(), prod.getContenidoPorEmpaque(),
-                        Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false
+                        Boolean.TRUE.equals(prod.getPermiteFraccionamiento()), false,
+                        FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                        FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
                 );
                 Notification.show("La cantidad no puede superar la existencia máxima (" + maxFormateado + ")")
                         .addThemeVariants(NotificationVariant.LUMO_WARNING);

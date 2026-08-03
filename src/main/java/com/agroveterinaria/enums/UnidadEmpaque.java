@@ -5,7 +5,7 @@ public enum UnidadEmpaque {
     CAJA("Caja"),
     FRASCO("Frasco"),
     BLISTER("Blíster"),
-    UNIDAD_COMPLETA("Unidad Cerrada");
+    UNIDAD_COMPLETA("Unidad");
 
     private final String etiqueta;
 

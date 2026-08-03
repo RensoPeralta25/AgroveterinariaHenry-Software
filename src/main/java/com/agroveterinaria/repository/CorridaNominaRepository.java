@@ -23,13 +23,6 @@ public interface CorridaNominaRepository extends JpaRepository<CorridaNomina, Lo
             "ORDER BY c.fechaEmision DESC")
     List<CorridaNomina> findAllConNominas();
 
-    boolean existsByTipoAndPeriodoAndFechaEmisionBetween(
-            TipoCorrida tipo,
-            PeriodoNomina periodo,
-            LocalDate inicio,
-            LocalDate fin
-    );
-
     @Query("SELECT COUNT(c) > 0 FROM CorridaNomina c WHERE c.tipo = :tipo AND EXTRACT(YEAR FROM c.fechaEmision) = :anio")
     boolean existeCorridaAnualPorTipo(@Param("tipo") TipoCorrida tipo, @Param("anio") int anio);
 
@@ -40,9 +33,25 @@ public interface CorridaNominaRepository extends JpaRepository<CorridaNomina, Lo
 
     boolean existsByEstado(EstadoCorrida estado);
 
-    boolean existsByPeriodoAndFechaEmisionAndTipo(PeriodoNomina periodo, LocalDate fechaEmision, TipoCorrida tipo);
+    @Query("SELECT COUNT(c) > 0 FROM CorridaNomina c WHERE c.tipo = :tipo AND ((c.fechaInicio <= :fin) AND (c.fechaFin >= :inicio))")
+    boolean existeSolapamiento(@Param("inicio") LocalDate inicio, @Param("fin") LocalDate fin, @Param("tipo") TipoCorrida tipo);
 
-    Optional<CorridaNomina> findTopByPeriodoAndEstadoAndTipoOrderByFechaEmisionDesc(PeriodoNomina periodoNomina, EstadoCorrida estadoCorrida, TipoCorrida tipoCorrida);
+    boolean existsByTipoAndPeriodoAndFechaInicioAndFechaFin(TipoCorrida tipo, PeriodoNomina periodo, LocalDate fechaInicio, LocalDate fechaFin);
 
-    boolean existsByTipoAndFechaEmisionBetween(TipoCorrida tipoCorrida, LocalDate localDate, LocalDate localDate1);
+    boolean existsByTipoAndFechaFinBetween(TipoCorrida tipo, LocalDate inicio, LocalDate fin);
+
+    Optional<CorridaNomina> findTopByPeriodoAndEstadoAndTipoOrderByFechaFinDesc(PeriodoNomina periodo, EstadoCorrida estado, TipoCorrida tipo);
+
+    @Query("SELECT COUNT(c) > 0 FROM CorridaNomina c WHERE c.tipo = :tipo AND MONTH(c.fechaInicio) = :mes AND YEAR(c.fechaInicio) = :anio AND c.periodo != :periodo")
+    boolean existeOtraModalidadEnMesDeInicio(@Param("tipo") TipoCorrida tipo, @Param("mes") int mes, @Param("anio") int anio, @Param("periodo") PeriodoNomina periodo);
+
+    Optional<CorridaNomina> findTopByTipoAndEstadoOrderByFechaFinDesc(TipoCorrida tipo, EstadoCorrida estado);
+
+    @Query("SELECT COUNT(c) > 0 FROM CorridaNomina c WHERE c.tipo = :tipo AND c.periodo = :periodo AND c.estado = 'APROBADA' AND MONTH(c.fechaInicio) = :mes AND YEAR(c.fechaInicio) = :anio AND DAY(c.fechaInicio) <= 15")
+    boolean existePrimeraQuincenaEnMes(
+            @org.springframework.data.repository.query.Param("tipo") TipoCorrida tipo,
+            @org.springframework.data.repository.query.Param("periodo") PeriodoNomina periodo,
+            @org.springframework.data.repository.query.Param("mes") int mes,
+            @org.springframework.data.repository.query.Param("anio") int anio
+    );
 }

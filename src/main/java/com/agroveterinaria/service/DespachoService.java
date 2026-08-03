@@ -4,6 +4,7 @@ import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.dto.despacho.LineaDespachoDTO;
 import com.agroveterinaria.dto.recepcion.GastoOperativoUI;
 import com.agroveterinaria.entity.*;
+import com.agroveterinaria.enums.EstadoTransferencia;
 import com.agroveterinaria.enums.EstadoTransporte;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.enums.TipoGasto;
@@ -80,8 +81,10 @@ public class DespachoService {
     @Transactional(readOnly = true)
     public List<Transferencia> obtenerTransferenciasPendientes() {
         return transferenciaRepository.findByEstadoIn(List.of(
-                com.agroveterinaria.enums.EstadoTransferencia.PENDIENTE_DESPACHO,
-                com.agroveterinaria.enums.EstadoTransferencia.DESPACHADA_PARCIAL
+                EstadoTransferencia.PENDIENTE_DESPACHO,
+                EstadoTransferencia.DESPACHADA_PARCIAL,
+                EstadoTransferencia.EN_TRANSITO,
+                EstadoTransferencia.RECIBIDA_PARCIAL
         ));
     }
 
@@ -103,12 +106,13 @@ public class DespachoService {
     }
 
     @Transactional
-    public Despacho procesarDespachoTransferencia(Transferencia transferencia, Vehiculo vehiculo, Empleado conductor, List<LineaDespachoDTO> lineasAProcesar) {
+    public Despacho procesarDespachoTransferencia(Transferencia transferencia, Vehiculo vehiculo, Empleado conductor, Ruta ruta, List<LineaDespachoDTO> lineasAProcesar) {
         Despacho despacho = new Despacho();
 
         Transporte transporte = (transferencia.getTransporte() != null) ? transferencia.getTransporte() : new Transporte();
         transporte.setVehiculo(vehiculo);
         transporte.setConductor(conductor);
+        transporte.setRuta(ruta);
         if(transporte.getIdTransporte() == null) {
             transporte.setEstado(EstadoTransporte.PROGRAMADO);
             transporte.setDescuento(BigDecimal.ZERO);
@@ -191,14 +195,18 @@ public class DespachoService {
         Venta venta = ventaRepository.findById(idVenta)
                 .orElseThrow(() -> new RuntimeException("Error al cargar datos de la venta"));
 
-        return venta.getDetallesVentas().stream().map(dv -> {
-            BigDecimal despachadoHistorico = detalleDespachoRepository.sumCantidadByIdDetalleVenta(dv.getIdDetalleVenta());
-            return new LineaDespachoDTO(dv, despachadoHistorico);
-        }).filter(dto -> dto.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0).toList();
+        return venta.getDetallesVentas().stream()
+                .filter(dv -> dv.getProducto().getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .map(dv -> {
+                    BigDecimal despachadoHistorico = detalleDespachoRepository.sumCantidadByIdDetalleVenta(dv.getIdDetalleVenta());
+                    return new LineaDespachoDTO(dv, despachadoHistorico);
+                })
+                .filter(dto -> dto.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
     }
 
     @Transactional
-    public Despacho procesarDespachoVenta(Long idVenta, Vehiculo vehiculo, Empleado conductor, List<LineaDespachoDTO> lineasAProcesar) {
+    public Despacho procesarDespachoVenta(Long idVenta, Vehiculo vehiculo, Empleado conductor, Ruta ruta, List<LineaDespachoDTO> lineasAProcesar) {
         Venta venta = ventaRepository.findById(idVenta)
                 .orElseThrow(() -> new RuntimeException("Venta no encontrada"));
 
@@ -207,6 +215,7 @@ public class DespachoService {
         Transporte transporte = new Transporte();
         transporte.setVehiculo(vehiculo);
         transporte.setConductor(conductor);
+        transporte.setRuta(ruta);
         transporte.setEstado(EstadoTransporte.PROGRAMADO);
         transporte.setDescuento(BigDecimal.ZERO);
         transporte = transporteRepository.save(transporte);

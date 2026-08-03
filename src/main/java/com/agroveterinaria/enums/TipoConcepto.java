@@ -10,6 +10,7 @@ public enum TipoConcepto {
     PAGO_VACACIONES,
     SUELDO_13,
     DIETAS_Y_VIATICOS,
+    REEMBOLSO_LICENCIA,
 
     // Deducciones
     SEGURO_FAMILIAR_SALUD,
@@ -17,14 +18,14 @@ public enum TipoConcepto {
     IMPUESTO_RENTA,
     ANTICIPO_SALARIO,
     PRESTAMO_EMPRESA,
-    AUSENCIAS_NO_PAGADAS,
+    DESCUENTO_AUSENCIA,
     EMBARGO_SALARIAL;
 
     public boolean esIngreso() {
         return this == SALARIO_BASE || this == HORAS_EXTRAS ||
                 this == COMISIONES_REGULARES || this == COMISIONES_EXTRAORDINARIAS  ||
                 this == BONIFICACIONES || this == PAGO_VACACIONES ||
-                this == SUELDO_13 || this == DIETAS_Y_VIATICOS;
+                this == SUELDO_13 || this == DIETAS_Y_VIATICOS || this == REEMBOLSO_LICENCIA;
     }
 
     public boolean esDeduccion() {

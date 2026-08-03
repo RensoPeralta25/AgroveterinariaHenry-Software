@@ -1,5 +1,6 @@
 package com.agroveterinaria.entity;
 
+import com.agroveterinaria.enums.EstadoVacacion;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -40,10 +41,10 @@ public class VacacionEmpleado {
     @Column(name = "cantidad_dias_a_pagar")
     private int cantidadDiasAPagar;
 
-    @NotNull
     @ManyToOne
     @JoinColumn(name = "id_empleado_aprobador")
     private Empleado aprobadoPor;
-    
-    private boolean pagado = false;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoVacacion estado = EstadoVacacion.PENDIENTE;
 }

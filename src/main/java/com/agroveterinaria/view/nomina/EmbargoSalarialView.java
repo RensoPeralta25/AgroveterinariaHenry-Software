@@ -4,6 +4,7 @@ import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.CuotaExtraEmbargo;
 import com.agroveterinaria.entity.EmbargoSalarial;
 import com.agroveterinaria.entity.Empleado;
+import com.agroveterinaria.enums.EstadoEmbargo;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.enums.TipoEmbargo;
 import com.agroveterinaria.service.AnticipoSalarioService;
@@ -45,6 +46,9 @@ public class EmbargoSalarialView extends VerticalLayout {
     private final ConfiguracionNominaService configuracionNominaService;
     private final AnticipoSalarioService anticipoSalarioService;
 
+    private ComboBox<Empleado> comboFiltroEmpleado;
+    private ComboBox<EstadoEmbargo> comboFiltroEstado;
+
     public EmbargoSalarialView(EmbargoSalarialService embargoService, EmpleadoService empleadoService, ConfiguracionNominaService configuracionNominaService, AnticipoSalarioService anticipoSalarioService) {
         this.embargoService = embargoService;
         this.empleadoService = empleadoService;
@@ -80,25 +84,72 @@ public class EmbargoSalarialView extends VerticalLayout {
                 .setHeader("Estado").setWidth("120px").setFlexGrow(0);
 
         gridEmbargos.addComponentColumn(embargo -> {
+            HorizontalLayout acciones = new HorizontalLayout();
+            acciones.setSpacing(true);
+            acciones.setPadding(false);
+
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
             btnEditar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnEditar.setTooltipText("Editar parámetros base");
+            btnEditar.setEnabled(embargo.getEstado() != EstadoEmbargo.INACTIVO);
             btnEditar.addClickListener(e -> dialogFormularioEmbargo(embargo, paginator));
 
-            HorizontalLayout acciones = new HorizontalLayout(btnEditar);
-            acciones.setSpacing(false);
-            acciones.setPadding(false);
+            Button btnSuspender = new Button(new Icon(VaadinIcon.HOURGLASS));
+            btnSuspender.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            btnSuspender.setTooltipText("Suspender temporalmente");
+            btnSuspender.setVisible(embargo.getEstado() == EstadoEmbargo.ACTIVO);
+            btnSuspender.addClickListener(e ->
+                    ejecutarCambioEstado(embargo, EstadoEmbargo.SUSPENDIDO, "Embargo suspendido correctamente.", paginator)
+            );
+
+            Button btnReactivar = new Button(new Icon(VaadinIcon.PLAY));
+            btnReactivar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+            btnReactivar.setTooltipText("Reactivar embargo");
+            btnReactivar.setVisible(embargo.getEstado() == EstadoEmbargo.SUSPENDIDO);
+            btnReactivar.addClickListener(e ->
+                    ejecutarCambioEstado(embargo, EstadoEmbargo.ACTIVO, "Embargo reactivado. Volverá a descontarse.", paginator)
+            );
+
+            Button btnCerrar = new Button(new Icon(VaadinIcon.STOP));
+            btnCerrar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+            btnCerrar.setTooltipText("Cerrar definitivamente");
+            btnCerrar.setVisible(embargo.getEstado() != EstadoEmbargo.INACTIVO);
+            btnCerrar.addClickListener(e -> confirmarCierreEmbargo(embargo, paginator));
+
+            if (embargo.getEstado() != EstadoEmbargo.INACTIVO) {
+                acciones.add(btnEditar, btnSuspender, btnReactivar, btnCerrar);
+            }
+
             return acciones;
-        }).setHeader("Acciones").setWidth("100px").setFlexGrow(0);
+        }).setHeader("Acciones").setWidth("150px").setFlexGrow(0);
+
+        comboFiltroEmpleado = new ComboBox<>();
+        comboFiltroEmpleado.setPlaceholder("Buscar por empleado...");
+        comboFiltroEmpleado.setItems(empleadoService.findByStatus(StatusEntidad.ACTIVO));
+        comboFiltroEmpleado.setItemLabelGenerator(e -> e.getPersona().getNombre() + " " + e.getPersona().getApellido());
+        comboFiltroEmpleado.setClearButtonVisible(true);
+
+        comboFiltroEstado = new ComboBox<>();
+        comboFiltroEstado.setPlaceholder("Todos los estados");
+        comboFiltroEstado.setItems(EstadoEmbargo.values());
+        comboFiltroEstado.setItemLabelGenerator(EstadoEmbargo::getDescripcion);
+        comboFiltroEstado.setClearButtonVisible(true);
+        comboFiltroEstado.setWidth("200px");
+
+        comboFiltroEmpleado.addValueChangeListener(e -> refrescarGrid(paginator));
+        comboFiltroEstado.addValueChangeListener(e -> refrescarGrid(paginator));
+
 
         Button btnNuevo = new Button("Nuevo Embargo", new Icon(VaadinIcon.PLUS));
         btnNuevo.addClassName("btn-nuevo");
         btnNuevo.addClickListener(e -> dialogFormularioEmbargo(new EmbargoSalarial(), paginator));
 
-        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo);
+        HorizontalLayout toolbar = new HorizontalLayout(btnNuevo, comboFiltroEmpleado, comboFiltroEstado);
         toolbar.setWidthFull();
-        toolbar.setAlignItems(Alignment.CENTER);
+        toolbar.setAlignItems(Alignment.BASELINE);
         toolbar.getStyle().set("margin-bottom", "12px");
+        toolbar.setFlexGrow(1,comboFiltroEmpleado);
 
         refrescarGrid(paginator);
         add(toolbar, paginator, gridEmbargos);
@@ -124,6 +175,7 @@ public class EmbargoSalarialView extends VerticalLayout {
 
         ComboBox<TipoEmbargo> cmbTipo = new ComboBox<>("Tipo");
         cmbTipo.setItems(TipoEmbargo.values());
+        cmbTipo.setItemLabelGenerator(TipoEmbargo::getDescripcion);
         cmbTipo.setValue(embargo.getTipoEmbargo());
         cmbTipo.setWidthFull();
 
@@ -133,30 +185,53 @@ public class EmbargoSalarialView extends VerticalLayout {
         DatePicker fechaNotificacion = new DatePicker("Fecha Notificación");
         fechaNotificacion.setValue(embargo.getFechaNotificacion() != null ? embargo.getFechaNotificacion() : LocalDate.now());
         fechaNotificacion.setWidthFull();
+        fechaNotificacion.setMax(LocalDate.now());
 
-        ComboBox<StatusEntidad> cmbEstado = new ComboBox<>("Estado");
-        cmbEstado.setItems(StatusEntidad.values());
-        cmbEstado.setValue(embargo.getEstado() != null ? embargo.getEstado() : StatusEntidad.ACTIVO);
+        ComboBox<EstadoEmbargo> cmbEstado = new ComboBox<>("Estado");
+        cmbEstado.setItems(EstadoEmbargo.values());
+        cmbEstado.setValue(embargo.getEstado() != null ? embargo.getEstado() : EstadoEmbargo.ACTIVO);
+        cmbEstado.setItemLabelGenerator(EstadoEmbargo::getDescripcion);
         cmbEstado.setWidthFull();
+        cmbEstado.setReadOnly(true);
+
+        cmbEmpleado.setRequiredIndicatorVisible(false);
+        txtDemandante.setRequiredIndicatorVisible(false);
+        cmbTipo.setRequiredIndicatorVisible(false);
+        numCuota.setRequiredIndicatorVisible(false);
+        fechaNotificacion.setRequiredIndicatorVisible(false);
+        cmbEstado.setRequiredIndicatorVisible(false);
 
         FormLayout formLayout = new FormLayout(cmbEmpleado, txtDemandante, cmbTipo, numCuota, fechaNotificacion, cmbEstado);
         formLayout.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("400px", 2));
 
         Binder<EmbargoSalarial> binder = new Binder<>(EmbargoSalarial.class);
 
-        binder.forField(cmbEmpleado).asRequired("Seleccione un empleado").bind(EmbargoSalarial::getEmpleado, EmbargoSalarial::setEmpleado);
-        binder.forField(txtDemandante).asRequired("La entidad es obligatoria").bind(EmbargoSalarial::getEntidadDemandante, EmbargoSalarial::setEntidadDemandante);
-        binder.forField(cmbTipo).asRequired("Seleccione un tipo").bind(EmbargoSalarial::getTipoEmbargo, EmbargoSalarial::setTipoEmbargo);
-        binder.forField(fechaNotificacion).asRequired("Seleccione una fecha").bind(EmbargoSalarial::getFechaNotificacion, EmbargoSalarial::setFechaNotificacion);
-        binder.forField(cmbEstado).asRequired("Seleccione un estado").bind(EmbargoSalarial::getEstado, EmbargoSalarial::setEstado);
+        binder.forField(cmbEmpleado)
+                .withValidator(empleado -> empleado != null, "Seleccione un empleado")
+                .bind(EmbargoSalarial::getEmpleado, EmbargoSalarial::setEmpleado);
+
+        binder.forField(txtDemandante)
+                .withValidator(texto -> texto != null && !texto.trim().isEmpty(), "La entidad es obligatoria")
+                .bind(EmbargoSalarial::getEntidadDemandante, EmbargoSalarial::setEntidadDemandante);
+
+        binder.forField(cmbTipo)
+                .withValidator(tipo -> tipo != null, "Seleccione un tipo")
+                .bind(EmbargoSalarial::getTipoEmbargo, EmbargoSalarial::setTipoEmbargo);
+
+        binder.forField(fechaNotificacion)
+                .withValidator(fecha -> fecha != null, "Seleccione una fecha")
+                .bind(EmbargoSalarial::getFechaNotificacion, EmbargoSalarial::setFechaNotificacion);
+
+        binder.forField(cmbEstado)
+                .withValidator(estado -> estado != null, "Seleccione un estado")
+                .bind(EmbargoSalarial::getEstado, EmbargoSalarial::setEstado);
 
         binder.forField(numCuota)
-                .asRequired("La cuota es obligatoria")
-                .withValidator(monto -> monto.compareTo(BigDecimal.ZERO) > 0, "El monto debe ser mayor a RD$ 0.00")
+                .withValidator(monto -> monto != null && monto.compareTo(BigDecimal.ZERO) > 0, "El monto debe ser mayor a RD$ 0.00")
                 .bind(EmbargoSalarial::getMontoCuotaOrdinaria, EmbargoSalarial::setMontoCuotaOrdinaria);
 
         if (!isEdit) {
-            embargo.setEstado(StatusEntidad.ACTIVO);
+            embargo.setEstado(EstadoEmbargo.ACTIVO);
             embargo.setFechaNotificacion(LocalDate.now());
         }
 
@@ -253,16 +328,55 @@ public class EmbargoSalarialView extends VerticalLayout {
         dialog.open();
     }
 
+    private void ejecutarCambioEstado(EmbargoSalarial embargo, EstadoEmbargo nuevoEstado, String mensajeExito, GridPaginator<EmbargoSalarial> paginator) {
+        try {
+            embargoService.cambiarEstado(embargo, nuevoEstado);
+            mostrarExito(mensajeExito);
+            refrescarGrid(paginator);
+        } catch (Exception ex) {
+            mostrarError("Error: " + ex.getMessage());
+        }
+    }
+
+    private void confirmarCierreEmbargo(EmbargoSalarial embargo, GridPaginator<EmbargoSalarial> paginator) {
+        Dialog confirm = new Dialog();
+        confirm.setHeaderTitle("Cierre Definitivo de Embargo");
+
+        Span mensaje = new Span("¿Estás seguro de cerrar este embargo? Esta acción es irreversible. Si hay un nuevo requerimiento legal en el futuro, deberás registrar un embargo nuevo.");
+        mensaje.getStyle().set("color", "var(--lumo-error-text-color)");
+
+        Button btnConfirmar = new Button("Sí, cerrar", e -> {
+            ejecutarCambioEstado(embargo, EstadoEmbargo.INACTIVO, "Embargo cerrado de forma permanente.", paginator);
+            confirm.close();
+        });
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_ERROR);
+
+        Button btnCancelar = new Button("Cancelar", e -> confirm.close());
+        btnCancelar.addClassName("btn-borde");
+
+        confirm.add(new VerticalLayout(mensaje));
+        confirm.getFooter().add(btnConfirmar, btnCancelar);
+        confirm.open();
+    }
+
     private HorizontalLayout crearBadgeEstadoEntidad(EmbargoSalarial embargo) {
         Span circulo = new Span();
         circulo.getStyle().set("width", "10px").set("height", "10px")
                 .set("border-radius", "50%").set("display", "inline-block");
 
-        boolean esActivo = embargo.getEstado() == StatusEntidad.ACTIVO;
-        circulo.getStyle().set("background-color", esActivo ? "#2e7d32" : "#9e9e9e");
+        String color;
+        if (embargo.getEstado() == EstadoEmbargo.ACTIVO) {
+            color = "#2e7d32";
+        } else if (embargo.getEstado() == EstadoEmbargo.SUSPENDIDO) {
+            color = "#f59e0b";
+        } else {
+            color = "#d32f2f";
+        }
 
-        Span texto = new Span(embargo.getEstado().name());
-        texto.getStyle().set("color", esActivo ? "#2e7d32" : "#9e9e9e").set("font-weight", "500");
+        circulo.getStyle().set("background-color", color);
+
+        Span texto = new Span(embargo.getEstado().getDescripcion());
+        texto.getStyle().set("color", color).set("font-weight", "500");
 
         HorizontalLayout layoutEstado = new HorizontalLayout(circulo, texto);
         layoutEstado.setAlignItems(Alignment.CENTER);

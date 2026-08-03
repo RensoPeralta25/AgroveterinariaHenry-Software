@@ -28,17 +28,25 @@ public class PrestamoEmpleado {
     @JoinColumn(name = "id_empleado")
     private Empleado empleado;
 
-    @NotNull(message = "El monto total es obligatorio")
-    @Positive(message = "El monto total debe ser mayor a cero")
-    private BigDecimal montoTotal;
+    @NotNull(message = "El monto de capital es obligatorio")
+    @Positive(message = "El monto de capital debe ser mayor a cero")
+    private BigDecimal montoCapital;
 
-    @NotNull(message = "El balance pendiente es obligatorio")
-    @PositiveOrZero(message = "El balance pendiente no puede ser negativo")
-    private BigDecimal balancePendiente;
+    @NotNull(message = "La tasa de interés es obligatoria")
+    @DecimalMin(value = "0.00", message = "La tasa de interés no puede ser negativa")
+    private BigDecimal tasaInteres;
+
+    @NotNull(message = "El plazo en meses es obligatorio")
+    @Min(value = 1, message = "El plazo mínimo es de 1 mes")
+    private Integer plazoMeses;
 
     @NotNull(message = "La cuota periódica es obligatoria")
     @Positive(message = "La cuota a descontar debe ser mayor a cero")
     private BigDecimal cuotaPeriodica;
+
+    @NotNull(message = "El balance pendiente es obligatorio")
+    @PositiveOrZero(message = "El balance pendiente no puede ser negativo")
+    private BigDecimal balanceCapitalPendiente;
 
     @NotNull(message = "La fecha de aprobación es obligatoria")
     private LocalDate fechaAprobacion;
@@ -49,8 +57,15 @@ public class PrestamoEmpleado {
 
     @NotNull(message = "El estado del préstamo es obligatorio")
     @Enumerated(EnumType.STRING)
-    private EstadoPrestamo estado;
+    private EstadoPrestamo estado = EstadoPrestamo.PENDIENTE;
 
-    @Version
-    private Long version;
+    @NotNull(message = "Las cuotas pagadas son obligatorias")
+    @Min(value = 0, message = "El minimo de cuotas pagadas es cero")
+    private Integer cuotasPagadas = 0;
+
+    @PrePersist
+    public void prePersist() {
+        if (fechaAprobacion == null) fechaAprobacion = LocalDate.now();
+        if (balanceCapitalPendiente == null) balanceCapitalPendiente = montoCapital;
+    }
 }

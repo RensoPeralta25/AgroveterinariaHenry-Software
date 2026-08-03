@@ -6,6 +6,7 @@ import com.agroveterinaria.entity.Usuario;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.repository.EmpleadoRepository;
+import com.agroveterinaria.security.SecurityService;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ import java.util.regex.Pattern;
 @Service
 @Transactional
 @AllArgsConstructor
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class EmpleadoService {
     private static final Pattern CEDULA_PATTERN = Pattern.compile("^\\d{3}-\\d{7}-\\d{1}$");
     private static final Pattern TELEFONO_PATTERN = Pattern.compile("^\\d{3}-\\d{3}-\\d{4}$");
@@ -30,6 +31,7 @@ public class EmpleadoService {
     private final EmbargoSalarialService embargoSalarialService;
     private final VacacionEmpleadoService vacacionEmpleadoService;
     private final PersonaService personaService;
+    private final SecurityService securityService;
 
     public List<Empleado> findAll() { return empleadoRepository.findAll(); }
 
@@ -57,10 +59,15 @@ public class EmpleadoService {
         Empleado empleadoExistente = empleadoRepository.findById(emp.getIdEmpleado())
                 .orElseThrow(() -> new IllegalArgumentException("Empleado no encontrado"));
 
+        if (empleadoExistente.getCargos().contains(RolEmpleado.ADMINISTRADOR) && !securityService.isCurrentUserAdmin()) {
+            throw new IllegalStateException("Acceso denegado: Su rol no le permite modificar el perfil de un empleado Administrador.");
+        }
+
         Persona personaExistente = empleadoExistente.getPersona();
         Persona personaForm = emp.getPersona();
 
         if (personaExistente != null && personaForm != null) {
+            personaExistente.setCedula(personaForm.getCedula());
             personaExistente.setNombre(personaForm.getNombre());
             personaExistente.setTelefono(personaForm.getTelefono());
             personaExistente.setDireccion(personaForm.getDireccion());
@@ -72,6 +79,10 @@ public class EmpleadoService {
     }
 
     public void delete(Empleado emp){
+        if (emp.getCargos().contains(RolEmpleado.ADMINISTRADOR) && !securityService.isCurrentUserAdmin()) {
+            throw new IllegalStateException("Acceso denegado: No tiene permisos para eliminar a un empleado Administrador.");
+        }
+
         if (nominaService.existsByEmpleado(emp)) {
             throw new IllegalStateException("No se puede eliminar el empleado porque ya tiene nóminas procesadas. Utilice la opción 'Dar de Baja'.");
         }
@@ -89,6 +100,10 @@ public class EmpleadoService {
     }
 
     public void darDeBaja(Empleado empleado) {
+        if (empleado.getCargos().contains(RolEmpleado.ADMINISTRADOR) && !securityService.isCurrentUserAdmin()) {
+            throw new IllegalStateException("Acceso denegado: No tiene permisos para dar de baja a un Administrador.");
+        }
+
         empleado.setStatus(StatusEntidad.INACTIVO);
 
         if (empleado.getUsuario() != null) {
@@ -144,6 +159,16 @@ public class EmpleadoService {
 
         if (empleado.getCargos() == null || empleado.getCargos().isEmpty()) {
             throw new IllegalArgumentException("Error: El empleado debe tener al menos un rol asignado.");
+        }
+
+        if (empleado.getCargos().contains(RolEmpleado.ADMINISTRADOR)) {
+            if (!securityService.isCurrentUserAdmin()) {
+                throw new IllegalStateException("Acceso denegado: Su rol de Recursos Humanos no le permite otorgar el cargo de Administrador.");
+            }
+            if (empleado.getCargos().size() > 1) {
+                empleado.getCargos().clear();
+                empleado.getCargos().add(RolEmpleado.ADMINISTRADOR);
+            }
         }
     }
 

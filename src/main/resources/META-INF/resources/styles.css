@@ -709,10 +709,6 @@ body {
     border: 1px solid #e2e8f0;
 }
 
-.dashboard-chart-panel:last-child {
-    grid-column: 1 / -1;
-}
-
 .dashboard-chart {
     height: 280px;
     margin-top: 14px;
@@ -833,9 +829,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-chart-panel:last-child {
-        grid-column: auto;
-    }
 }
 
 /* CRUD DE USUARIO */
@@ -1462,4 +1455,72 @@ body {
 
 .dialog-baja-empleado::part(footer) {
     flex-direction: row-reverse;
+}
+
+.roles-container {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+
+.rol-badge {
+    background-color: #e2e8f0;
+    color: #475569;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+
+@media (max-width: 800px) {
+    .app-shell {
+        display: block !important;
+    }
+
+    .module-header {
+        background-color: #ffffff !important;
+        position: relative;
+        z-index: 1010 !important;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .main-panel {
+        width: 100% !important;
+        margin-left: 0 !important;
+    }
+
+    .brand {
+        display: none !important;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 112px;
+        left: 0;
+        height: calc(100vh - 112px);
+        width: 280px;
+        max-width: 85vw;
+        z-index: 1000;
+
+        background-color: #ffffff !important;
+        box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.15);
+        transition: transform 0.3s ease-in-out;
+
+        transform: translateX(-100%);
+    }
+
+    .app-shell.sidebar-collapsed .sidebar {
+        transform: translateX(0);
+    }
+
+    .sidebar-nav {
+        overflow-y: auto;
+        height: 100%;
+    }
+
+    .content-area {
+        overflow-x: auto;
+        padding: 10px !important;
+    }
 }

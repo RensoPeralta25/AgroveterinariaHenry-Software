@@ -2,6 +2,7 @@ package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.VacacionEmpleado;
+import com.agroveterinaria.enums.EstadoVacacion;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,7 +20,7 @@ public interface VacacionEmpleadoRepository extends JpaRepository<VacacionEmplea
             @Param("finPeriodo") LocalDate finPeriodo
     );
 
-    List<VacacionEmpleado> findByEmpleadoAndPagadoFalse(Empleado empleado);
+    List<VacacionEmpleado> findByEmpleadoAndEstadoNot(Empleado empleado, EstadoVacacion estado);
 
     boolean existsByEmpleado(Empleado empleado);
 

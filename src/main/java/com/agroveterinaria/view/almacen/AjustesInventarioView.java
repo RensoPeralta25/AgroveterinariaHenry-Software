@@ -108,7 +108,9 @@ public class AjustesInventarioView extends VerticalLayout {
                 a.getCantidad(),
                 a.getLote().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(a.getLote().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(a.getLote().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(a.getLote().getProducto())
         )).setHeader("Cantidad").setFlexGrow(0).setWidth("160px");
 
         gridAuditoria.addColumn(AjusteInventario::getJustificacion).setHeader("Motivo").setFlexGrow(3);
@@ -160,7 +162,9 @@ public class AjustesInventarioView extends VerticalLayout {
                 txtCantidad.configurarProducto(
                         prod.getContenidoPorEmpaque(),
                         Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                        false
+                        false,
+                        FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                        FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
                 );
             } else {
                 txtCantidad.clear();

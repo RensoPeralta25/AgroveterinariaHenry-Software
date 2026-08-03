@@ -15,12 +15,6 @@ import java.util.List;
 
 public interface DetalleNominaRepository extends JpaRepository<DetalleNomina, Long> {
 
-    @Query("SELECT COALESCE(SUM(d.monto), 0) FROM DetalleNomina d " +
-            "WHERE d.nomina.empleado.idEmpleado = :idEmpleado " +
-            "AND d.tipo = 'PRESTAMO_EMPRESA' " +
-            "AND d.nomina.corrida.estado = 'APROBADA'")
-    BigDecimal sumarPagosDePrestamosPorEmpleado(@Param("idEmpleado") Long idEmpleado);
-
     List<DetalleNomina> findByNomina(Nomina nomina);
 
     @Query("SELECT COALESCE(SUM(d.monto), 0) FROM DetalleNomina d " +
