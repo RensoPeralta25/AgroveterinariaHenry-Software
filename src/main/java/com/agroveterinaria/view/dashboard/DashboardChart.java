@@ -30,10 +30,11 @@ public class DashboardChart extends Component {
             String etiquetaDataset,
             List<DashboardSeriesPointDTO> puntos,
             String colorPrincipal,
-            String colorSecundario
+            String colorSecundario,
+            String formatoValor
     ) {
         addClassName("dashboard-chart");
-        setChartConfig(tipo, etiquetaDataset, puntos, colorPrincipal, colorSecundario);
+        setChartConfig(tipo, etiquetaDataset, puntos, colorPrincipal, colorSecundario, formatoValor);
     }
 
     public void setChartConfig(
@@ -41,10 +42,12 @@ public class DashboardChart extends Component {
             String etiquetaDataset,
             List<DashboardSeriesPointDTO> puntos,
             String colorPrincipal,
-            String colorSecundario
+            String colorSecundario,
+            String formatoValor
     ) {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("type", tipo);
+        config.put("valueFormat", formatoValor);
 
         Map<String, Object> dataset = new LinkedHashMap<>();
         dataset.put("label", etiquetaDataset);
@@ -52,7 +55,7 @@ public class DashboardChart extends Component {
         dataset.put("borderColor", colorPrincipal);
         dataset.put("backgroundColor", "doughnut".equals(tipo) ? crearPaleta(puntos.size()) : colorSecundario);
         dataset.put("borderWidth", 2);
-        dataset.put("tension", 0.35);
+        dataset.put("tension", 0);
         dataset.put("fill", !"bar".equals(tipo));
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -60,7 +63,10 @@ public class DashboardChart extends Component {
         data.put("datasets", List.of(dataset));
         config.put("data", data);
 
-        Map<String, Object> legend = Map.of("display", false);
+        Map<String, Object> legend = Map.of(
+                "display", "doughnut".equals(tipo),
+                "position", "bottom"
+        );
         Map<String, Object> plugins = Map.of("legend", legend);
         Map<String, Object> y = Map.of("beginAtZero", true);
         Map<String, Object> scales = Map.of("y", y);

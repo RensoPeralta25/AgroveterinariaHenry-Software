@@ -8,20 +8,22 @@ import com.agroveterinaria.dto.dashboard.DashboardSeriesPointDTO;
 import com.agroveterinaria.entity.Lote;
 import com.agroveterinaria.entity.Venta;
 import com.agroveterinaria.enums.CategoriaProducto;
+import com.agroveterinaria.enums.EstadoDevolucion;
 import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.repository.CitaRepository;
 import com.agroveterinaria.repository.CompraRepository;
+import com.agroveterinaria.repository.DevolucionVentaRepository;
 import com.agroveterinaria.repository.DespachoRepository;
 import com.agroveterinaria.repository.GastoOperativoRepository;
 import com.agroveterinaria.repository.InventarioRepository;
 import com.agroveterinaria.repository.LoteRepository;
 import com.agroveterinaria.repository.VentaRepository;
+import com.agroveterinaria.util.FormatoNumeroCompactoUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -38,9 +40,14 @@ public class DashboardService {
     private static final BigDecimal STOCK_MINIMO = BigDecimal.TEN;
     private static final DateTimeFormatter DIA_FORMATTER = DateTimeFormatter.ofPattern("dd/MM");
     private static final DateTimeFormatter FECHA_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final List<EstadoVenta> ESTADOS_VENTA_CONTABILIZADOS = List.of(
+            EstadoVenta.PENDIENTE,
+            EstadoVenta.CERRADA
+    );
 
     private final VentaRepository ventaRepository;
     private final CompraRepository compraRepository;
+    private final DevolucionVentaRepository devolucionVentaRepository;
     private final CitaRepository citaRepository;
     private final InventarioRepository inventarioRepository;
     private final LoteRepository loteRepository;
@@ -50,6 +57,7 @@ public class DashboardService {
     public DashboardService(
             VentaRepository ventaRepository,
             CompraRepository compraRepository,
+            DevolucionVentaRepository devolucionVentaRepository,
             CitaRepository citaRepository,
             InventarioRepository inventarioRepository,
             LoteRepository loteRepository,
@@ -58,6 +66,7 @@ public class DashboardService {
     ) {
         this.ventaRepository = ventaRepository;
         this.compraRepository = compraRepository;
+        this.devolucionVentaRepository = devolucionVentaRepository;
         this.citaRepository = citaRepository;
         this.inventarioRepository = inventarioRepository;
         this.loteRepository = loteRepository;
@@ -74,9 +83,13 @@ public class DashboardService {
         LocalDate inicioSerie = hoy.minusDays(DIAS_SERIE - 1);
         LocalDate hastaVencimiento = hoy.plusDays(DIAS_VENCIMIENTO);
 
-        BigDecimal ventasHoy = ventaRepository.sumarMontoEntre(inicioHoy, inicioManana);
-        BigDecimal ventasMes = ventaRepository.sumarMontoEntre(inicioMes, inicioManana);
-        BigDecimal comprasMes = compraRepository.sumarTotalEntre(inicioMes, inicioManana);
+        BigDecimal ventasHoy = calcularVentasNetas(inicioHoy, inicioManana);
+        BigDecimal ventasMes = calcularVentasNetas(inicioMes, inicioManana);
+        BigDecimal comprasMes = compraRepository.sumarTotalEntre(
+                inicioMes,
+                inicioManana,
+                EstadoRecepcion.BORRADOR
+        );
         BigDecimal gastosOperativosMes = gastoOperativoRepository.sumarMontoEntre(
                 inicioMes.toLocalDate(),
                 inicioManana.toLocalDate()
@@ -92,9 +105,9 @@ public class DashboardService {
         long lotesPorVencer = loteRepository.countByFechaVencimientoBetween(hoy, hastaVencimiento);
 
         List<DashboardMetricDTO> metricas = List.of(
-                new DashboardMetricDTO("ventasHoy", "Ventas de hoy", moneda(ventasHoy), "Ingresos registrados hoy", "positivo"),
-                new DashboardMetricDTO("ventasMes", "Ventas del mes", moneda(ventasMes), "Acumulado desde inicio de mes", "positivo"),
-                new DashboardMetricDTO("comprasMes", "Compras del mes", moneda(comprasMes), "Abastecimiento registrado", "neutral"),
+                new DashboardMetricDTO("ventasHoy", "Ventas netas de hoy", moneda(ventasHoy), "Ventas válidas menos devoluciones completadas", tonoResultado(ventasHoy)),
+                new DashboardMetricDTO("ventasMes", "Ventas netas del mes", moneda(ventasMes), "Acumulado neto desde inicio de mes", tonoResultado(ventasMes)),
+                new DashboardMetricDTO("comprasMes", "Compras confirmadas del mes", moneda(comprasMes), "No incluye borradores", "neutral"),
                 new DashboardMetricDTO(
                         "gastosOperativosMes",
                         "Gastos operativos del mes",
@@ -107,13 +120,13 @@ public class DashboardService {
                         "Resultado operativo del mes",
                         moneda(resultadoOperativoMes),
                         "Ventas menos gastos operativos; no incluye costo de inventario",
-                        resultadoOperativoMes.compareTo(BigDecimal.ZERO) >= 0 ? "positivo" : "riesgo"
+                        tonoResultado(resultadoOperativoMes)
                 ),
                 new DashboardMetricDTO("porCobrar", "Por cobrar", moneda(balancePendiente), ventasPendientes + " ventas pendientes", "alerta"),
-                new DashboardMetricDTO("citasHoy", "Citas pendientes hoy", String.valueOf(citasPendientesHoy), "Servicios veterinarios por atender", "neutral"),
-                new DashboardMetricDTO("stockBajo", "Productos con stock bajo", String.valueOf(productosStockBajo), "Umbral: " + STOCK_MINIMO.stripTrailingZeros().toPlainString(), "riesgo"),
-                new DashboardMetricDTO("lotesVencen", "Lotes por vencer", String.valueOf(lotesPorVencer), "Proximos " + DIAS_VENCIMIENTO + " dias", "riesgo"),
-                new DashboardMetricDTO("despachosPendientes", "Despachos pendientes", String.valueOf(despachosPendientes), "Sin fecha de entrega", "neutral")
+                new DashboardMetricDTO("citasHoy", "Citas pendientes hoy", numero(citasPendientesHoy), "Servicios veterinarios por atender", "neutral"),
+                new DashboardMetricDTO("stockBajo", "Productos con stock bajo", numero(productosStockBajo), "Umbral: " + STOCK_MINIMO.stripTrailingZeros().toPlainString(), "riesgo"),
+                new DashboardMetricDTO("lotesVencen", "Lotes por vencer", numero(lotesPorVencer), "Proximos " + DIAS_VENCIMIENTO + " dias", "riesgo"),
+                new DashboardMetricDTO("despachosPendientes", "Despachos pendientes", numero(despachosPendientes), "Sin fecha de entrega", "neutral")
         );
 
         return new DashboardDataDTO(
@@ -132,6 +145,16 @@ public class DashboardService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    private BigDecimal calcularVentasNetas(LocalDateTime inicio, LocalDateTime fin) {
+        BigDecimal ventas = ventaRepository.sumarMontoEntre(inicio, fin, ESTADOS_VENTA_CONTABILIZADOS);
+        BigDecimal devoluciones = devolucionVentaRepository.sumarMontoEntre(
+                inicio,
+                fin,
+                EstadoDevolucion.COMPLETADA
+        );
+        return valorSeguro(ventas).subtract(valorSeguro(devoluciones));
+    }
+
     private BigDecimal calcularBalanceVenta(Venta venta) {
         BigDecimal cobrado = venta.getCobros().stream()
                 .map(cobro -> valorSeguro(cobro.getMontoTotal()))
@@ -141,14 +164,29 @@ public class DashboardService {
 
     private List<DashboardSeriesPointDTO> construirSerieVentas(LocalDate inicioSerie) {
         Map<LocalDate, BigDecimal> acumulado = inicializarSerie(inicioSerie);
-        ventaRepository.findByFechaHoraVentaGreaterThanEqualOrderByFechaHoraVentaAsc(inicioSerie.atStartOfDay())
+        ventaRepository.findByFechaHoraVentaGreaterThanEqualAndEstadoInOrderByFechaHoraVentaAsc(
+                        inicioSerie.atStartOfDay(),
+                        ESTADOS_VENTA_CONTABILIZADOS
+                )
                 .forEach(venta -> acumular(acumulado, venta.getFechaHoraVenta().toLocalDate(), venta.getMontoTotal()));
+        devolucionVentaRepository.findByFechaHoraGreaterThanEqualAndEstadoOrderByFechaHoraAsc(
+                        inicioSerie.atStartOfDay(),
+                        EstadoDevolucion.COMPLETADA
+                )
+                .forEach(devolucion -> acumular(
+                        acumulado,
+                        devolucion.getFechaHora().toLocalDate(),
+                        valorSeguro(devolucion.getMontoTotal()).negate()
+                ));
         return convertirSerie(acumulado);
     }
 
     private List<DashboardSeriesPointDTO> construirSerieCompras(LocalDate inicioSerie) {
         Map<LocalDate, BigDecimal> acumulado = inicializarSerie(inicioSerie);
-        compraRepository.findByFechaHoraCompraGreaterThanEqualOrderByFechaHoraCompraAsc(inicioSerie.atStartOfDay())
+        compraRepository.findByFechaHoraCompraGreaterThanEqualAndEstadoRecepcionNotOrderByFechaHoraCompraAsc(
+                        inicioSerie.atStartOfDay(),
+                        EstadoRecepcion.BORRADOR
+                )
                 .forEach(compra -> acumular(acumulado, compra.getFechaHoraCompra().toLocalDate(), compra.getTotal()));
         return convertirSerie(acumulado);
     }
@@ -161,8 +199,11 @@ public class DashboardService {
     }
 
     private List<DashboardCategoryDTO> construirInventarioPorCategoria() {
-        return inventarioRepository.sumarStockPorCategoria().stream()
-                .map(row -> new DashboardCategoryDTO(etiquetaCategoria((CategoriaProducto) row[0]), valorSeguro((BigDecimal) row[1])))
+        return inventarioRepository.contarProductosConStockPorCategoria().stream()
+                .map(row -> new DashboardCategoryDTO(
+                        etiquetaCategoria((CategoriaProducto) row[0]),
+                        BigDecimal.valueOf(((Number) row[1]).longValue())
+                ))
                 .toList();
     }
 
@@ -250,6 +291,14 @@ public class DashboardService {
     }
 
     private String moneda(BigDecimal valor) {
-        return "RD$ " + valorSeguro(valor).setScale(2, RoundingMode.HALF_UP).toPlainString();
+        return FormatoNumeroCompactoUtil.formatearMoneda(valorSeguro(valor));
+    }
+
+    private String numero(long valor) {
+        return FormatoNumeroCompactoUtil.formatear(valor);
+    }
+
+    private String tonoResultado(BigDecimal valor) {
+        return valorSeguro(valor).compareTo(BigDecimal.ZERO) >= 0 ? "positivo" : "riesgo";
     }
 }
