@@ -191,10 +191,14 @@ public class DespachoService {
         Venta venta = ventaRepository.findById(idVenta)
                 .orElseThrow(() -> new RuntimeException("Error al cargar datos de la venta"));
 
-        return venta.getDetallesVentas().stream().map(dv -> {
-            BigDecimal despachadoHistorico = detalleDespachoRepository.sumCantidadByIdDetalleVenta(dv.getIdDetalleVenta());
-            return new LineaDespachoDTO(dv, despachadoHistorico);
-        }).filter(dto -> dto.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0).toList();
+        return venta.getDetallesVentas().stream()
+                .filter(dv -> dv.getProducto().getCategoria() != com.agroveterinaria.enums.CategoriaProducto.SERVICIO)
+                .map(dv -> {
+                    BigDecimal despachadoHistorico = detalleDespachoRepository.sumCantidadByIdDetalleVenta(dv.getIdDetalleVenta());
+                    return new LineaDespachoDTO(dv, despachadoHistorico);
+                })
+                .filter(dto -> dto.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
     }
 
     @Transactional

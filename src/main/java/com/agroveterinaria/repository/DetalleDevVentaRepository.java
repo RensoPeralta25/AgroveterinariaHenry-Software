@@ -31,4 +31,10 @@ public interface DetalleDevVentaRepository extends JpaRepository<DetalleDevVenta
     @EntityGraph(attributePaths = {"cliente", "cliente.persona", "empleado", "empleado.persona"})
     @Query("SELECT d FROM DevolucionVenta d")
     List<DevolucionVenta> findAllConRelaciones();
+
+    @Query("SELECT COALESCE(SUM(d.cantidadDevuelta), 0) FROM DetalleDevVenta d WHERE d.detalleVenta.idDetalleVenta = :idDetalle AND d.lote.idLote = :idLote")
+    BigDecimal sumarCantidadesDevueltasPorDetalleVentaAndLote(@Param("idDetalle") Long idDetalle, @Param("idLote") Long idLote);
+
+    @Query("SELECT COALESCE(SUM(d.cantidadDevuelta), 0) FROM DetalleDevVenta d WHERE d.detalleVenta.idDetalleVenta = :idDetalle AND d.lote IS NULL")
+    BigDecimal sumarCantidadesDevueltasPorDetalleVentaSinLote(@Param("idDetalle") Long idDetalle);
 }

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Repository
 public interface DetalleDespachoRepository extends JpaRepository<DetalleDespacho, Long> {
@@ -19,4 +20,6 @@ public interface DetalleDespachoRepository extends JpaRepository<DetalleDespacho
 
     @Query("SELECT SUM(d.cantidad) FROM DetalleDespacho d WHERE d.detalleVenta.idDetalleVenta = :id")
     BigDecimal sumCantidadByIdDetalleVenta(@Param("id") Long id);
+
+    List<DetalleDespacho> findByDetalleVentaIdDetalleVenta(Long idDetalleVenta);
 }
