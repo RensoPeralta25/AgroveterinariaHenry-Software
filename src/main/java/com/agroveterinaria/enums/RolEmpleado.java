@@ -5,7 +5,8 @@ public enum RolEmpleado {
     CAJERO("Cajero"),
     VETERINARIO("Veterinario"),
     ASISTENTE("Asistente"),
-    CONDUCTOR("Conductor");
+    CONDUCTOR("Conductor"),
+    RECURSOS_HUMANOS("Recursos Humanos"),;
 
     private final String descripcion;
 

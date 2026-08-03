@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @Transactional
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class ConfiguracionNominaService {
     private final ConfiguracionNominaRepository configuracionNominaRepository;
 
@@ -203,4 +203,8 @@ public class ConfiguracionNominaService {
     }
 
     public BigDecimal getTasaInteresMaximaPrestamo() { return obtenerValor("TASA_INTERES_MAXIMA_PRESTAMO"); }
+
+    public long getPlazoJustificacionHoras() {
+        return obtenerValor("PLAZO_JUSTIFICACION_HORAS").longValue();
+    }
 }

@@ -15,7 +15,7 @@ import java.util.Optional;
 
 @AllArgsConstructor
 @Service
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class VacacionEmpleadoService {
     private final VacacionEmpleadoRepository vacacionEmpleadoRepository;
 

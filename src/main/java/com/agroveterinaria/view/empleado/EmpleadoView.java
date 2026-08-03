@@ -387,10 +387,19 @@ public class EmpleadoView extends VerticalLayout {
         dialog.setCancelButtonTheme("outlined");
         dialog.addConfirmListener(event -> {
 
-            empleadoService.darDeBaja(empleado);
-            Notification.show("Empleado inhabilitado correctamente", 4000, Notification.Position.MIDDLE)
-                    .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            crudEmpleado.refreshGrid();
+            try {
+                empleadoService.darDeBaja(empleado);
+                Notification.show("Empleado inhabilitado correctamente", 4000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                crudEmpleado.refreshGrid();
+
+            } catch (IllegalStateException | IllegalArgumentException ex) {
+                Notification.show(ex.getMessage(), 5000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            } catch (Exception ex) {
+                Notification.show("Ocurrió un error inesperado al intentar dar de baja al empleado.", 5000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
         });
         dialog.open();
     }
@@ -441,22 +450,6 @@ public class EmpleadoView extends VerticalLayout {
         notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 
-    private void reiniciarCampos(TextField nombre, TextField apellido, TextField telefono, TextField direccion) {
-        if (nombre.isReadOnly() || telefono.isReadOnly() || direccion.isReadOnly()) {
-            nombre.clear();
-            nombre.setReadOnly(false);
-
-            apellido.clear();
-            apellido.setReadOnly(false);
-
-            telefono.clear();
-            telefono.setReadOnly(false);
-
-            direccion.clear();
-            direccion.setReadOnly(false);
-        }
-    }
-
     private void actualizarFiltroGrid(
             GridCrud<Empleado> crud,
             CrudGridPaginator<Empleado> paginator,
@@ -489,13 +482,5 @@ public class EmpleadoView extends VerticalLayout {
         formato.setMinimumFractionDigits(2);
         formato.setMaximumFractionDigits(2);
         return "RD$ " + formato.format(sueldo);
-    }
-
-    private String getUsuarioLogueado() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
-            return authentication.getName();
-        }
-        return null;
     }
 }
