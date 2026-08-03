@@ -34,6 +34,7 @@ public class RecepcionService {
     private final DespachoRepository despachoRepository;
     private final AjusteInventarioRepository ajusteInventarioRepository;
     private final SecurityService securityService;
+    private final DetalleDespachoRepository detalleDespachoRepository;
     private final java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
     public RecepcionService(RecepcionRepository recepcionRepository, CompraRepository compraRepository,
@@ -41,7 +42,8 @@ public class RecepcionService {
                             TransporteRepository transporteRepository, GastoOperativoRepository gastoOperativoRepository,
                             ProductoRepository productoRepository, DetalleRecepcionRepository detalleRecepcionRepository,
                             TransferenciaRepository transferenciaRepository, DespachoRepository despachoRepository,
-                            AjusteInventarioRepository ajusteInventarioRepository, SecurityService securityService) {
+                            AjusteInventarioRepository ajusteInventarioRepository, SecurityService securityService,
+                            DetalleDespachoRepository detalleDespachoRepository) {
         this.recepcionRepository = recepcionRepository;
         this.compraRepository = compraRepository;
         this.loteRepository = loteRepository;
@@ -54,6 +56,7 @@ public class RecepcionService {
         this.despachoRepository = despachoRepository;
         this.ajusteInventarioRepository = ajusteInventarioRepository;
         this.securityService = securityService;
+        this.detalleDespachoRepository = detalleDespachoRepository;
     }
 
     @Transactional
@@ -298,12 +301,17 @@ public class RecepcionService {
 
     @Transactional(readOnly = true)
     public BigDecimal calcularCantidadPendiente(DetalleTransferencia dt) {
-        BigDecimal totalSolicitado = dt.getCantidad();
+        BigDecimal totalDespachado = detalleDespachoRepository.sumCantidadByIdDetalleTransferencia(dt.getIdDetalleTransferencia());
+        if (totalDespachado == null) {
+            totalDespachado = BigDecimal.ZERO;
+        }
+
         BigDecimal totalRecibido = detalleRecepcionRepository.sumCantidadProcesadaByDetalleTransferencia(dt);
         if (totalRecibido == null) {
             totalRecibido = BigDecimal.ZERO;
         }
-        return totalSolicitado.subtract(totalRecibido);
+
+        return totalDespachado.subtract(totalRecibido);
     }
 
     @Transactional(readOnly = true)

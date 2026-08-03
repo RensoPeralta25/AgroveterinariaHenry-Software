@@ -2,15 +2,9 @@ package com.agroveterinaria.view.logistica;
 
 import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.dto.despacho.LineaDespachoDTO;
-import com.agroveterinaria.entity.Empleado;
-import com.agroveterinaria.entity.Lote;
-import com.agroveterinaria.entity.Producto;
-import com.agroveterinaria.entity.Vehiculo;
+import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.RolEmpleado;
-import com.agroveterinaria.service.DespachoService;
-import com.agroveterinaria.service.EmpleadoService;
-import com.agroveterinaria.service.LoteService;
-import com.agroveterinaria.service.VehiculoService;
+import com.agroveterinaria.service.*;
 import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.agroveterinaria.component.CantidadFraccionadaField;
 import com.vaadin.flow.component.button.Button;
@@ -36,22 +30,25 @@ public class NuevoDespachoDialog extends Dialog {
     private final VehiculoService vehiculoService;
     private final EmpleadoService empleadoService;
     private final LoteService loteService;
+    private final RutaService rutaService;
     private final Runnable alGuardarExitosamente;
 
     private ComboBox<DespachoResumenDTO> cbDocumentoPendiente;
     private ComboBox<Vehiculo> cbVehiculo;
     private ComboBox<Empleado> cbConductor;
+    private ComboBox<Ruta> cbRuta;
     private Grid<LineaDespachoDTO> gridLineas;
 
     private List<LineaDespachoDTO> lineasActuales = new ArrayList<>();
 
     public NuevoDespachoDialog(DespachoService despachoService, VehiculoService vehiculoService,
                                EmpleadoService empleadoService, LoteService loteService,
-                               Runnable alGuardarExitosamente) {
+                               RutaService rutaService, Runnable alGuardarExitosamente) {
         this.empleadoService = empleadoService;
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
         this.loteService = loteService;
+        this.rutaService = rutaService;
         this.alGuardarExitosamente = alGuardarExitosamente;
 
         setWidth("980px");
@@ -74,7 +71,7 @@ public class NuevoDespachoDialog extends Dialog {
         botones.setWidthFull();
         botones.setJustifyContentMode(FlexComponent.JustifyContentMode.END);
 
-        add(titulo, cbDocumentoPendiente, new HorizontalLayout(cbVehiculo, cbConductor), gridLineas, botones);
+        add(titulo, cbDocumentoPendiente, new HorizontalLayout(cbVehiculo, cbConductor, cbRuta), gridLineas, botones);
     }
 
     private void construirFormulario() {
@@ -107,6 +104,12 @@ public class NuevoDespachoDialog extends Dialog {
         cbConductor.setWidthFull();
         cbConductor.setItems(empleadoService.findByCargo(RolEmpleado.CONDUCTOR));
         cbConductor.setItemLabelGenerator(c -> c.getPersona().getNombre());
+
+        cbRuta = new ComboBox<>("Ruta Asignada");
+        cbRuta.setItems(rutaService.listarTodos());
+        cbRuta.setItemLabelGenerator(r -> r.getNombre() + " (" + r.getDistanciaKm() + " km)");
+        cbRuta.setWidthFull();
+        //cbRuta.setRequired(true);
     }
 
     private void construirGrid() {
@@ -218,9 +221,9 @@ public class NuevoDespachoDialog extends Dialog {
             DespachoResumenDTO doc = cbDocumentoPendiente.getValue();
 
             if ("Venta".equals(doc.getTipo())) {
-                despachoService.procesarDespachoVenta(doc.getVentaOriginal().getIdVenta(), cbVehiculo.getValue(), cbConductor.getValue(), lineasActuales);
+                despachoService.procesarDespachoVenta(doc.getVentaOriginal().getIdVenta(), cbVehiculo.getValue(), cbConductor.getValue(), cbRuta.getValue(), lineasActuales);
             } else {
-                despachoService.procesarDespachoTransferencia(doc.getTransferenciaOriginal(), cbVehiculo.getValue(), cbConductor.getValue(), lineasActuales);
+                despachoService.procesarDespachoTransferencia(doc.getTransferenciaOriginal(), cbVehiculo.getValue(), cbConductor.getValue(), cbRuta.getValue(), lineasActuales);
             }
 
             Notification.show("Camión despachado. Inventario actualizado.").addThemeVariants(NotificationVariant.LUMO_SUCCESS);

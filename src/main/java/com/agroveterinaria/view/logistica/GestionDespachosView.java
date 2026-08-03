@@ -35,6 +35,7 @@ public class GestionDespachosView extends VerticalLayout {
     private final EmpleadoService empleadoService;
     private final LoteService loteService;
     private final TransporteService transporteService;
+    private final RutaService rutaService;
     private Grid<DespachoResumenDTO> gridDespachos;
     private GridPaginator<DespachoResumenDTO> paginator;
     private List<DespachoResumenDTO> despachos = List.of();
@@ -47,12 +48,14 @@ public class GestionDespachosView extends VerticalLayout {
                                 VehiculoService vehiculoService,
                                 EmpleadoService empleadoService,
                                 LoteService loteService,
-                                TransporteService transporteService) {
+                                TransporteService transporteService,
+                                RutaService rutaService) {
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
         this.loteService = loteService;
         this.transporteService = transporteService;
+        this.rutaService = rutaService;
 
         setSizeFull();
         setPadding(true);
@@ -66,6 +69,7 @@ public class GestionDespachosView extends VerticalLayout {
                     vehiculoService,
                     empleadoService,
                     loteService,
+                    rutaService,
                     this::cargarDatos
             );
             dialog.open();
