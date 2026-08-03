@@ -5,6 +5,7 @@ import com.agroveterinaria.dto.despacho.DespachoResumenDTO;
 import com.agroveterinaria.entity.Despacho;
 import com.agroveterinaria.entity.Transporte;
 import com.agroveterinaria.service.*;
+import com.agroveterinaria.util.FormatoInventarioUtil;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dependency.CssImport;
@@ -34,6 +35,7 @@ public class GestionDespachosView extends VerticalLayout {
     private final EmpleadoService empleadoService;
     private final LoteService loteService;
     private final TransporteService transporteService;
+    private final RutaService rutaService;
     private Grid<DespachoResumenDTO> gridDespachos;
     private GridPaginator<DespachoResumenDTO> paginator;
     private List<DespachoResumenDTO> despachos = List.of();
@@ -46,12 +48,14 @@ public class GestionDespachosView extends VerticalLayout {
                                 VehiculoService vehiculoService,
                                 EmpleadoService empleadoService,
                                 LoteService loteService,
-                                TransporteService transporteService) {
+                                TransporteService transporteService,
+                                RutaService rutaService) {
         this.despachoService = despachoService;
         this.vehiculoService = vehiculoService;
         this.empleadoService = empleadoService;
         this.loteService = loteService;
         this.transporteService = transporteService;
+        this.rutaService = rutaService;
 
         setSizeFull();
         setPadding(true);
@@ -65,6 +69,7 @@ public class GestionDespachosView extends VerticalLayout {
                     vehiculoService,
                     empleadoService,
                     loteService,
+                    rutaService,
                     this::cargarDatos
             );
             dialog.open();
@@ -242,7 +247,9 @@ public class GestionDespachosView extends VerticalLayout {
                 d.getCantidad(),
                 d.getLote().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(d.getLote().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(d.getLote().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(d.getLote().getProducto())
         )).setHeader("Cantidad Cargada").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END).setFlexGrow(1);
 
         Despacho despachoCompleto = despachoService.obtenerDespachoConDetalles(dto.getIdDespacho());

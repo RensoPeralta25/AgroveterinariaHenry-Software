@@ -32,6 +32,9 @@ public class CorridaNomina {
     @NotNull(message = "La fecha de emisión es obligatoria")
     private LocalDate fechaEmision;
 
+    private LocalDate fechaInicio;
+    private LocalDate fechaFin;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false)
     private EstadoCorrida estado;
@@ -47,8 +50,10 @@ public class CorridaNomina {
     @JoinColumn(name = "periodo_fiscal_id")
     private PeriodoFiscal periodoFiscal;
 
-    public CorridaNomina(PeriodoNomina periodo, LocalDate fechaEmision) {
+    public CorridaNomina(PeriodoNomina periodo, LocalDate fechaInicio, LocalDate fechaFin, LocalDate fechaEmision) {
         this.periodo = periodo;
+        this.fechaInicio = fechaInicio;
+        this.fechaFin = fechaFin;
         this.fechaEmision = fechaEmision;
         this.estado = EstadoCorrida.PENDIENTE;
         this.nominas = new LinkedHashSet<>();

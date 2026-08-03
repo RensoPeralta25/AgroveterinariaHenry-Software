@@ -17,7 +17,11 @@
 :host(.gastos-grid) [part~="header-cell"],
 :host(.periodo-grid) [part~="header-cell"],
 :host(.devolucion-grid) [part~="header-cell"],
-:host(.embargo-grid) [part~="header-cell"]{
+:host(.embargo-grid) [part~="header-cell"],
+:host(.prestamo-grid) [part~="header-cell"],
+:host(.amortizacion-grid) [part~="header-cell"],
+:host(.abono-grid) [part~="header-cell"],
+:host(.ausencia-grid) [part~="header-cell"]{
     background-color: #002899;
     color: #ffffff;
     font-weight: 500;

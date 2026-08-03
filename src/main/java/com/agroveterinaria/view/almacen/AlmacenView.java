@@ -417,7 +417,9 @@ public class AlmacenView extends VerticalLayout {
                             inv.getCantidadActual(),
                             p.getContenidoPorEmpaque(),
                             Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
-                            false
+                            false,
+                            FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(p),
+                            FormatoInventarioUtil.getNombreUnidadFraccionSafe(p)
                     );
                 }).setHeader("Cantidad Actual").setWidth("170px").setFlexGrow(0)
                 .setTextAlign(ColumnTextAlign.END);

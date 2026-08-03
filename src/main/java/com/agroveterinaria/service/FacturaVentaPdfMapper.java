@@ -95,19 +95,25 @@ public class FacturaVentaPdfMapper {
         BigDecimal precioEmpaqueHist = detalle.getPrecioEmpaqueHistorico();
         BigDecimal precioFraccionHist = detalle.getPrecioFraccionHistorico();
 
+        String nombreEmpaque = FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(producto);
+        String nombreFraccion = FormatoInventarioUtil.getNombreUnidadFraccionSafe(producto);
+
         if (estrategia == null || precioEmpaqueHist == null || producto == null || !Boolean.TRUE.equals(producto.getPermiteFraccionamiento())) {
-            return FormatoInventarioUtil.formatearCantidad(cantidad, null, false, false) + " x " + formatMoney(precioMezclado);
+            BigDecimal factor = producto != null ? producto.getContenidoPorEmpaque() : null;
+            boolean permiteFracc = producto != null && Boolean.TRUE.equals(producto.getPermiteFraccionamiento());
+
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, permiteFracc, false, nombreEmpaque, nombreFraccion) + " x " + formatMoney(precioMezclado);
         }
 
         BigDecimal factor = producto.getContenidoPorEmpaque() != null ? producto.getContenidoPorEmpaque() : BigDecimal.ONE;
 
         if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_EMPAQUE) {
-            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(precioEmpaqueHist) + " (p. empaque)";
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false, nombreEmpaque, nombreFraccion) + " x " + formatMoney(precioEmpaqueHist) + " (p. empaque)";
         }
 
         if (estrategia == EstrategiaPrecioVenta.TODO_PRECIO_FRACCION) {
             BigDecimal fraccionAUsar = precioFraccionHist != null ? precioFraccionHist : precioEmpaqueHist.divide(factor, 4, RoundingMode.HALF_UP);
-            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false) + " x " + formatMoney(fraccionAUsar) + " (p. unidad)";
+            return FormatoInventarioUtil.formatearCantidad(cantidad, factor, true, false, nombreEmpaque, nombreFraccion) + " x " + formatMoney(fraccionAUsar) + " (p. unidad)";
         }
 
         BigDecimal[] division = cantidad.divideAndRemainder(factor);
@@ -115,12 +121,14 @@ public class FacturaVentaPdfMapper {
         BigDecimal unidades = division[1];
         BigDecimal fraccionAUsar = precioFraccionHist != null ? precioFraccionHist : precioEmpaqueHist.divide(factor, 4, RoundingMode.HALF_UP);
 
-        List<String> partes = new java.util.ArrayList<>();
+        List<String> partes = new ArrayList<>();
         if (cajas.compareTo(BigDecimal.ZERO) > 0) {
-            partes.add(cajas.stripTrailingZeros().toPlainString() + " Cajas x " + formatMoney(precioEmpaqueHist));
+            int c = cajas.intValue();
+            partes.add(cajas.stripTrailingZeros().toPlainString() + " " + FormatoInventarioUtil.pluralizar(nombreEmpaque, c) + " x " + formatMoney(precioEmpaqueHist));
         }
         if (unidades.compareTo(BigDecimal.ZERO) > 0) {
-            partes.add(unidades.stripTrailingZeros().toPlainString() + " Unids x " + formatMoney(fraccionAUsar));
+            int u = unidades.stripTrailingZeros().scale() <= 0 ? unidades.intValue() : 2;
+            partes.add(unidades.stripTrailingZeros().toPlainString() + " " + FormatoInventarioUtil.pluralizar(nombreFraccion, u) + " x " + formatMoney(fraccionAUsar));
         }
 
         return String.join(" + ", partes);
@@ -135,11 +143,17 @@ public class FacturaVentaPdfMapper {
         if (producto == null) {
             return FormatoInventarioUtil.formatearCantidad(cantidad, null, false, false);
         }
+
+        String nombreEmpaque = FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(producto);
+        String nombreFraccion = FormatoInventarioUtil.getNombreUnidadFraccionSafe(producto);
+
         return FormatoInventarioUtil.formatearCantidad(
                 cantidad,
                 producto.getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(producto.getPermiteFraccionamiento()),
-                false
+                false,
+                nombreEmpaque,
+                nombreFraccion
         );
     }
 

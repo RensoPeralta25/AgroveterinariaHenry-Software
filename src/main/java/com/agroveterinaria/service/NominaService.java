@@ -16,19 +16,9 @@ import java.util.Set;
 @Service
 @AllArgsConstructor
 @Transactional
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class NominaService {
     private final NominaRepository nominaRepository;
-    private final EmpleadoRepository empleadoRepository;
-
-    public List<Nomina> findAllConEmpleadoYDetalles() {
-        return nominaRepository.findAllConEmpleadoYDetalles();
-    }
-
-    public Nomina generarNomina(Nomina nomina) {
-        nomina.calcularSueldoNeto();
-        return nominaRepository.save(nomina);
-    }
 
     public void delete(Nomina nomina) {
         nominaRepository.delete(nomina);

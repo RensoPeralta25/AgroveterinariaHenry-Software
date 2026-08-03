@@ -39,13 +39,19 @@ public class FotoProductoField extends CustomField<byte[]> {
         uploadArchivo.setUploadHandler((UploadEvent event) -> procesarArchivo(event, uploadCamara));
 
         // Subir desde cámara
-        uploadCamara.setAcceptedFileTypes("image/jpeg", "image/png");
+        uploadCamara.setAcceptedFileTypes("image/*");
         uploadCamara.setMaxFileSize(25 * 1024 * 1024);
         uploadCamara.setUploadButton(new Button("Tomar foto"));
         uploadCamara.setDropAllowed(false);
         uploadCamara.setMaxFiles(1);
         uploadCamara.getElement().addEventListener("file-remove", event -> limpiarFoto());
-        uploadCamara.getElement().getChild(0).setAttribute("capture", "environment");
+        uploadCamara.getElement().setAttribute("capture", "environment");
+        uploadCamara.getElement().executeJs(
+                "setTimeout(() => { " +
+                        "  const input = this.shadowRoot.querySelector('input[type=\"file\"]'); " +
+                        "  if(input) input.setAttribute('capture', 'environment'); " +
+                        "}, 50);"
+        );
         uploadCamara.setUploadHandler((UploadEvent event) -> procesarArchivo(event, uploadArchivo));
 
         // Preview

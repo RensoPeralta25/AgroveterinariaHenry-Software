@@ -153,15 +153,27 @@ public class DevolucionesView extends VerticalLayout {
         gridItems.addThemeNames("row-stripes");
         gridItems.setHeight("250px");
 
-        gridItems.addColumn(d -> d.getDetalleVenta().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
-        gridItems.addColumn(d -> d.getLote().getNumeroLote()).setHeader("Lote").setFlexGrow(1);
-        gridItems.addColumn(d -> d.getAlmacenEntrada().getNombre()).setHeader("Almacén Entrada").setFlexGrow(1);
+        gridItems.addColumn(d -> d.getDetalleVenta().getProducto().getNombre()).setHeader("Producto/Servicio").setFlexGrow(2);
+        gridItems.addColumn(d -> {
+            if (d.getLote() != null && d.getLote().getNumeroLote() != null) {
+                return d.getLote().getNumeroLote();
+            }
+            return "N/A (Servicio)";
+        }).setHeader("Lote").setFlexGrow(1);
+        gridItems.addColumn(d -> {
+            if (d.getAlmacenEntrada() != null && d.getAlmacenEntrada().getNombre() != null) {
+                return d.getAlmacenEntrada().getNombre();
+            }
+            return "N/A (Servicio)";
+        }).setHeader("Almacén entrada").setFlexGrow(1);
 
         gridItems.addColumn(d -> FormatoInventarioUtil.formatearCantidad(
                 d.getCantidadDevuelta(),
                 d.getDetalleVenta().getProducto().getContenidoPorEmpaque(),
                 Boolean.TRUE.equals(d.getDetalleVenta().getProducto().getPermiteFraccionamiento()),
-                false
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(d.getDetalleVenta().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(d.getDetalleVenta().getProducto())
         )).setHeader("Cant. Devuelta").setTextAlign(ColumnTextAlign.END).setFlexGrow(1);
 
         gridItems.setItems(devolucionService.obtenerDetallesDeDevolucion(dev.getIdDevolucionVenta()));

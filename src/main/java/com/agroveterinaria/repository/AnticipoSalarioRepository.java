@@ -1,5 +1,6 @@
 package com.agroveterinaria.repository;
 
+import com.agroveterinaria.entity.AbonoAnticipo;
 import com.agroveterinaria.entity.AnticipoSalario;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.enums.EstadoAnticipo;

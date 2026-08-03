@@ -177,6 +177,7 @@ public class FacturaVentaTermicaPdfService {
                     <tr><td><span class="bold">Vendedor:</span> %s</td><td class="num">%s</td></tr>
                     <tr><td><span class="bold">Estado:</span> %s</td><td class="num">Despacho: %s</td></tr>
                     <tr><td colspan="2"><span class="bold">NCF:</span> %s</td></tr>
+                    <tr><td colspan="2"><span class="bold">Condiciones:</span> %s</td></tr>
                   </table>
 
                   <table class="items">
@@ -238,6 +239,7 @@ public class FacturaVentaTermicaPdfService {
                 escape(factura.estado()),
                 factura.llevaDespacho() ? "Si" : "No",
                 escape(factura.comprobanteFiscal()),
+                escape(factura.condicionesCredito()),
                 lineas,
                 formatMoney(factura.subtotal()),
                 formatMoney(factura.impuestos()),

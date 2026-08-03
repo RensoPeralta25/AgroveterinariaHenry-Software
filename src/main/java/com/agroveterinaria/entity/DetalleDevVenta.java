@@ -36,13 +36,11 @@ public class DetalleDevVenta {
     @JoinColumn(name = "id_detalle_venta", nullable = false)
     private DetalleVenta detalleVenta;
 
-    @NotNull(message = "El lote físico es obligatorio")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_lote", nullable = false)
+    @JoinColumn(name = "id_lote")
     private Lote lote;
 
-    @NotNull(message = "El almacén de re-entrada es obligatorio")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_almacen_entrada", nullable = false)
+    @JoinColumn(name = "id_almacen_entrada")
     private Almacen almacenEntrada;
 }

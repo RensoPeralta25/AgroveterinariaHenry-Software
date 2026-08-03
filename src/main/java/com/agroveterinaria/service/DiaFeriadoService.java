@@ -11,7 +11,7 @@ import java.util.List;
 
 @AllArgsConstructor
 @Service
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 public class DiaFeriadoService {
     private final DiaFeriadoRepository diaFeriadoRepository;
 

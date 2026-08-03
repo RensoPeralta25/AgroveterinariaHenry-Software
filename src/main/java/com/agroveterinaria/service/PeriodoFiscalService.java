@@ -15,7 +15,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-@RolesAllowed("ADMINISTRADOR")
+@RolesAllowed({"ADMINISTRADOR", "RECURSOS_HUMANOS"})
 @Transactional
 public class PeriodoFiscalService {
     private final PeriodoFiscalRepository periodoFiscalRepository;

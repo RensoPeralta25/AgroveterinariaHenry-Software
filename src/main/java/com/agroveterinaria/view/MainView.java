@@ -28,7 +28,7 @@ import com.agroveterinaria.view.logistica.GestionDespachosView;
 import com.agroveterinaria.view.logistica.RutaView;
 import com.agroveterinaria.view.lote.LoteView;
 import com.agroveterinaria.view.mascota.MascotaView;
-import com.agroveterinaria.view.nomina.AnticipoSalarioView;
+import com.agroveterinaria.view.nomina.AusenciaView;
 import com.agroveterinaria.view.nomina.DeduccionesView;
 import com.agroveterinaria.view.nomina.NominaView;
 import com.agroveterinaria.view.notacredito.NotasCreditoView;
@@ -58,7 +58,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.router.RouterLayout;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -121,7 +120,8 @@ public class MainView extends Div {
             EmbargoSalarialService embargoSalarialService,
             PrestamoEmpleadoService prestamoEmpleadoService,
             NotaDeCreditoService notaDeCreditoService,
-            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService) {
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService,
+            AusenciaService ausenciaService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -136,7 +136,7 @@ public class MainView extends Div {
                 cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
                 anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService,
-                notaDeCreditoService, facturaVentaTermicaPdfService);
+                notaDeCreditoService, facturaVentaTermicaPdfService, ausenciaService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -197,7 +197,8 @@ public class MainView extends Div {
             EmbargoSalarialService embargoSalarialService,
             PrestamoEmpleadoService prestamoEmpleadoService,
             NotaDeCreditoService notaDeCreditoService,
-            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService
+            FacturaVentaTermicaPdfService facturaVentaTermicaPdfService,
+            AusenciaService ausenciaService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -224,6 +225,7 @@ public class MainView extends Div {
         boolean esVeterinario = authContext.hasRole("VETERINARIO");
         boolean esConductor = authContext.hasRole("CONDUCTOR");
         boolean esAsistente = authContext.hasRole("ASISTENTE");
+        boolean esRecursosHumanos = authContext.hasRole("RECURSOS_HUMANOS");
 
         Button inicioButton = createMenuButton(VaadinIcon.HOME, "Inicio");
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
@@ -239,6 +241,7 @@ public class MainView extends Div {
         Button nominaButton = createSubmenuButton(VaadinIcon.INVOICE, "Nómina");
         Button vacacionesButton = createSubmenuButton(VaadinIcon.FLIGHT_TAKEOFF, "Vacaciones");
         Button deduccionesButton = createSubmenuButton(VaadinIcon.MONEY_WITHDRAW, "Deducciones");
+        Button ausenciasButton = createSubmenuButton(VaadinIcon.CALENDAR_CLOCK, "Ausencias");
         Button registrarVentaButton = createSubmenuButton(VaadinIcon.PLUS, "Registrar venta");
         Button listaVentasButton = createSubmenuButton(VaadinIcon.LIST, "Lista de ventas");
         Button cobrosButton = createSubmenuButton(VaadinIcon.MONEY, "Cobros");
@@ -280,7 +283,7 @@ public class MainView extends Div {
         ventasSubmenu.setSpacing(false);
         ventasSubmenu.setVisible(false);
 
-        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton, nominaButton, vacacionesButton, deduccionesButton);
+        VerticalLayout recursosHumanosSubMenu = new VerticalLayout(empleadosButton,usuariosButton, nominaButton, vacacionesButton, deduccionesButton, ausenciasButton);
         recursosHumanosSubMenu.addClassName("sidebar-submenu");
         recursosHumanosSubMenu.setPadding(false);
         recursosHumanosSubMenu.setSpacing(false);
@@ -312,12 +315,14 @@ public class MainView extends Div {
         productosButton.setEnabled(esAdmin);
         serviciosButton.setEnabled(esAdmin);
         proveedoresButton.setEnabled(esAdmin);
-        usuariosButton.setEnabled(esAdmin);
-        recursosHumanosButton.setEnabled(esAdmin);
-        empleadosButton.setEnabled(esAdmin);
-        nominaButton.setEnabled(esAdmin);
-        vacacionesButton.setEnabled(esAdmin);
-        deduccionesButton.setEnabled(esAdmin);
+
+        recursosHumanosButton.setEnabled(esAdmin || esRecursosHumanos);
+        usuariosButton.setEnabled(esAdmin || esRecursosHumanos);
+        empleadosButton.setEnabled(esAdmin || esRecursosHumanos);
+        nominaButton.setEnabled(esAdmin || esRecursosHumanos);
+        vacacionesButton.setEnabled(esAdmin || esRecursosHumanos);
+        deduccionesButton.setEnabled(esAdmin || esRecursosHumanos);
+        ausenciasButton.setEnabled(esAdmin || esRecursosHumanos);
 
         boolean accesoAlmacen = esAdmin || esAsistente;
 
@@ -380,7 +385,7 @@ public class MainView extends Div {
                 "Panel de Usuarios",
                 "Accesos internos y credenciales del sistema",
                 VaadinIcon.USERS,
-                new UsuarioView(usuarioService, empleadoService, passwordEncoder)
+                new UsuarioView(usuarioService, empleadoService, passwordEncoder, securityService)
         ));
 
         empleadosButton.addClickListener(event -> {
@@ -391,7 +396,7 @@ public class MainView extends Div {
                     "Panel de Empleados",
                     "Información general del equipo de trabajo y roles",
                     VaadinIcon.GROUP,
-                    new EmpleadoView(empleadoService, personaService, nominaService)
+                    new EmpleadoView(empleadoService, personaService, nominaService, securityService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });
@@ -536,7 +541,7 @@ public class MainView extends Div {
                     "Gestión de Despachos",
                     "Control de salida de mercancía en vehículos de la empresa.",
                     VaadinIcon.OUTBOX,
-                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService, transporteService)
+                    new GestionDespachosView(despachoService, vehiculoService, empleadoService, loteService, transporteService, rutaService)
             );
             logisticaButton.addClassName("menu-button-active");
         });
@@ -682,7 +687,22 @@ public class MainView extends Div {
                     "Panel de Deducciones",
                     "Administración de embargos, préstamos y anticipos de salario",
                     VaadinIcon.MONEY_WITHDRAW,
-                    new DeduccionesView(embargoSalarialService, anticipoSalarioService, prestamoEmpleadoService, empleadoService, configuracionNominaService)
+                    new DeduccionesView(embargoSalarialService, anticipoSalarioService,
+                            prestamoEmpleadoService, empleadoService, configuracionNominaService,
+                            cuentaBancariaTransferenciaPdfService, securityService)
+            );
+            recursosHumanosButton.addClassName("menu-button-active");
+        });
+
+        ausenciasButton.addClickListener(event -> {
+            recursosHumanosSubMenu.setVisible(true);
+            showModule(
+                    ausenciasButton,
+                    "Gestión de Ausencias",
+                    "Panel de Ausencias",
+                    "Administración de ausencias, licencias y permisos de empleados",
+                    VaadinIcon.CALENDAR_CLOCK,
+                    new AusenciaView(ausenciaService, empleadoService, configuracionNominaService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });
@@ -696,7 +716,6 @@ public class MainView extends Div {
                 productosButton,
                 serviciosButton,
                 proveedoresButton,
-                usuariosButton,
                 recursosHumanosButton,
                 recursosHumanosSubMenu,
                 clientesButton,
@@ -761,7 +780,7 @@ public class MainView extends Div {
                 "Configuración de Usuario",
                 "Perfil, foto de usuario y contraseña",
                 VaadinIcon.COG,
-                new ConfiguracionUsuarioView(securityService, () -> actualizarAvatarUsuario(avatarButton, securityService))
+                new ConfiguracionUsuarioView(securityService, () -> actualizarAvatarUsuario(avatarButton, securityService), authContext)
         ));
         userMenu.addItem("Salir", event -> authContext.logout());
 

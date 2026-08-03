@@ -44,28 +44,31 @@ public class CantidadFraccionadaField extends CustomField<BigDecimal> {
     }
 
 
-    public void configurarProducto(BigDecimal factor, boolean permiteFraccionamiento, boolean esGranel) {
+    public void configurarProducto(BigDecimal factor, boolean permiteFraccionamiento, boolean esGranel, String nombreEmpaque, String nombreFraccion) {
         this.factorConversion = (factor != null && factor.compareTo(BigDecimal.ZERO) > 0) ? factor : BigDecimal.ONE;
         this.permiteFraccionamiento = permiteFraccionamiento;
         this.esGranel = esGranel;
 
+        String lblEmpaque = (nombreEmpaque != null && !nombreEmpaque.isBlank()) ? nombreEmpaque : "Empaques";
+        String lblFraccion = (nombreFraccion != null && !nombreFraccion.isBlank()) ? nombreFraccion : "Unidades";
+
         if (this.esGranel) {
             txtCajas.setVisible(false);
             txtUnidades.setVisible(true);
-            txtUnidades.setLabel("Cantidad Decimal");
+            txtUnidades.setLabel("Cantidad (" + lblFraccion + ")");
             txtUnidades.setWidthFull();
         } else if (!this.permiteFraccionamiento) {
             txtCajas.setVisible(true);
-            txtCajas.setLabel("Cantidad (Unidades)");
+            txtCajas.setLabel("Cantidad (" + lblEmpaque + ")");
             txtCajas.setWidthFull();
             txtUnidades.setVisible(false);
         } else {
             txtCajas.setVisible(true);
-            txtCajas.setLabel("Empaques");
+            txtCajas.setLabel(lblEmpaque);
             txtCajas.setWidth("100px");
             txtCajas.getStyle().set("margin-right", "15px");
             txtUnidades.setVisible(true);
-            txtUnidades.setLabel("Unidades");
+            txtUnidades.setLabel(lblFraccion);
             txtUnidades.setWidth("100px");
         }
         clear();

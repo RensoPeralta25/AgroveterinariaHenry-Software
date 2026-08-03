@@ -1,6 +1,8 @@
 package com.agroveterinaria.view.devolucion;
 
+import com.agroveterinaria.dto.devolucion.LineaElegibleDevolucionDTO;
 import com.agroveterinaria.entity.*;
+import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstadoVenta;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.security.SecurityService;
@@ -104,18 +106,21 @@ public class RegistroDevolucionView extends VerticalLayout {
         gridItems.addThemeNames("row-stripes");
         gridItems.setSizeFull();
 
-        gridItems.addColumn(linea -> linea.getDetalleOriginal().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
+        gridItems.addColumn(linea -> linea.getDto().getDetalleVenta().getProducto().getNombre()).setHeader("Producto").setFlexGrow(2);
+
         gridItems.addColumn(linea -> {
-            Lote lote = linea.getDetalleOriginal().getLote();
-            return (lote != null && lote.getNumeroLote() != null) ? lote.getNumeroLote() : "Sin asignar (PEPS)";
-        }).setHeader("Lote").setFlexGrow(1);
+            Lote lote = linea.getDto().getLote();
+            return (lote != null && lote.getNumeroLote() != null) ? lote.getNumeroLote() : "Sin asignar / Servicio";
+        }).setHeader("Lote Entregado").setFlexGrow(1);
 
         gridItems.addColumn(linea -> FormatoInventarioUtil.formatearCantidad(
-                linea.getDetalleOriginal().getCantidad(),
-                linea.getDetalleOriginal().getProducto().getContenidoPorEmpaque(),
-                Boolean.TRUE.equals(linea.getDetalleOriginal().getProducto().getPermiteFraccionamiento()),
-                false
-        )).setHeader("Comprado").setFlexGrow(1);
+                linea.getDto().getCantidadDisponible(),
+                linea.getDto().getDetalleVenta().getProducto().getContenidoPorEmpaque(),
+                Boolean.TRUE.equals(linea.getDto().getDetalleVenta().getProducto().getPermiteFraccionamiento()),
+                false,
+                FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(linea.getDto().getDetalleVenta().getProducto()),
+                FormatoInventarioUtil.getNombreUnidadFraccionSafe(linea.getDto().getDetalleVenta().getProducto())
+        )).setHeader("Máx. a Devolver").setFlexGrow(1);
 
         gridItems.addComponentColumn(linea -> linea.getFieldCantidad()).setHeader("Cant. a Devolver").setWidth("280px").setFlexGrow(0);
         gridItems.addComponentColumn(linea -> linea.getCbAlmacenDestino()).setHeader("Almacén Reingreso").setWidth("200px").setFlexGrow(0);
@@ -184,8 +189,14 @@ public class RegistroDevolucionView extends VerticalLayout {
         List<Almacen> almacenesActivos = almacenService.listarTodos().stream()
                 .filter(a -> a.getStatus() == StatusEntidad.ACTIVO).toList();
 
-        for (DetalleVenta dv : venta.getDetallesVentas()) {
-            LineaDevolucionUI lineaUI = new LineaDevolucionUI(dv, almacenesActivos, this::recalcularTotalesUI);
+        List<LineaElegibleDevolucionDTO> elegibles = devolucionService.obtenerLineasElegibles(venta);
+
+        if (elegibles.isEmpty()) {
+            mostrarNotificacion("No hay artículos despachados elegibles para devolver en esta factura.", NotificationVariant.LUMO_WARNING);
+        }
+
+        for (LineaElegibleDevolucionDTO dto : elegibles) {
+            LineaDevolucionUI lineaUI = new LineaDevolucionUI(dto, almacenesActivos, this::recalcularTotalesUI);
             lineasVista.add(lineaUI);
         }
 
@@ -234,13 +245,15 @@ public class RegistroDevolucionView extends VerticalLayout {
 
             for (LineaDevolucionUI ui : lineasVista) {
                 if (ui.getCantidadIngresada().compareTo(BigDecimal.ZERO) > 0) {
-                    if (ui.getCbAlmacenDestino().isEmpty()) {
-                        throw new IllegalArgumentException("Debe especificar el almacén de reingreso para el producto: " + ui.getDetalleOriginal().getProducto().getNombre());
+                    boolean esServicio = ui.getDto().getDetalleVenta().getProducto().getCategoria() == CategoriaProducto.SERVICIO;
+
+                    if (!esServicio && ui.getCbAlmacenDestino().isEmpty()) {
+                        throw new IllegalArgumentException("Debe especificar el almacén de reingreso para el producto: " + ui.getDto().getDetalleVenta().getProducto().getNombre());
                     }
 
                     DetalleDevVenta ddv = new DetalleDevVenta();
-                    ddv.setDetalleVenta(ui.getDetalleOriginal());
-                    ddv.setLote(ui.getDetalleOriginal().getLote());
+                    ddv.setDetalleVenta(ui.getDto().getDetalleVenta());
+                    ddv.setLote(ui.getDto().getLote());
                     ddv.setCantidadDevuelta(ui.getCantidadIngresada());
                     ddv.setAlmacenEntrada(ui.getCbAlmacenDestino().getValue());
 
@@ -276,19 +289,20 @@ public class RegistroDevolucionView extends VerticalLayout {
 
 
     private static class LineaDevolucionUI {
-        private final DetalleVenta detalleOriginal;
+        private final LineaElegibleDevolucionDTO dto;
         private final CantidadFraccionadaField fieldCantidad;
         private final ComboBox<Almacen> cbAlmacenDestino;
 
-        public LineaDevolucionUI(DetalleVenta detalleOriginal, List<Almacen> almacenes, Runnable onValueChange) {
-            this.detalleOriginal = detalleOriginal;
-
+        public LineaDevolucionUI(LineaElegibleDevolucionDTO dto, List<Almacen> almacenes, Runnable onValueChange) {
+            this.dto = dto;
             this.fieldCantidad = new CantidadFraccionadaField();
-            Producto prod = detalleOriginal.getProducto();
+            Producto prod = dto.getDetalleVenta().getProducto();
             this.fieldCantidad.configurarProducto(
                     prod.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(prod.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(prod),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(prod)
             );
             this.fieldCantidad.setValue(BigDecimal.ZERO);
             this.fieldCantidad.addValueChangeListener(e -> onValueChange.run());
@@ -299,14 +313,14 @@ public class RegistroDevolucionView extends VerticalLayout {
             this.cbAlmacenDestino.setItemLabelGenerator(Almacen::getNombre);
             this.cbAlmacenDestino.setPlaceholder("Seleccione...");
 
-            if (detalleOriginal.getLote() == null) {
-                this.fieldCantidad.setEnabled(false);
+            if (prod.getCategoria() == CategoriaProducto.SERVICIO) {
                 this.cbAlmacenDestino.setEnabled(false);
-                this.cbAlmacenDestino.setPlaceholder("No despachado");
+                this.cbAlmacenDestino.setPlaceholder("No aplica (Servicio)");
             }
         }
 
-        public DetalleVenta getDetalleOriginal() { return detalleOriginal; }
+        public LineaElegibleDevolucionDTO getDto() { return dto; }
+        public DetalleVenta getDetalleOriginal() { return dto.getDetalleVenta(); }
         public CantidadFraccionadaField getFieldCantidad() { return fieldCantidad; }
         public ComboBox<Almacen> getCbAlmacenDestino() { return cbAlmacenDestino; }
         public BigDecimal getCantidadIngresada() { return fieldCantidad.getValue() != null ? fieldCantidad.getValue() : BigDecimal.ZERO; }

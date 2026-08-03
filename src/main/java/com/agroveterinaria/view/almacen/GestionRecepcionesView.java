@@ -227,7 +227,9 @@ public class GestionRecepcionesView extends VerticalLayout {
                     cantidad,
                     p.getContenidoPorEmpaque(),
                     Boolean.TRUE.equals(p.getPermiteFraccionamiento()),
-                    false
+                    false,
+                    FormatoInventarioUtil.getNombreUnidadEmpaqueSafe(p),
+                    FormatoInventarioUtil.getNombreUnidadFraccionSafe(p)
             );
         }).setHeader("Cant. Recibida").setTextAlign(com.vaadin.flow.component.grid.ColumnTextAlign.END).setFlexGrow(1);
 

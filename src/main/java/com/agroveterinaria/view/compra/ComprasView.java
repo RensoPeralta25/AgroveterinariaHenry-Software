@@ -2,10 +2,13 @@ package com.agroveterinaria.view.compra;
 
 import com.agroveterinaria.component.GridPaginator;
 import com.agroveterinaria.entity.Compra;
+import com.agroveterinaria.entity.Proveedor;
+import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.service.CompraService;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dependency.CssImport;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
@@ -17,6 +20,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
@@ -35,6 +39,8 @@ public class ComprasView extends VerticalLayout {
     private final Grid<Compra> gridHistorial;
     private final GridPaginator<Compra> paginator;
     private final HorizontalLayout toolbar;
+    private TextField searchField;
+    private ComboBox<EstadoRecepcion> statusFilter;
 
     @Setter
     private Consumer<Long> accionNavegarRegistro;
@@ -66,8 +72,25 @@ public class ComprasView extends VerticalLayout {
 
     private void configurarToolbar() {
         toolbar.removeAll();
+        toolbar.setAlignItems(Alignment.CENTER);
+
+        searchField = new com.vaadin.flow.component.textfield.TextField();
+        searchField.setWidthFull();
+        searchField.setPlaceholder("Buscar por nombre de proveedor...");
+        searchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
+        searchField.setClearButtonVisible(true);
+        searchField.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+        searchField.addValueChangeListener(e -> actualizarVista());
+
+        statusFilter = new com.vaadin.flow.component.combobox.ComboBox<>();
+        statusFilter.setPlaceholder("Todos los estados");
+        statusFilter.setItems(com.agroveterinaria.enums.EstadoRecepcion.values());
+        statusFilter.setItemLabelGenerator(com.agroveterinaria.enums.EstadoRecepcion::getEtiqueta);
+        statusFilter.setClearButtonVisible(true);
+        statusFilter.addValueChangeListener(e -> actualizarVista());
 
         Optional<Compra> borradorOpt = compraService.obtenerUltimoBorrador();
+        HorizontalLayout botonesLayout = new HorizontalLayout();
 
         if (borradorOpt.isPresent()) {
             Button btnVolverBorrador = new Button("Volver al último borrador", new Icon(VaadinIcon.ARROW_CIRCLE_UP));
@@ -78,28 +101,30 @@ public class ComprasView extends VerticalLayout {
             btnEliminarBorrador.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY);
             btnEliminarBorrador.addClickListener(e -> abrirModalConfirmacionBorrar(borradorOpt.get()));
 
-            toolbar.add(btnVolverBorrador, btnEliminarBorrador);
+            botonesLayout.add(btnVolverBorrador, btnEliminarBorrador);
         } else {
             Button btnNuevaCompra = new Button("Nueva Compra", new Icon(VaadinIcon.PLUS));
             btnNuevaCompra.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
             btnNuevaCompra.addClickListener(e -> accionNavegarRegistro.accept(null));
-            toolbar.add(btnNuevaCompra);
+            botonesLayout.add(btnNuevaCompra);
         }
+        toolbar.add(botonesLayout, searchField, statusFilter);
+        toolbar.expand(searchField);
     }
 
     private void configurarGrid() {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm a");
 
-        gridHistorial.addColumn(Compra::getIdCompra).setHeader("ID").setWidth("80px").setFlexGrow(0);
+        gridHistorial.addColumn(Compra::getIdCompra).setHeader("ID").setWidth("80px").setFlexGrow(0).setComparator(Compra::getIdCompra);
 
         gridHistorial.addColumn(compra -> compra.getFechaHoraCompra().format(formatter))
-                .setHeader("Fecha / Hora").setFlexGrow(1);
+                .setHeader("Fecha / Hora").setFlexGrow(1).setComparator(Compra::getFechaHoraCompra);
 
         gridHistorial.addColumn(compra -> compra.getProveedor().getNombre())
-                .setHeader("Proveedor").setFlexGrow(2);
+                .setHeader("Proveedor").setFlexGrow(2).setComparator(compra -> compra.getProveedor().getNombre());
 
         gridHistorial.addColumn(compra -> String.format("RD$ %,.2f", compra.getTotal()))
-                .setHeader("Monto Total").setFlexGrow(1);
+                .setHeader("Monto Total").setFlexGrow(1).setComparator(Compra::getTotal);
 
         gridHistorial.addComponentColumn(compra -> {
             Span badge = new Span(compra.getEstadoRecepcion().getEtiqueta());
@@ -110,7 +135,7 @@ public class ComprasView extends VerticalLayout {
                 case RECIBIDA -> badge.getElement().getThemeList().add("badge success");
             }
             return badge;
-        }).setHeader("Estado Recepción").setFlexGrow(1);
+        }).setHeader("Estado Recepción").setFlexGrow(1).setComparator(compra -> compra.getEstadoRecepcion().getEtiqueta());
 
         gridHistorial.addComponentColumn(compra -> {
             HorizontalLayout acciones = new HorizontalLayout();
@@ -128,7 +153,7 @@ public class ComprasView extends VerticalLayout {
                 btnEliminar.setTooltipText("No se puede eliminar: existen movimientos de inventario vinculados.");
             } else {
                 btnEditar.addClickListener(e -> accionNavegarRegistro.accept(compra.getIdCompra()));
-                btnEliminar.addClickListener(e -> ejecutarEliminacionCompra(compra));
+                btnEliminar.addClickListener(e -> abrirModalConfirmacionEliminarCompra(compra));
             }
 
             acciones.add(btnEditar, btnEliminar);
@@ -177,7 +202,66 @@ public class ComprasView extends VerticalLayout {
     }
 
     private void actualizarVista() {
-        configurarToolbar();
-        paginator.setItems(compraService.listarTodos());
+        String termino = (searchField != null && searchField.getValue() != null)
+                ? searchField.getValue().toLowerCase().trim()
+                : "";
+
+        com.agroveterinaria.enums.EstadoRecepcion estadoSeleccionado = (statusFilter != null)
+                ? statusFilter.getValue()
+                : null;
+
+        java.util.List<Compra> listaFiltrada = compraService.listarTodos().stream()
+                .filter(compra -> {
+                    if (estadoSeleccionado != null && compra.getEstadoRecepcion() != estadoSeleccionado) {
+                        return false;
+                    }
+
+                    if (!termino.isEmpty()) {
+                        boolean coincideProveedor = compra.getProveedor() != null
+                                && compra.getProveedor().getNombre() != null
+                                && compra.getProveedor().getNombre().toLowerCase().contains(termino);
+
+                        return coincideProveedor;
+                    }
+                    return true;
+                })
+                .toList();
+
+        paginator.setItems(listaFiltrada);
+    }
+
+    private void abrirModalConfirmacionEliminarCompra(Compra compra) {
+        Dialog modal = new Dialog();
+        modal.setWidth("500px");
+
+        H3 titulo = new H3("Confirmar Eliminación");
+        titulo.getStyle().set("margin-top", "0").set("color", "var(--lumo-error-text-color)");
+
+        String proveedorInfo = compra.getProveedor() != null ? compra.getProveedor().getNombre() : "Desconocido";
+
+        VerticalLayout infoCompra = new VerticalLayout(
+                new Span("¿Estás seguro de que deseas eliminar permanentemente esta orden de compra?"),
+                new Span("ID: #" + compra.getIdCompra()),
+                new Span("Proveedor: " + proveedorInfo),
+                new Span(String.format("Total: RD$ %,.2f", compra.getTotal()))
+        );
+        infoCompra.setPadding(false);
+
+        Button btnConfirmar = new Button("Sí, eliminar", e -> {
+            ejecutarEliminacionCompra(compra);
+            modal.close();
+        });
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+
+        Button btnCancelar = new Button("Cancelar", e -> modal.close());
+        btnCancelar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        HorizontalLayout layoutBotones = new HorizontalLayout(btnCancelar, btnConfirmar);
+        layoutBotones.setWidthFull();
+        layoutBotones.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        layoutBotones.getStyle().set("margin-top", "20px");
+
+        modal.add(new VerticalLayout(titulo, infoCompra, layoutBotones));
+        modal.open();
     }
 }
