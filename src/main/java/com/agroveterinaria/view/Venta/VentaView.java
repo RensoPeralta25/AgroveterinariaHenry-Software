@@ -126,10 +126,10 @@ public class VentaView extends VerticalLayout {
         configurarGrid();
 
         HorizontalLayout workspace = new HorizontalLayout(crearFormulario(), crearResumen());
-        workspace.setSizeFull();
+        workspace.setWidthFull();
         workspace.setPadding(false);
         workspace.setSpacing(true);
-        workspace.expand(workspace.getComponentAt(0));
+        workspace.getStyle().set("flex-wrap", "wrap");
 
         add(workspace);
         expand(workspace);
@@ -143,25 +143,36 @@ public class VentaView extends VerticalLayout {
         HorizontalLayout buscarFila = new HorizontalLayout(clienteExistente, nuevoCliente);
         buscarFila.setWidthFull();
         buscarFila.setAlignItems(FlexComponent.Alignment.END);
+        buscarFila.getStyle().set("flex-wrap", "wrap");
+        buscarFila.getStyle().set("gap", "10px");
         buscarFila.expand(clienteExistente);
 
         HorizontalLayout clienteFila1 = new HorizontalLayout(cedulaCliente, nombreCliente);
         HorizontalLayout clienteFila2 = new HorizontalLayout(telefonoCliente, direccionCliente, tipoCliente);
         clienteFila1.setWidthFull();
+        clienteFila1.getStyle().set("flex-wrap", "wrap");
+        clienteFila1.getStyle().set("gap", "10px");
         clienteFila2.setWidthFull();
+        clienteFila2.getStyle().set("flex-wrap", "wrap");
+        clienteFila2.getStyle().set("gap", "10px");
         clienteFila1.expand(nombreCliente);
         clienteFila2.expand(direccionCliente);
 
         H3 ventaTitulo = new H3("Venta");
         HorizontalLayout ventaFila = new HorizontalLayout(vendedor, comprobanteFiscal, fechaVencimientoPago);
         ventaFila.setWidthFull();
+        ventaFila.getStyle().set("flex-wrap", "wrap");
+        ventaFila.getStyle().set("gap", "10px");
         ventaFila.expand(vendedor);
+        llevaDespacho.getStyle().set("white-space", "nowrap");
 
         HorizontalLayout pagoFila = new HorizontalLayout(descuentoPorcentaje, descuento, costoEnvio, montoPagado, metodoPago, llevaDespacho);
         descuentoPorcentaje.setWidth("130px");
         descuento.setWidth("150px");
         pagoFila.setWidthFull();
         pagoFila.setAlignItems(FlexComponent.Alignment.END);
+        pagoFila.getStyle().set("flex-wrap", "wrap");
+        pagoFila.getStyle().set("gap", "10px");
 
         H3 productosTitulo = new H3("Productos");
 
@@ -184,6 +195,8 @@ public class VentaView extends VerticalLayout {
         );
         productoFila.setWidthFull();
         productoFila.setAlignItems(FlexComponent.Alignment.END);
+        productoFila.getStyle().set("flex-wrap", "wrap");
+        productoFila.getStyle().set("gap", "10px");
         productoFila.expand(producto);
         cbAlmacen.setWidth("140px");
         cbLote.setWidth("130px");
@@ -213,6 +226,8 @@ public class VentaView extends VerticalLayout {
         acciones.setWidthFull();
         acciones.setAlignItems(FlexComponent.Alignment.CENTER);
         acciones.setJustifyContentMode(FlexComponent.JustifyContentMode.BETWEEN);
+        acciones.getStyle().set("flex-wrap", "wrap");
+        acciones.getStyle().set("gap", "15px");
 
         VerticalLayout formulario = new VerticalLayout(
                 clienteTitulo,
@@ -230,16 +245,18 @@ public class VentaView extends VerticalLayout {
                 datosTransferencia,
                 acciones
         );
-        formulario.setSizeFull();
+        formulario.setHeightFull();
+        formulario.setMinWidth("400px");
         formulario.setPadding(true);
         formulario.setSpacing(true);
+        formulario.getStyle().set("flex", "1 1 400px");
         formulario.expand(gridLineas);
         return formulario;
     }
 
     private VerticalLayout crearResumen() {
         VerticalLayout resumen = new VerticalLayout();
-        resumen.setWidth("320px");
+        resumen.getStyle().set("flex", "0 0 320px");
         resumen.setPadding(true);
         resumen.setSpacing(false);
         resumen.addClassName("venta-resumen");
@@ -473,6 +490,8 @@ public class VentaView extends VerticalLayout {
                 costoEnvio.setValue(BigDecimal.ZERO);
             }
         });
+
+        chkImprimirTicket.getStyle().set("white-space", "nowrap");
     }
 
     private Anchor crearDescargaCuentaBancaria() {
