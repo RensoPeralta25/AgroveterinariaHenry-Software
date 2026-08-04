@@ -3,9 +3,7 @@ package com.agroveterinaria.service;
 import com.agroveterinaria.dto.nomina.NovedadNominaDTO;
 import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.*;
-import com.agroveterinaria.repository.AnticipoSalarioRepository;
-import com.agroveterinaria.repository.CorridaNominaRepository;
-import com.agroveterinaria.repository.DetalleNominaRepository;
+import com.agroveterinaria.repository.*;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -30,6 +29,7 @@ public class CorridaNominaService {
 
     private final CorridaNominaRepository corridaRepository;
     private final DetalleNominaRepository detalleNominaRepository;
+    private final GastoOperativoRepository gastoOperativoRepository;
     private final VacacionEmpleadoService vacacionEmpleadoService;
     private final EmpleadoService empleadoService;
     private final PrestamoEmpleadoService prestamoEmpleadoService;
@@ -40,6 +40,9 @@ public class CorridaNominaService {
     private final AnticipoSalarioRepository anticipoSalarioRepository;
     private final AusenciaService ausenciaService;
     private final HistorialDevengadoAnualService historialDevengadoAnualService;
+    private final VentaRepository ventaRepository;
+    private final DevolucionVentaRepository devolucionVentaRepository;
+    private final CompraRepository compraRepository;
 
     public List<CorridaNomina> findAllConNominas() {
         return corridaRepository.findAllConNominas();
@@ -101,9 +104,64 @@ public class CorridaNominaService {
                     .ifPresent(periodoActivo -> corrida.setPeriodoFiscal(periodoActivo));
         }
 
+        BigDecimal fondoBonificacion = BigDecimal.ZERO;
+        BigDecimal sumaIdealBonificaciones = BigDecimal.ZERO;
+        Map<Long, BigDecimal> bonificacionesIdeales = new HashMap<>();
         List<Empleado> empleados = (empleadoEspecifico != null)
                 ? List.of(empleadoEspecifico)
                 : empleadoService.findByStatus(StatusEntidad.ACTIVO);
+
+        if (tipo == TipoCorrida.REGALIA_PASCUAL) {
+            validarRegaliaPascual(fechaEmision);
+        } else if (tipo == TipoCorrida.BONIFICACION) {
+            if (corrida.getPeriodoFiscal() == null) {
+                throw new IllegalStateException("Para generar bonificaciones, debe seleccionar un Período Fiscal.");
+            }
+            validarBonificacion(fechaEmision, corrida.getPeriodoFiscal());
+
+            LocalDateTime inicioM = corrida.getPeriodoFiscal().getFechaInicio().atStartOfDay();
+            LocalDateTime finM = corrida.getPeriodoFiscal().getFechaCierre().atTime(23, 59, 59);
+
+            BigDecimal ventas = ventaRepository.sumarMontoEntre(inicioM, finM, List.of(EstadoVenta.PENDIENTE, EstadoVenta.CERRADA));
+            BigDecimal devoluciones = devolucionVentaRepository.sumarMontoEntre(inicioM, finM, EstadoDevolucion.COMPLETADA);
+            BigDecimal compras = compraRepository.sumarTotalEntre(inicioM, finM, EstadoRecepcion.BORRADOR);
+
+            List<TipoGasto> gastosExcluidos = List.of(TipoGasto.PRESTAMO_EMPLEADO, TipoGasto.ANTICIPO_SALARIO, TipoGasto.NOMINA);
+            BigDecimal gastosAdmin = gastoOperativoRepository.sumarMontoRealesEntre(
+                    corrida.getPeriodoFiscal().getFechaInicio(),
+                    corrida.getPeriodoFiscal().getFechaCierre(),
+                    gastosExcluidos
+            );
+
+            List<TipoConcepto> conceptosDeIngreso = Arrays.stream(TipoConcepto.values())
+                    .filter(TipoConcepto::esIngreso)
+                    .collect(Collectors.toList());
+
+            BigDecimal nominaBrutaTotal = detalleNominaRepository.sumarNominaBrutaTotalPorPeriodo(
+                    corrida.getPeriodoFiscal(),
+                    conceptosDeIngreso
+            );
+
+            BigDecimal utilidadNeta = nvl(ventas)
+                    .subtract(nvl(devoluciones))
+                    .subtract(nvl(compras))
+                    .subtract(nvl(gastosAdmin))
+                    .subtract(nvl(nominaBrutaTotal));
+
+            if (utilidadNeta.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("La empresa no generó utilidades netas en el período fiscal (Utilidad: RD$ " + utilidadNeta + "). Legalmente no procede pago de bonificación.");
+            }
+
+            BigDecimal porcentajeReparticion = configuracionNominaService.getPorcentajeUtilidadesBonificacion();
+            fondoBonificacion = utilidadNeta.multiply(porcentajeReparticion);
+
+            for (Empleado emp : empleados) {
+                BigDecimal ideal = calcularMontoBonificacion(emp, corrida.getPeriodoFiscal());
+                bonificacionesIdeales.put(emp.getIdEmpleado(), ideal);
+                sumaIdealBonificaciones = sumaIdealBonificaciones.add(ideal);
+            }
+        }
+
         Set<Nomina> nominas = new LinkedHashSet<>();
 
         Map<Long, NovedadNominaDTO> mapaNovedades = (novedades != null)
@@ -129,10 +187,15 @@ public class CorridaNominaService {
                     procesarRegaliaPascual(empleado, nomina, detalles, corrida.getFechaEmision());
                     break;
                 case BONIFICACION:
-                    if (corrida.getPeriodoFiscal() == null) {
-                        throw new IllegalStateException("Para generar bonificaciones, debe seleccionar un Período Fiscal.");
+                    BigDecimal ideal = bonificacionesIdeales.getOrDefault(empleado.getIdEmpleado(), BigDecimal.ZERO);
+                    BigDecimal bonificacionFinal = ideal;
+
+                    if (sumaIdealBonificaciones.compareTo(fondoBonificacion) > 0 && sumaIdealBonificaciones.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal proporcion = ideal.divide(sumaIdealBonificaciones, 6, RoundingMode.HALF_UP);
+                        bonificacionFinal = fondoBonificacion.multiply(proporcion).setScale(2, RoundingMode.HALF_UP);
                     }
-                    procesarBonificacion(empleado, nomina, detalles, corrida.getPeriodoFiscal());
+
+                    procesarBonificacion(empleado, nomina, detalles, bonificacionFinal);
                     break;
                 case VACACIONES_ANTICIPADAS:
                     procesarVacacionesAnticipadas(empleado, nomina, detalles);
@@ -146,6 +209,10 @@ public class CorridaNominaService {
 
         corrida.setNominas(nominas);
         return corridaRepository.save(corrida);
+    }
+
+    private BigDecimal nvl(BigDecimal valor) {
+        return valor == null ? BigDecimal.ZERO : valor;
     }
 
     public CorridaNomina aprobarCorrida(CorridaNomina corrida) {
@@ -324,6 +391,21 @@ public class CorridaNominaService {
                         totalComputableParaRegalia
                 );
             }
+        }
+
+        BigDecimal totalNeto = corrida.getTotalGeneral();
+
+        if (totalNeto.compareTo(BigDecimal.ZERO) > 0) {
+            GastoOperativo gastoNomina = new GastoOperativo();
+            gastoNomina.setTipoGasto(TipoGasto.NOMINA);
+            gastoNomina.setFecha(corrida.getFechaEmision());
+            gastoNomina.setMonto(totalNeto);
+
+            gastoNomina.setNotas(corrida.getTipo().getDescripcion() +
+                    ": " + corrida.getFechaInicio() + " - " + corrida.getFechaFin());
+
+            gastoNomina = gastoOperativoRepository.save(gastoNomina);
+            corrida.setGastoAsociado(gastoNomina);
         }
 
         return corridaRepository.save(corrida);
@@ -694,24 +776,26 @@ public class CorridaNominaService {
         ejecutarDeduccionesEspeciales(empleado, nomina, detalles, limiteEmbargable, TipoEmbargo.PENSION_ALIMENTICIA);
     }
 
-    private void procesarBonificacion(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles,PeriodoFiscal periodoFiscal) {
-        if (empleado.getFechaIngreso() == null) {
-            throw new IllegalStateException("Error Crítico: El empleado " + empleado.getPersona().getNombre() +
-                    " no tiene fecha de ingreso registrada, imposible calcular antigüedad.");
+    private void procesarBonificacion(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal montoBonificacion) {
+        if (montoBonificacion.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        detalles.add(crearDetalle(nomina, TipoConcepto.BONIFICACIONES, "Bonificación Anual", montoBonificacion, 1.0));
+
+        BigDecimal porcentajeInfotep = configuracionNominaService.getPorcentajeInfotepBonificacion();
+        BigDecimal retencionInfotep = montoBonificacion.multiply(porcentajeInfotep).setScale(2, RoundingMode.HALF_UP);
+
+        if (retencionInfotep.compareTo(BigDecimal.ZERO) > 0) {
+            detalles.add(crearDetalle(nomina, TipoConcepto.INFOTEP, "Retención INFOTEP (0.5%)", retencionInfotep, 1.0));
         }
 
-        BigDecimal bonificacion = calcularMontoBonificacion(empleado, periodoFiscal);
+        BigDecimal baseIsr = montoBonificacion.subtract(retencionInfotep);
 
-        if (bonificacion.compareTo(BigDecimal.ZERO) == 0) return;
-
-        detalles.add(crearDetalle(nomina, TipoConcepto.BONIFICACIONES, "Bonificación Anual", bonificacion, 1.0));
-
-        BigDecimal isr = configuracionNominaService.calcularISR(bonificacion, PeriodoNomina.MES);
+        BigDecimal isr = configuracionNominaService.calcularISR(baseIsr, PeriodoNomina.MES);
         if (isr.compareTo(BigDecimal.ZERO) > 0) {
             detalles.add(crearDetalle(nomina, TipoConcepto.IMPUESTO_RENTA, "ISR Bonificación", isr, 1.0));
         }
 
-        BigDecimal salarioNeto = bonificacion.subtract(isr);
+        BigDecimal salarioNeto = baseIsr.subtract(isr);
         BigDecimal limiteEmbargable = salarioNeto.multiply(configuracionNominaService.getPorcentajeLimiteEmbargo());
 
         ejecutarDeduccionesEspeciales(empleado, nomina, detalles, limiteEmbargable, TipoEmbargo.PENSION_ALIMENTICIA);
@@ -719,41 +803,29 @@ public class CorridaNominaService {
 
     private BigDecimal calcularMontoBonificacion(Empleado empleado, PeriodoFiscal periodoFiscal) {
         LocalDate fechaIngreso = empleado.getFechaIngreso();
-        LocalDate fechaInicioFiscal = periodoFiscal.getFechaInicio();
         LocalDate fechaCierreFiscal = periodoFiscal.getFechaCierre();
 
         if (fechaIngreso.isAfter(fechaCierreFiscal)) {
             return BigDecimal.ZERO;
         }
 
-        LocalDate inicioComputable = fechaIngreso.isAfter(fechaInicioFiscal) ? fechaIngreso : fechaInicioFiscal;
-        long diasBaseDelPeriodo = ChronoUnit.DAYS.between(inicioComputable, fechaCierreFiscal) + 1;
+        int anioFiscal = periodoFiscal.getAnio();
+        BigDecimal totalDevengado = historialDevengadoAnualService.sumarDevengadoAnualPorEmpleado(empleado.getIdEmpleado(), anioFiscal);
 
-        long diasAusentes = ausenciaService.sumarDiasAusenciaNoPagadaEnRango(
-                empleado.getIdEmpleado(), inicioComputable, fechaCierreFiscal);
+        if (totalDevengado == null || totalDevengado.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
 
-        long diasTrabajadosEfectivos = diasBaseDelPeriodo - diasAusentes;
-
-        if (diasTrabajadosEfectivos <= 0) return BigDecimal.ZERO;
-
-        BigDecimal salarioDiario = calcularSalarioDiario(empleado);
+        BigDecimal salarioMensualPromedio = totalDevengado.divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
+        BigDecimal divisorDiario = configuracionNominaService.getDivisorMensualDiario();
+        BigDecimal salarioDiarioComputable = salarioMensualPromedio.divide(divisorDiario, 2, RoundingMode.HALF_UP);
 
         int aniosAntiguedad = Period.between(fechaIngreso, fechaCierreFiscal).getYears();
         BigDecimal diasTope = (aniosAntiguedad >= configuracionNominaService.getAniosBonificacionSenior())
                 ? configuracionNominaService.getDiasBonificacionTope()
                 : configuracionNominaService.getDiasBonificacionBase();
 
-        int diasDelAnio = fechaCierreFiscal.lengthOfYear();
-        BigDecimal factorProporcional = new BigDecimal(diasTrabajadosEfectivos)
-                .divide(new BigDecimal(diasDelAnio), 4, RoundingMode.HALF_UP);
-
-        if (factorProporcional.compareTo(BigDecimal.ONE) >= 0) {
-            factorProporcional = BigDecimal.ONE;
-        }
-
-        BigDecimal diasGanados = diasTope.multiply(factorProporcional);
-
-        return salarioDiario.multiply(diasGanados).setScale(2, RoundingMode.HALF_UP);
+        return salarioDiarioComputable.multiply(diasTope).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal calcularSueldo13(Empleado empleado, LocalDate fechaCorrida) {

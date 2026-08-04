@@ -207,4 +207,12 @@ public class ConfiguracionNominaService {
     public long getPlazoJustificacionHoras() {
         return obtenerValor("PLAZO_JUSTIFICACION_HORAS").longValue();
     }
+
+    public BigDecimal getPorcentajeUtilidadesBonificacion() {
+        return obtenerValor("BONIFICACION_PORCENTAJE_UTILIDADES");
+    }
+
+    public BigDecimal getPorcentajeInfotepBonificacion() {
+        return obtenerValor("BONIFICACION_PORCENTAJE_INFOTEP");
+    }
 }

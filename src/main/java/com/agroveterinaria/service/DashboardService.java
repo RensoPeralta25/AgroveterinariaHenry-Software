@@ -11,14 +11,7 @@ import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstadoDevolucion;
 import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.enums.EstadoVenta;
-import com.agroveterinaria.repository.CitaRepository;
-import com.agroveterinaria.repository.CompraRepository;
-import com.agroveterinaria.repository.DevolucionVentaRepository;
-import com.agroveterinaria.repository.DespachoRepository;
-import com.agroveterinaria.repository.GastoOperativoRepository;
-import com.agroveterinaria.repository.InventarioRepository;
-import com.agroveterinaria.repository.LoteRepository;
-import com.agroveterinaria.repository.VentaRepository;
+import com.agroveterinaria.repository.*;
 import com.agroveterinaria.util.FormatoNumeroCompactoUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +46,8 @@ public class DashboardService {
     private final LoteRepository loteRepository;
     private final DespachoRepository despachoRepository;
     private final GastoOperativoRepository gastoOperativoRepository;
+    private final AbonoPrestamoRepository abonoPrestamoRepository;
+    private final AbonoAnticipoRepository abonoAnticipoRepository;
 
     public DashboardService(
             VentaRepository ventaRepository,
@@ -62,7 +57,7 @@ public class DashboardService {
             InventarioRepository inventarioRepository,
             LoteRepository loteRepository,
             DespachoRepository despachoRepository,
-            GastoOperativoRepository gastoOperativoRepository
+            GastoOperativoRepository gastoOperativoRepository, AbonoPrestamoRepository abonoPrestamoRepository, AbonoAnticipoRepository abonoAnticipoRepository
     ) {
         this.ventaRepository = ventaRepository;
         this.compraRepository = compraRepository;
@@ -72,6 +67,8 @@ public class DashboardService {
         this.loteRepository = loteRepository;
         this.despachoRepository = despachoRepository;
         this.gastoOperativoRepository = gastoOperativoRepository;
+        this.abonoPrestamoRepository = abonoPrestamoRepository;
+        this.abonoAnticipoRepository = abonoAnticipoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -85,16 +82,21 @@ public class DashboardService {
 
         BigDecimal ventasHoy = calcularVentasNetas(inicioHoy, inicioManana);
         BigDecimal ventasMes = calcularVentasNetas(inicioMes, inicioManana);
+
+        BigDecimal recuperacionMes = calcularRecuperacionDirecta(inicioMes, inicioManana);
+
         BigDecimal comprasMes = compraRepository.sumarTotalEntre(
                 inicioMes,
                 inicioManana,
                 EstadoRecepcion.BORRADOR
         );
-        BigDecimal gastosOperativosMes = gastoOperativoRepository.sumarMontoEntre(
+        BigDecimal gastosYDesembolsosMes = gastoOperativoRepository.sumarMontoEntre(
                 inicioMes.toLocalDate(),
                 inicioManana.toLocalDate()
         );
-        BigDecimal resultadoOperativoMes = valorSeguro(ventasMes).subtract(valorSeguro(gastosOperativosMes));
+
+        BigDecimal entradasTotalesMes = ventasMes.add(recuperacionMes);
+        BigDecimal flujoCajaNetoMes = valorSeguro(entradasTotalesMes).subtract(valorSeguro(gastosYDesembolsosMes));
 
         long ventasPendientes = ventaRepository.countByEstado(EstadoVenta.PENDIENTE);
         BigDecimal balancePendiente = calcularBalancePendiente();
@@ -107,20 +109,23 @@ public class DashboardService {
         List<DashboardMetricDTO> metricas = List.of(
                 new DashboardMetricDTO("ventasHoy", "Ventas netas de hoy", moneda(ventasHoy), "Ventas válidas menos devoluciones completadas", tonoResultado(ventasHoy)),
                 new DashboardMetricDTO("ventasMes", "Ventas netas del mes", moneda(ventasMes), "Acumulado neto desde inicio de mes", tonoResultado(ventasMes)),
+
+                new DashboardMetricDTO("recuperacionMes", "Recuperación de Préstamos", moneda(recuperacionMes), "Abonos directos de empleados en el mes", "positivo"),
+
                 new DashboardMetricDTO("comprasMes", "Compras confirmadas del mes", moneda(comprasMes), "No incluye borradores", "neutral"),
                 new DashboardMetricDTO(
                         "gastosOperativosMes",
-                        "Gastos operativos del mes",
-                        moneda(gastosOperativosMes),
-                        "Egresos operativos registrados",
+                        "Total Salidas de Caja",
+                        moneda(gastosYDesembolsosMes),
+                        "Incluye nómina, gastos regulares y desembolsos a empleados",
                         "riesgo"
                 ),
                 new DashboardMetricDTO(
                         "resultadoOperativoMes",
-                        "Resultado operativo del mes",
-                        moneda(resultadoOperativoMes),
-                        "Ventas menos gastos operativos; no incluye costo de inventario",
-                        tonoResultado(resultadoOperativoMes)
+                        "Flujo de Caja Neto",
+                        moneda(flujoCajaNetoMes),
+                        "Efectivo total generado (Entradas menos Salidas)",
+                        tonoResultado(flujoCajaNetoMes)
                 ),
                 new DashboardMetricDTO("porCobrar", "Por cobrar", moneda(balancePendiente), ventasPendientes + " ventas pendientes", "alerta"),
                 new DashboardMetricDTO("citasHoy", "Citas pendientes hoy", numero(citasPendientesHoy), "Servicios veterinarios por atender", "neutral"),
@@ -137,6 +142,12 @@ public class DashboardService {
                 construirInventarioPorCategoria(),
                 construirAlertas(comprasPendientes, despachosPendientes, productosStockBajo, hoy, hastaVencimiento)
         );
+    }
+
+    private BigDecimal calcularRecuperacionDirecta(LocalDateTime inicio, LocalDateTime fin) {
+        BigDecimal abonosPrestamo = abonoPrestamoRepository.sumarAbonosEntre(inicio.toLocalDate(), fin.toLocalDate());
+        BigDecimal abonosAnticipo = abonoAnticipoRepository.sumarAbonosEntre(inicio.toLocalDate(), fin.toLocalDate());
+        return valorSeguro(abonosPrestamo).add(valorSeguro(abonosAnticipo));
     }
 
     private BigDecimal calcularBalancePendiente() {

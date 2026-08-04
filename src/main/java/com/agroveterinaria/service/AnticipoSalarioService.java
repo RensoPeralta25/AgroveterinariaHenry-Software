@@ -4,10 +4,7 @@ import com.agroveterinaria.entity.*;
 import com.agroveterinaria.enums.EstadoAnticipo;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.EstadoPrestamo;
-import com.agroveterinaria.repository.AbonoAnticipoRepository;
-import com.agroveterinaria.repository.AnticipoSalarioRepository;
-import com.agroveterinaria.repository.CorridaNominaRepository;
-import com.agroveterinaria.repository.PrestamoEmpleadoRepository;
+import com.agroveterinaria.repository.*;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,7 +29,8 @@ public class AnticipoSalarioService {
     private final CorridaNominaRepository corridaNominaRepository;
     private final ConfiguracionNominaService configuracionNominaService;
     private final EmbargoSalarialService embargoSalarialService;
-    private AbonoAnticipoRepository abonoAnticipoRepository;
+    private final AbonoAnticipoRepository abonoAnticipoRepository;
+    private final GastoOperativoRepository gastoOperativoRepository;
 
     @Transactional(readOnly = true)
     public List<AnticipoSalario> findAll() {
@@ -86,6 +84,17 @@ public class AnticipoSalarioService {
         validarMargenLegalEmbargos(anticipo, sueldoNetoBase);
 
         anticipo.setEstado(EstadoAnticipo.APROBADO);
+
+        GastoOperativo gastoAnticipo = new GastoOperativo();
+        gastoAnticipo.setTipoGasto(com.agroveterinaria.enums.TipoGasto.ANTICIPO_SALARIO);
+        gastoAnticipo.setFecha(LocalDate.now());
+        gastoAnticipo.setMonto(anticipo.getMontoOriginal());
+        gastoAnticipo.setNotas("Anticipo salarial a empleado: " +  anticipo.getEmpleado().getPersona().getNombre() + " " +
+                anticipo.getEmpleado().getPersona().getApellido());
+
+        gastoAnticipo = gastoOperativoRepository.save(gastoAnticipo);
+        anticipo.setGastoAsociado(gastoAnticipo);
+
         return anticipoSalarioRepository.save(anticipo);
     }
 

@@ -19,6 +19,7 @@ public enum TipoConcepto {
     ANTICIPO_SALARIO,
     PRESTAMO_EMPRESA,
     DESCUENTO_AUSENCIA,
+    INFOTEP,
     EMBARGO_SALARIAL;
 
     public boolean esIngreso() {
