@@ -9,14 +9,7 @@ import com.agroveterinaria.enums.CategoriaProducto;
 import com.agroveterinaria.enums.EstadoDevolucion;
 import com.agroveterinaria.enums.EstadoRecepcion;
 import com.agroveterinaria.enums.EstadoVenta;
-import com.agroveterinaria.repository.CitaRepository;
-import com.agroveterinaria.repository.CompraRepository;
-import com.agroveterinaria.repository.DevolucionVentaRepository;
-import com.agroveterinaria.repository.DespachoRepository;
-import com.agroveterinaria.repository.GastoOperativoRepository;
-import com.agroveterinaria.repository.InventarioRepository;
-import com.agroveterinaria.repository.LoteRepository;
-import com.agroveterinaria.repository.VentaRepository;
+import com.agroveterinaria.repository.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -51,6 +44,10 @@ class DashboardServiceTest {
     private DespachoRepository despachoRepository;
     @Mock
     private GastoOperativoRepository gastoOperativoRepository;
+    @Mock
+    private AbonoPrestamoRepository abonoPrestamoRepository;
+    @Mock
+    private AbonoAnticipoRepository abonoAnticipoRepository;
 
     @Test
     void dashboardIncluyeGastosOperativosYResultadoDelMes() {
@@ -62,7 +59,9 @@ class DashboardServiceTest {
                 inventarioRepository,
                 loteRepository,
                 despachoRepository,
-                gastoOperativoRepository
+                gastoOperativoRepository,
+                abonoPrestamoRepository,
+                abonoAnticipoRepository
         );
 
         when(ventaRepository.sumarMontoEntre(
@@ -113,7 +112,9 @@ class DashboardServiceTest {
                 inventarioRepository,
                 loteRepository,
                 despachoRepository,
-                gastoOperativoRepository
+                gastoOperativoRepository,
+                abonoPrestamoRepository,
+                abonoAnticipoRepository
         );
 
         when(ventaRepository.sumarMontoEntre(

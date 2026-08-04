@@ -50,6 +50,10 @@ public class AnticipoSalario {
     @Enumerated(EnumType.STRING)
     private EstadoAnticipo estado = EstadoAnticipo.PENDIENTE;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_gasto")
+    private GastoOperativo gastoAsociado;
+
     @PrePersist
     public void prePersist() {
         if (fechaRegistro == null) fechaRegistro = LocalDate.now();

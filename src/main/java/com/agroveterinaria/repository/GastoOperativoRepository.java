@@ -1,6 +1,7 @@
 package com.agroveterinaria.repository;
 
 import com.agroveterinaria.entity.GastoOperativo;
+import com.agroveterinaria.enums.TipoGasto;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,5 +26,12 @@ public interface GastoOperativoRepository extends JpaRepository<GastoOperativo, 
     BigDecimal sumarMontoEntre(
             @Param("inicio") LocalDate inicio,
             @Param("fin") LocalDate fin
+    );
+
+    @Query("SELECT SUM(g.monto) FROM GastoOperativo g WHERE g.fecha >= :inicio AND g.fecha <= :fin AND g.tipoGasto NOT IN :tiposExcluidos")
+    BigDecimal sumarMontoRealesEntre(
+            @Param("inicio") LocalDate inicio,
+            @Param("fin") LocalDate fin,
+            @Param("tiposExcluidos") List<TipoGasto> tiposExcluidos
     );
 }

@@ -63,6 +63,10 @@ public class PrestamoEmpleado {
     @Min(value = 0, message = "El minimo de cuotas pagadas es cero")
     private Integer cuotasPagadas = 0;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_gasto")
+    private GastoOperativo gastoAsociado;
+
     @PrePersist
     public void prePersist() {
         if (fechaAprobacion == null) fechaAprobacion = LocalDate.now();
