@@ -198,9 +198,8 @@ public class MainView extends Div {
             FacturaVentaTermicaPdfService facturaVentaTermicaPdfService,
             AusenciaService ausenciaService
     ) {
-        Div logoMark = new Div();
+        Image logoMark = new Image("/images/agroveterinaria-henry-logo.png", "Logo de Agroveterinaria Henry");
         logoMark.addClassName("brand-mark");
-        logoMark.setText("AH");
 
         H1 brandName = new H1("Agroveterinaria Henry");
         brandName.addClassName("brand-name");
@@ -726,11 +725,7 @@ public class MainView extends Div {
         navigation.setPadding(false);
         navigation.setSpacing(false);
 
-        Div sidebarFooter = new Div();
-        sidebarFooter.addClassName("sidebar-footer");
-        sidebarFooter.setText("Mockup de navegación modular");
-
-        VerticalLayout sidebar = new VerticalLayout(brand, navigation, sidebarFooter);
+        VerticalLayout sidebar = new VerticalLayout(brand, navigation);
         sidebar.addClassName("sidebar");
         sidebar.setPadding(false);
         sidebar.setSpacing(false);

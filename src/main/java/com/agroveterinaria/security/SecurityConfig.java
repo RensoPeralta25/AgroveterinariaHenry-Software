@@ -20,6 +20,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
 
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
+        http.authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/images/**").permitAll()
+        );
 
         http.with(VaadinSecurityConfigurer.vaadin(), configurer -> {
            configurer.loginView(LoginView.class);
