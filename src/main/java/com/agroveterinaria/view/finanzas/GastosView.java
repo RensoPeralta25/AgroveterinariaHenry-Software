@@ -31,6 +31,8 @@ import jakarta.annotation.security.RolesAllowed;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 @PageTitle("Registro de Gastos Operativos")
@@ -79,13 +81,16 @@ public class GastosView extends VerticalLayout {
         grid.addComponentColumn(g -> {
             Span badge = new Span(g.getTipoGasto().getEtiqueta());
             badge.getElement().getThemeList().add("badge");
-            if (g.getTipoGasto() == TipoGasto.FIJO) {
-                badge.getElement().getThemeList().add("primary");
-            } else {
-                badge.getElement().getThemeList().add("contrast");
+
+            switch (g.getTipoGasto()) {
+                case FIJO -> badge.getElement().getThemeList().add("primary");
+                case NOMINA -> badge.getElement().getThemeList().add("success");
+                case PRESTAMO_EMPLEADO, ANTICIPO_SALARIO -> badge.getElement().getThemeList().add("warning");
+                default -> badge.getElement().getThemeList().add("contrast");
             }
+
             return badge;
-        }).setHeader("Tipo").setWidth("120px").setFlexGrow(0);
+        }).setHeader("Tipo").setWidth("140px").setFlexGrow(0);
 
         grid.addColumn(GastoOperativo::getNotas).setHeader("Concepto / Descripción").setFlexGrow(2);
         grid.addColumn(GastoOperativo::getComprobanteFiscal).setHeader("Comprobante").setFlexGrow(1);
@@ -117,7 +122,18 @@ public class GastosView extends VerticalLayout {
         dpFecha.setWidthFull();
 
         ComboBox<TipoGasto> cbTipo = new ComboBox<>("Clasificación");
-        cbTipo.setItems(TipoGasto.values());
+        List<TipoGasto> tiposExcluidos = List.of(
+                TipoGasto.NOMINA,
+                TipoGasto.PRESTAMO_EMPLEADO,
+                TipoGasto.ANTICIPO_SALARIO
+        );
+
+        cbTipo.setItems(
+                Arrays.stream(TipoGasto.values())
+                        .filter(tipo -> !tiposExcluidos.contains(tipo))
+                        .toList()
+        );
+
         cbTipo.setItemLabelGenerator(TipoGasto::getEtiqueta);
         cbTipo.setWidthFull();
 

@@ -3,6 +3,7 @@ package com.agroveterinaria.repository;
 import com.agroveterinaria.entity.DetalleNomina;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Nomina;
+import com.agroveterinaria.entity.PeriodoFiscal;
 import com.agroveterinaria.enums.EstadoCorrida;
 import com.agroveterinaria.enums.TipoConcepto;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,4 +43,14 @@ public interface DetalleNominaRepository extends JpaRepository<DetalleNomina, Lo
             @Param("concepto") TipoConcepto concepto,
             @Param("inicio") LocalDate inicio,
             @Param("fin") LocalDate fin);
+
+    @Query("SELECT SUM(d.monto) FROM DetalleNomina d " +
+            "JOIN d.nomina n JOIN n.corrida c " +
+            "WHERE c.periodoFiscal = :periodoFiscal " +
+            "AND c.estado = 'APROBADA' " +
+            "AND d.tipo IN :tiposIngreso")
+    BigDecimal sumarNominaBrutaTotalPorPeriodo(
+            @Param("periodoFiscal") PeriodoFiscal periodoFiscal,
+            @Param("tiposIngreso") List<TipoConcepto> tiposIngreso
+    );
 }

@@ -29,6 +29,7 @@ public class PrestamoEmpleadoService {
     private final ConfiguracionNominaService configuracionNominaService;
     private CorridaNominaRepository corridaNominaRepository;
     private EmbargoSalarialService embargoSalarialService;
+    private GastoOperativoRepository gastoOperativoRepository;
 
     public PrestamoEmpleado save(PrestamoEmpleado prestamo) {
         validarNominaPendiente();
@@ -81,6 +82,17 @@ public class PrestamoEmpleadoService {
 
         prestamo.setFechaAprobacion(LocalDate.now());
         prestamo.setEstado(EstadoPrestamo.APROBADO);
+
+        GastoOperativo gastoPrestamo = new GastoOperativo();
+        gastoPrestamo.setTipoGasto(com.agroveterinaria.enums.TipoGasto.PRESTAMO_EMPLEADO);
+        gastoPrestamo.setFecha(prestamo.getFechaAprobacion());
+        gastoPrestamo.setMonto(prestamo.getMontoCapital());
+        gastoPrestamo.setNotas("Préstamo a empleado: " +   prestamo.getEmpleado().getPersona().getNombre() + " " +
+                prestamo.getEmpleado().getPersona().getApellido());
+
+        gastoPrestamo = gastoOperativoRepository.save(gastoPrestamo);
+        prestamo.setGastoAsociado(gastoPrestamo);
+
         return prestamoEmpleadoRepository.save(prestamo);
     }
 

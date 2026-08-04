@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface AbonoPrestamoRepository extends JpaRepository<AbonoPrestamo, Long> {
@@ -18,4 +19,7 @@ public interface AbonoPrestamoRepository extends JpaRepository<AbonoPrestamo, Lo
 
     @EntityGraph(attributePaths = {"empleadoRegistrador", "empleadoRegistrador.persona"})
     List<AbonoPrestamo> findByPrestamo_IdPrestamoOrderByFechaAbonoDesc(Long idPrestamo);
+
+    @Query("SELECT SUM(a.monto) FROM AbonoPrestamo a WHERE a.fechaAbono >= :inicio AND a.fechaAbono < :fin")
+    BigDecimal sumarAbonosEntre(@Param("inicio") LocalDate inicio, @Param("fin") LocalDate fin);
 }

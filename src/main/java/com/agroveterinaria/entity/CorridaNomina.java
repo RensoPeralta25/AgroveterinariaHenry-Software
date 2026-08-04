@@ -50,6 +50,10 @@ public class CorridaNomina {
     @JoinColumn(name = "periodo_fiscal_id")
     private PeriodoFiscal periodoFiscal;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_gasto")
+    private GastoOperativo gastoAsociado;
+
     public CorridaNomina(PeriodoNomina periodo, LocalDate fechaInicio, LocalDate fechaFin, LocalDate fechaEmision) {
         this.periodo = periodo;
         this.fechaInicio = fechaInicio;
