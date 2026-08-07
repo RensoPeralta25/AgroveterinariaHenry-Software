@@ -81,12 +81,16 @@ public class EmbargoSalarialView extends VerticalLayout {
                 .setHeader("Mora").setWidth("130px").setFlexGrow(0);
 
         gridEmbargos.addComponentColumn(this::crearBadgeEstadoEntidad)
-                .setHeader("Estado").setWidth("120px").setFlexGrow(0);
+                .setHeader("Estado").setWidth("130px").setFlexGrow(0);
 
         gridEmbargos.addComponentColumn(embargo -> {
             HorizontalLayout acciones = new HorizontalLayout();
             acciones.setSpacing(true);
             acciones.setPadding(false);
+
+            if (embargo.getEstado() == EstadoEmbargo.CERRADO_POR_LIQUIDACION) {
+                return new HorizontalLayout();
+            }
 
             Button btnEditar = new Button(new Icon(VaadinIcon.PENCIL));
             btnEditar.addClassName("btn-accion-editar");
@@ -122,7 +126,7 @@ public class EmbargoSalarialView extends VerticalLayout {
             }
 
             return acciones;
-        }).setHeader("Acciones").setWidth("150px").setFlexGrow(0);
+        }).setHeader("Acciones").setWidth("160px").setFlexGrow(0);
 
         comboFiltroEmpleado = new ComboBox<>();
         comboFiltroEmpleado.setPlaceholder("Buscar por empleado...");
@@ -364,14 +368,12 @@ public class EmbargoSalarialView extends VerticalLayout {
         circulo.getStyle().set("width", "10px").set("height", "10px")
                 .set("border-radius", "50%").set("display", "inline-block");
 
-        String color;
-        if (embargo.getEstado() == EstadoEmbargo.ACTIVO) {
-            color = "#2e7d32";
-        } else if (embargo.getEstado() == EstadoEmbargo.SUSPENDIDO) {
-            color = "#f59e0b";
-        } else {
-            color = "#d32f2f";
-        }
+        String color = switch (embargo.getEstado()) {
+            case ACTIVO -> "#2e7d32";
+            case SUSPENDIDO -> "#f59e0b";
+            case INACTIVO -> "#9e9e9e";
+            case CERRADO_POR_LIQUIDACION -> "#d32f2f";
+        };
 
         circulo.getStyle().set("background-color", color);
 

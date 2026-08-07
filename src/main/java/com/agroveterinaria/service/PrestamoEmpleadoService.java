@@ -34,7 +34,20 @@ public class PrestamoEmpleadoService {
     public PrestamoEmpleado save(PrestamoEmpleado prestamo) {
         validarNominaPendiente();
 
-        if (prestamo.getIdPrestamo() == null) {
+        if (prestamo.getIdPrestamo() != null) {
+            PrestamoEmpleado prestamoBD = prestamoEmpleadoRepository.findById(prestamo.getIdPrestamo())
+                    .orElseThrow(() -> new IllegalStateException("Préstamo no encontrado"));
+
+            List<EstadoPrestamo> estadosDefinitivos = Arrays.asList(
+                    EstadoPrestamo.CERRADO_POR_LIQUIDACION,
+                    EstadoPrestamo.SALDADO,
+                    EstadoPrestamo.CONDONADO
+            );
+
+            if (estadosDefinitivos.contains(prestamoBD.getEstado())) {
+                throw new IllegalStateException("Acción denegada: El préstamo está en un estado definitivo (" + prestamoBD.getEstado().getDescripcion() + ") y no puede ser modificado.");
+            }
+        } else {
             validarExclusividad(prestamo.getEmpleado());
         }
         validarLimitesFinancieros(prestamo);
@@ -384,6 +397,30 @@ public class PrestamoEmpleadoService {
         }
 
         return cuadro;
+    }
+
+    public PrestamoEmpleado cambiarEstado(PrestamoEmpleado prestamo, EstadoPrestamo nuevoEstado) {
+        validarNominaPendiente();
+
+        PrestamoEmpleado prestamoBD = prestamoEmpleadoRepository.findById(prestamo.getIdPrestamo())
+                .orElseThrow(() -> new IllegalStateException("Préstamo no encontrado"));
+
+        List<EstadoPrestamo> estadosDefinitivos = Arrays.asList(
+                EstadoPrestamo.CERRADO_POR_LIQUIDACION,
+                EstadoPrestamo.SALDADO,
+                EstadoPrestamo.CONDONADO
+        );
+
+        if (estadosDefinitivos.contains(prestamoBD.getEstado())) {
+            throw new IllegalStateException("Acción denegada: El préstamo ya se encuentra en un estado definitivo (" + prestamoBD.getEstado().getDescripcion() + ").");
+        }
+
+        if (nuevoEstado == EstadoPrestamo.CONDONADO) {
+            prestamo.setBalanceCapitalPendiente(BigDecimal.ZERO);
+        }
+
+        prestamo.setEstado(nuevoEstado);
+        return prestamoEmpleadoRepository.save(prestamo);
     }
 
     public List<PrestamoEmpleado> findAll() {

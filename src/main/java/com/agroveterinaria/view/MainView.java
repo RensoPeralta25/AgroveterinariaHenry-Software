@@ -119,7 +119,8 @@ public class MainView extends Div {
             PrestamoEmpleadoService prestamoEmpleadoService,
             NotaDeCreditoService notaDeCreditoService,
             FacturaVentaTermicaPdfService facturaVentaTermicaPdfService,
-            AusenciaService ausenciaService) {
+            AusenciaService ausenciaService,
+            LiquidacionService liquidacionService) {
         this.authContext = authContext;
         this.passwordEncoder = passwordEncoder;
 
@@ -134,7 +135,7 @@ public class MainView extends Div {
                 cuentaBancariaTransferenciaPdfService, dashboardService,
                 gastoOperativoService, nominaService, vacacionEmpleadoService, diaFeriadoService, periodoFiscalService,
                 anticipoSalarioService, devolucionVentaService, transporteService, embargoSalarialService, prestamoEmpleadoService,
-                notaDeCreditoService, facturaVentaTermicaPdfService, ausenciaService);
+                notaDeCreditoService, facturaVentaTermicaPdfService, ausenciaService, liquidacionService);
       
         HorizontalLayout shell = new HorizontalLayout(sidebar);
         shell.addClassName("app-shell");
@@ -196,7 +197,8 @@ public class MainView extends Div {
             PrestamoEmpleadoService prestamoEmpleadoService,
             NotaDeCreditoService notaDeCreditoService,
             FacturaVentaTermicaPdfService facturaVentaTermicaPdfService,
-            AusenciaService ausenciaService
+            AusenciaService ausenciaService,
+            LiquidacionService liquidacionService
     ) {
         Div logoMark = new Div();
         logoMark.addClassName("brand-mark");
@@ -227,7 +229,7 @@ public class MainView extends Div {
         Button productosButton = createMenuButton(VaadinIcon.PACKAGE, "Productos");
         Button serviciosButton = createMenuButton(VaadinIcon.STETHOSCOPE, "Servicios");
         Button proveedoresButton = createMenuButton(VaadinIcon.TRUCK, "Proveedores");
-        Button usuariosButton = createMenuButton(VaadinIcon.USERS, "Usuarios");
+        Button usuariosButton = createSubmenuButton(VaadinIcon.USERS, "Usuarios");
         Button empleadosButton = createSubmenuButton(VaadinIcon.GROUP, "Empleados");
         Button clientesButton = createMenuButton(VaadinIcon.USER, "Clientes");
         Button mascotasButton = createMenuButton(VaadinIcon.HEART, "Mascotas");
@@ -392,7 +394,7 @@ public class MainView extends Div {
                     "Panel de Empleados",
                     "Información general del equipo de trabajo y roles",
                     VaadinIcon.GROUP,
-                    new EmpleadoView(empleadoService, personaService, nominaService, securityService)
+                    new EmpleadoView(empleadoService, personaService, nominaService, securityService, liquidacionService)
             );
             recursosHumanosButton.addClassName("menu-button-active");
         });

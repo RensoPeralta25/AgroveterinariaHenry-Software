@@ -54,6 +54,12 @@ public class CorridaNomina {
     @JoinColumn(name = "id_gasto")
     private GastoOperativo gastoAsociado;
 
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinTable(name = "corrida_gasto_embargo",
+            joinColumns = @JoinColumn(name = "id_corrida"),
+            inverseJoinColumns = @JoinColumn(name = "id_gasto"))
+    private Set<GastoOperativo> gastosEmbargos = new LinkedHashSet<>();
+
     public CorridaNomina(PeriodoNomina periodo, LocalDate fechaInicio, LocalDate fechaFin, LocalDate fechaEmision) {
         this.periodo = periodo;
         this.fechaInicio = fechaInicio;
@@ -61,6 +67,7 @@ public class CorridaNomina {
         this.fechaEmision = fechaEmision;
         this.estado = EstadoCorrida.PENDIENTE;
         this.nominas = new LinkedHashSet<>();
+        this.gastosEmbargos = new LinkedHashSet<>();
     }
 
     public BigDecimal getTotalGeneral() {

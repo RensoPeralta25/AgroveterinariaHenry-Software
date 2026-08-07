@@ -125,13 +125,14 @@ public class PrestamoEmpleadoView extends VerticalLayout {
             Span texto = new Span(prestamo.getEstado().getDescripcion());
             texto.getStyle().set("font-weight", "500");
 
-            String colorBase;
-            switch (prestamo.getEstado()) {
-                case PENDIENTE -> colorBase = "#e65100";
-                case APROBADO -> colorBase = "#2e7d32";
-                case SALDADO -> colorBase = "#0d47a1";
-                default -> colorBase = "#9e9e9e";
-            }
+            String colorBase = switch (prestamo.getEstado()) {
+                case PENDIENTE -> "#e65100";
+                case APROBADO -> "#2e7d32";
+                case PAUSADO -> "#f59e0b";
+                case CONDONADO -> "#8e24aa";
+                case SALDADO -> "#0d47a1";
+                case CERRADO_POR_LIQUIDACION -> "#d32f2f";
+            };
 
             circulo.getStyle().set("background-color", colorBase);
             texto.getStyle().set("color", colorBase);
@@ -171,28 +172,73 @@ public class PrestamoEmpleadoView extends VerticalLayout {
                 btnEliminar.addClickListener(e -> confirmarEliminacion(prestamo));
 
                 acciones.add(btnAprobar, btnEditar, btnEliminar);
-            } else if (prestamo.getEstado() == EstadoPrestamo.APROBADO || prestamo.getEstado() == EstadoPrestamo.SALDADO) {
+            } else if (prestamo.getEstado() == EstadoPrestamo.APROBADO || prestamo.getEstado() == EstadoPrestamo.PAUSADO || prestamo.getEstado() == EstadoPrestamo.SALDADO) {
+
                 if (prestamo.getEstado() == EstadoPrestamo.APROBADO) {
                     Button btnAbonar = new Button(new Icon(VaadinIcon.DOLLAR));
                     btnAbonar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
-                    btnAbonar.setTooltipText("Registrar Abono al Préstamo");
+                    btnAbonar.setTooltipText("Registrar Abono");
                     btnAbonar.addClickListener(e -> dialogAbonoExtraordinario(prestamo));
-                    acciones.add(btnAbonar);
+
+                    Button btnPausar = new Button(new Icon(VaadinIcon.PAUSE));
+                    btnPausar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                    btnPausar.setTooltipText("Pausar Descuentos");
+                    btnPausar.addClickListener(e -> confirmarCambioEstadoPrestamo(prestamo, EstadoPrestamo.PAUSADO, "¿Deseas pausar temporalmente los descuentos de este préstamo en nómina?"));
+
+                    acciones.add(btnAbonar, btnPausar);
+                }
+                else if (prestamo.getEstado() == EstadoPrestamo.PAUSADO) {
+                    Button btnReanudar = new Button(new Icon(VaadinIcon.PLAY));
+                    btnReanudar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+                    btnReanudar.setTooltipText("Reanudar Descuentos");
+                    btnReanudar.addClickListener(e -> confirmarCambioEstadoPrestamo(prestamo, EstadoPrestamo.APROBADO, "¿Deseas reanudar los descuentos automáticos de este préstamo?"));
+                    acciones.add(btnReanudar);
+                }
+
+                if (prestamo.getEstado() == EstadoPrestamo.APROBADO || prestamo.getEstado() == EstadoPrestamo.PAUSADO) {
+                    Button btnCondonar = new Button(new Icon(VaadinIcon.GIFT));
+                    btnCondonar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+                    btnCondonar.setTooltipText("Condonar (Perdonar Deuda)");
+                    btnCondonar.addClickListener(e -> confirmarCambioEstadoPrestamo(prestamo, EstadoPrestamo.CONDONADO, "¿Estás seguro de CONDONAR este préstamo? El balance bajará a RD$ 0.00 y no se cobrará más. Esta acción es irreversible."));
+                    acciones.add(btnCondonar);
                 }
 
                 Button btnHistorial = new Button(new Icon(VaadinIcon.CLOCK));
                 btnHistorial.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-                btnHistorial.setTooltipText("Ver Historial de Abonos");
+                btnHistorial.setTooltipText("Ver Historial");
                 btnHistorial.addClickListener(e -> dialogHistorialAbonos(prestamo));
                 acciones.add(btnHistorial);
             }
             return acciones;
-        }).setHeader("Acciones").setWidth("170px").setFlexGrow(0);
+        }).setHeader("Acciones").setWidth("160px").setFlexGrow(0);
 
         gridPrestamos.addClassName("prestamo-grid");
         gridPrestamos.addThemeNames("row-stripes");
         gridPrestamos.setWidthFull();
         gridPrestamos.setHeight("390px");
+    }
+
+    private void confirmarCambioEstadoPrestamo(PrestamoEmpleado prestamo, EstadoPrestamo nuevoEstado, String mensajeTexto) {
+        Dialog confirm = new Dialog();
+        confirm.setHeaderTitle("Confirmar Acción");
+        confirm.add(new Span(mensajeTexto));
+
+        Button btnSi = new Button("Sí, Continuar", e -> {
+            try {
+                prestamoService.cambiarEstado(prestamo, nuevoEstado);
+                mostrarExito("El estado fue actualizado correctamente.");
+                confirm.close();
+                updateList();
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
+        });
+        btnSi.addThemeVariants(nuevoEstado == EstadoPrestamo.CONDONADO ? ButtonVariant.LUMO_ERROR : ButtonVariant.LUMO_PRIMARY);
+
+        Button btnNo = new Button("Cancelar", e -> confirm.close());
+        btnNo.addClassName("btn-borde");
+        confirm.getFooter().add(btnSi, btnNo);
+        confirm.open();
     }
 
     private void dialogFormularioPrestamo(PrestamoEmpleado prestamoExistente) {

@@ -115,6 +115,23 @@ public class VacacionEmpleadoService {
         vacacionEmpleadoRepository.delete(vacacionEmpleado);
     }
 
+    public int obtenerDiasVacacionesTomadosUltimoAnio(Empleado empleado, LocalDate fechaSalida) {
+        long anios = ChronoUnit.YEARS.between(empleado.getFechaIngreso(), fechaSalida);
+
+        if (anios < 1) {
+            return 0;
+        }
+
+        LocalDate ultimoAniversario = empleado.getFechaIngreso().plusYears(anios);
+
+        try {
+            int diasTomados = obtenerDiasYaTomados(empleado.getIdEmpleado(), ultimoAniversario, fechaSalida);
+            return diasTomados;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     public List<VacacionEmpleado> findByEmpleadoYNoPagadas(Empleado empleado){
         return vacacionEmpleadoRepository.findByEmpleadoAndEstadoNot(empleado, EstadoVacacion.PAGADA);
     }

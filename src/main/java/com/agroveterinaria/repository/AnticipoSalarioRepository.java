@@ -14,4 +14,6 @@ public interface AnticipoSalarioRepository extends JpaRepository<AnticipoSalario
     boolean existsByEmpleadoIdEmpleadoAndEstadoIn(Long empleadoId, List<EstadoAnticipo> estados);
 
     boolean existsByEmpleadoAndEstadoIn(Empleado empleado, List<EstadoAnticipo> estados);
+
+    List<AnticipoSalario> findByEmpleado_IdEmpleadoAndEstadoIn(Long idEmpleado, List<EstadoAnticipo> estados);
 }

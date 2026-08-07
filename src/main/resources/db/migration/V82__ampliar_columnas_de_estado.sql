@@ -1,0 +1,3 @@
+ALTER TABLE embargo_salarial ALTER COLUMN estado TYPE VARCHAR(50);
+ALTER TABLE prestamo_empleado ALTER COLUMN estado TYPE VARCHAR(50);
+ALTER TABLE anticipos_salario ALTER COLUMN estado TYPE VARCHAR(50);

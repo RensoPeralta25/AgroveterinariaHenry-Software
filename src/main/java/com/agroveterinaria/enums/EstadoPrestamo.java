@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 public enum EstadoPrestamo {
     PENDIENTE("Pendiente"),
     APROBADO("Aprobado"),
-    SALDADO("Saldado");
+    SALDADO("Saldado"),
+    PAUSADO("Pausado"),
+    CONDONADO("Condonado"),
+    CERRADO_POR_LIQUIDACION("Cerrado (Liq.)");
 
     private final String descripcion;
 
