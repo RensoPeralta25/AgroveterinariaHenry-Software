@@ -21,4 +21,6 @@ public interface PrestamoEmpleadoRepository extends JpaRepository<PrestamoEmplea
 
     @Query("SELECT p FROM PrestamoEmpleado p JOIN FETCH p.empleado e JOIN FETCH e.persona")
     List<PrestamoEmpleado> findAllFetchEmpleado();
+
+    List<PrestamoEmpleado> findByEmpleado_IdEmpleadoAndEstadoIn(Long idEmpleado, List<EstadoPrestamo> estados);
 }

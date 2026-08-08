@@ -65,6 +65,19 @@ public class AnticipoSalarioService {
             anticipo.setMontoDescontado(BigDecimal.ZERO);
             anticipo.setEstado(EstadoAnticipo.PENDIENTE);
         } else {
+            AnticipoSalario anticipoBD = anticipoSalarioRepository.findById(anticipo.getId())
+                    .orElseThrow(() -> new IllegalStateException("Anticipo no encontrado"));
+
+            List<EstadoAnticipo> estadosDefinitivos = Arrays.asList(
+                    EstadoAnticipo.CERRADO_POR_LIQUIDACION,
+                    EstadoAnticipo.SALDADO,
+                    EstadoAnticipo.CONDONADO
+            );
+
+            if (estadosDefinitivos.contains(anticipoBD.getEstado())) {
+                throw new IllegalStateException("Acción denegada: El anticipo está en un estado definitivo (" + anticipoBD.getEstado().getDescripcion() + ") y no puede ser modificado.");
+            }
+
             if (anticipo.getEstado() == EstadoAnticipo.PENDIENTE) {
                 anticipo.setSaldoPendiente(anticipo.getMontoOriginal());
             }
@@ -293,6 +306,30 @@ public class AnticipoSalarioService {
                 );
             }
         }
+    }
+
+    @Transactional
+    public AnticipoSalario cambiarEstado(AnticipoSalario anticipo, EstadoAnticipo nuevoEstado) {
+        validarNominaPendiente();
+
+        AnticipoSalario anticipoBD = anticipoSalarioRepository.findById(anticipo.getId())
+                .orElseThrow(() -> new IllegalStateException("Anticipo no encontrado"));
+
+        List<EstadoAnticipo> estadosDefinitivos = Arrays.asList(
+                EstadoAnticipo.CERRADO_POR_LIQUIDACION,
+                EstadoAnticipo.SALDADO,
+                EstadoAnticipo.CONDONADO
+        );
+
+        if (estadosDefinitivos.contains(anticipoBD.getEstado())) {
+            throw new IllegalStateException("Acción denegada: El anticipo ya se encuentra en un estado definitivo (" + anticipoBD.getEstado().getDescripcion() + ").");
+        }
+        if (nuevoEstado == EstadoAnticipo.CONDONADO) {
+            anticipo.setSaldoPendiente(BigDecimal.ZERO);
+        }
+
+        anticipo.setEstado(nuevoEstado);
+        return anticipoSalarioRepository.save(anticipo);
     }
 
     private void lanzarErrorMargenLegal(String mensaje) {

@@ -281,12 +281,12 @@ public class CorridaNominaService {
                 }
             }
 
-            int mesActual = corrida.getFechaEmision().getMonthValue();
-            int anioActual = corrida.getFechaEmision().getYear();
+            int mesActual = corrida.getFechaFin().getMonthValue();
+            int anioActual = corrida.getFechaFin().getYear();
 
             List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(nomina.getEmpleado())
                     .stream()
-                    .filter(e -> !e.getFechaNotificacion().isAfter(corrida.getFechaEmision()))
+                    .filter(e -> !e.getFechaNotificacion().isAfter(corrida.getFechaFin()))
                     .collect(Collectors.toList());
 
             if (corrida.getTipo() == TipoCorrida.REGALIA_PASCUAL || corrida.getTipo() == TipoCorrida.BONIFICACION) {
@@ -322,6 +322,17 @@ public class CorridaNominaService {
                     embargo.getCuotasExtras().stream()
                             .filter(c -> c.getMesAplicacion() == mesActual && c.getUltimoAnioCobrado() < anioActual)
                             .forEach(c -> c.setUltimoAnioCobrado(anioActual));
+                }
+
+                if (montoCobrado.compareTo(BigDecimal.ZERO) > 0) {
+                    GastoOperativo gastoEmbargo = new GastoOperativo();
+                    gastoEmbargo.setTipoGasto(TipoGasto.RETENCION_LEGAL);
+                    gastoEmbargo.setFecha(corrida.getFechaEmision());
+                    gastoEmbargo.setMonto(montoCobrado);
+                    gastoEmbargo.setNotas("Retención Embargo (" + nomina.getEmpleado().getPersona().getNombre() + "): " + embargo.getEntidadDemandante());
+                    gastoEmbargo = gastoOperativoRepository.save(gastoEmbargo);
+
+                    corrida.getGastosEmbargos().add(gastoEmbargo);
                 }
             }
 
@@ -623,12 +634,11 @@ public class CorridaNominaService {
     private void ejecutarDeduccionesPorPrioridad(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible) {
         List<EmbargoSalarial> embargosActivos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado)
                 .stream()
-                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaEmision()))
+                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaFin()))
                 .collect(Collectors.toList());
 
-
-        int mesActual = nomina.getCorrida().getFechaEmision().getMonthValue();
-        int anioActual = nomina.getCorrida().getFechaEmision().getYear();
+        int mesActual = nomina.getCorrida().getFechaFin().getMonthValue();
+        int anioActual = nomina.getCorrida().getFechaFin().getYear();
 
         PeriodoNomina periodoActual = nomina.getCorrida().getPeriodo();
 
@@ -1008,12 +1018,12 @@ public class CorridaNominaService {
     private void ejecutarDeduccionesEspeciales(Empleado empleado, Nomina nomina, Set<DetalleNomina> detalles, BigDecimal limiteDisponible, TipoEmbargo tipoPermitido) {
         List<EmbargoSalarial> embargos = embargoSalarialService.findByEmpleadoAndEstadoOrderByFechaNotificacionAsc(empleado)
                 .stream()
-                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaEmision()))
+                .filter(e -> !e.getFechaNotificacion().isAfter(nomina.getCorrida().getFechaFin()))
                 .filter(e -> e.getTipoEmbargo() == tipoPermitido)
                 .toList();
 
-        int mesActual = nomina.getCorrida().getFechaEmision().getMonthValue();
-        int anioActual = nomina.getCorrida().getFechaEmision().getYear();
+        int mesActual = nomina.getCorrida().getFechaFin().getMonthValue();
+        int anioActual = nomina.getCorrida().getFechaFin().getYear();
 
         for (EmbargoSalarial embargo : embargos) {
             if (limiteDisponible.compareTo(BigDecimal.ZERO) <= 0) break;

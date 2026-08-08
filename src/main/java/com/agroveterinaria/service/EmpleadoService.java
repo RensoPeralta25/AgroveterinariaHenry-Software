@@ -118,6 +118,8 @@ public class EmpleadoService {
 
         empleado.setStatus(StatusEntidad.ACTIVO);
 
+        empleado.setFechaIngreso(java.time.LocalDate.now());
+
         if (empleado.getUsuario() != null) {
             empleado.getUsuario().setActivo(true);
         }

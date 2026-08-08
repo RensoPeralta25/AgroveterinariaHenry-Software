@@ -7,6 +7,8 @@ public enum TipoGasto {
     FIJO("Fijo"),
     VARIABLE("Variable"),
     NOMINA("Nómina"),
+    LIQUIDACION("Liquidación de Empleado"),
+    RETENCION_LEGAL("Retención Legal"),
     PRESTAMO_EMPLEADO("Préstamo a Empleado"),
     ANTICIPO_SALARIO("Anticipo de Salario");
 

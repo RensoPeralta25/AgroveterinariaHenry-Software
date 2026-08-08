@@ -132,13 +132,14 @@ public class AnticipoSalarioView extends VerticalLayout {
             Span texto = new Span(anticipo.getEstado().getDescripcion());
             texto.getStyle().set("font-weight", "500");
 
-            String colorBase;
-            switch (anticipo.getEstado()) {
-                case PENDIENTE -> colorBase = "#e65100";
-                case APROBADO -> colorBase = "#2e7d32";
-                case SALDADO -> colorBase = "#0d47a1";
-                default -> colorBase = "#9e9e9e";
-            }
+            String colorBase = switch (anticipo.getEstado()) {
+                case PENDIENTE -> "#e65100";
+                case APROBADO -> "#2e7d32";
+                case PAUSADO -> "#f59e0b";
+                case CONDONADO -> "#8e24aa";
+                case SALDADO -> "#0d47a1";
+                case CERRADO_POR_LIQUIDACION -> "#d32f2f";
+            };
 
             circulo.getStyle().set("background-color", colorBase);
             texto.getStyle().set("color", colorBase);
@@ -172,15 +173,37 @@ public class AnticipoSalarioView extends VerticalLayout {
                 btnEliminar.addClickListener(e -> confirmarEliminacion(anticipo));
 
                 acciones.add(btnAprobar, btnEditar, btnEliminar);
-            } else if (anticipo.getEstado() == EstadoAnticipo.APROBADO || anticipo.getEstado() == EstadoAnticipo.SALDADO) {
+            } else if (anticipo.getEstado() == EstadoAnticipo.APROBADO || anticipo.getEstado() == EstadoAnticipo.PAUSADO || anticipo.getEstado() == EstadoAnticipo.SALDADO) {
 
                 if (anticipo.getEstado() == EstadoAnticipo.APROBADO) {
                     Button btnAbonar = new Button(new Icon(VaadinIcon.DOLLAR));
                     btnAbonar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
                     btnAbonar.setTooltipText("Registrar Abono al Anticipo");
                     btnAbonar.addClickListener(e -> dialogAbonoExtraordinario(anticipo));
-                    acciones.add(btnAbonar);
+
+                    Button btnPausar = new Button(new Icon(VaadinIcon.HOURGLASS));
+                    btnPausar.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+                    btnPausar.setTooltipText("Pausar Descuentos");
+                    btnPausar.addClickListener(e -> confirmarCambioEstadoAnticipo(anticipo, EstadoAnticipo.PAUSADO, "¿Deseas pausar temporalmente los descuentos de este anticipo?"));
+
+                    acciones.add(btnAbonar, btnPausar);
                 }
+                else if (anticipo.getEstado() == EstadoAnticipo.PAUSADO) {
+                    Button btnReanudar = new Button(new Icon(VaadinIcon.PLAY));
+                    btnReanudar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SUCCESS);
+                    btnReanudar.setTooltipText("Reanudar Descuentos");
+                    btnReanudar.addClickListener(e -> confirmarCambioEstadoAnticipo(anticipo, EstadoAnticipo.APROBADO, "¿Deseas reanudar los descuentos automáticos de este anticipo?"));
+                    acciones.add(btnReanudar);
+                }
+
+                if (anticipo.getEstado() == EstadoAnticipo.APROBADO || anticipo.getEstado() == EstadoAnticipo.PAUSADO) {
+                    Button btnCondonar = new Button(new Icon(VaadinIcon.GIFT));
+                    btnCondonar.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ERROR);
+                    btnCondonar.setTooltipText("Condonar Anticipo");
+                    btnCondonar.addClickListener(e -> confirmarCambioEstadoAnticipo(anticipo, EstadoAnticipo.CONDONADO, "¿Estás seguro de CONDONAR este anticipo? El saldo bajará a cero y no se cobrará más en la nómina."));
+                    acciones.add(btnCondonar);
+                }
+
                 Button btnHistorial = new Button(new Icon(VaadinIcon.CLOCK));
                 btnHistorial.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
                 btnHistorial.setTooltipText("Ver Historial de Abonos");
@@ -190,12 +213,35 @@ public class AnticipoSalarioView extends VerticalLayout {
 
 
             return acciones;
-        }).setHeader("Acciones").setWidth("150px").setFlexGrow(0);
+        }).setHeader("Acciones").setWidth("160px").setFlexGrow(0);
 
         gridAnticipos.addClassName("usuario-grid");
         gridAnticipos.addThemeNames("row-stripes");
         gridAnticipos.setWidthFull();
         gridAnticipos.setHeight("390px");
+    }
+
+    private void confirmarCambioEstadoAnticipo(AnticipoSalario anticipo, EstadoAnticipo nuevoEstado, String mensajeTexto) {
+        Dialog confirm = new Dialog();
+        confirm.setHeaderTitle("Confirmar Acción");
+        confirm.add(new Span(mensajeTexto));
+
+        Button btnSi = new Button("Sí, Continuar", e -> {
+            try {
+                anticipoService.cambiarEstado(anticipo, nuevoEstado);
+                mostrarExito("El estado fue actualizado correctamente.");
+                confirm.close();
+                updateList();
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
+        });
+        btnSi.addThemeVariants(nuevoEstado == EstadoAnticipo.CONDONADO ? ButtonVariant.LUMO_ERROR : ButtonVariant.LUMO_PRIMARY);
+
+        Button btnNo = new Button("Cancelar", e -> confirm.close());
+        btnNo.addClassName("btn-borde");
+        confirm.getFooter().add(btnSi, btnNo);
+        confirm.open();
     }
 
     private void dialogFormularioAnticipo(AnticipoSalario anticipoExistente) {

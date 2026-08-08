@@ -3,31 +3,34 @@ package com.agroveterinaria.view.empleado;
 import com.agroveterinaria.component.CrudGridPaginator;
 import com.agroveterinaria.entity.Empleado;
 import com.agroveterinaria.entity.Persona;
+import com.agroveterinaria.enums.MotivoSalida;
 import com.agroveterinaria.enums.RolEmpleado;
 import com.agroveterinaria.enums.StatusEntidad;
 import com.agroveterinaria.security.SecurityService;
 import com.agroveterinaria.service.EmpleadoService;
+import com.agroveterinaria.service.LiquidacionService;
 import com.agroveterinaria.service.NominaService;
 import com.agroveterinaria.service.PersonaService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.combobox.MultiSelectComboBox;
-import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.datepicker.DatePicker;
 import com.vaadin.flow.component.dependency.CssImport;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.BigDecimalField;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.vaadin.crudui.crud.CrudOperation;
 import org.vaadin.crudui.crud.impl.GridCrud;
 import org.vaadin.crudui.form.impl.form.factory.DefaultCrudFormFactory;
@@ -35,17 +38,18 @@ import org.vaadin.crudui.layout.impl.WindowBasedCrudLayout;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @CssImport(value = "./grid-styles.css", themeFor = "vaadin-grid")
 public class EmpleadoView extends VerticalLayout {
     private static final String CEDULA_PATTERN = "\\d{3}-\\d{7}-\\d{1}";
 
-    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService, NominaService nominaService, SecurityService securityService) {
+    public EmpleadoView(EmpleadoService empleadoService, PersonaService personaService,
+                        NominaService nominaService, SecurityService securityService, LiquidacionService liquidacionService) {
         setSizeFull();
         setPadding(true);
         setSpacing(false);
@@ -100,21 +104,41 @@ public class EmpleadoView extends VerticalLayout {
             Button btnEstado = new Button();
             btnEstado.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
+            HorizontalLayout acciones = new HorizontalLayout();
+
             if (empleado.getStatus() == StatusEntidad.ACTIVO) {
                 btnEstado.setIcon(new Icon(VaadinIcon.POWER_OFF));
                 btnEstado.addThemeVariants(ButtonVariant.LUMO_ERROR);
-                btnEstado.getElement().setProperty("title", "Dar de baja (Desactivar)");
-                btnEstado.addClickListener(e -> dialogBaja(empleado, crudEmpleado,empleadoService));
+                btnEstado.getElement().setProperty("title", "Dar de baja y Liquidar");
+                btnEstado.addClickListener(e -> dialogBaja(empleado, crudEmpleado,empleadoService, liquidacionService));
+                acciones.add(btnEstado);
             } else {
                 btnEstado.setIcon(new Icon(VaadinIcon.ARROW_CIRCLE_UP));
                 btnEstado.addThemeVariants(ButtonVariant.LUMO_SUCCESS);
-                btnEstado.getElement().setProperty("title", "Reactivar empleado");
+                btnEstado.getElement().setProperty("title", "Recontratar (Reinicia antigüedad)");
                 btnEstado.addClickListener(e -> {
                     empleadoService.reactivarEmpleado(empleado);
-                    Notification.show("Empleado reactivado exitosamente", 4000, Notification.Position.MIDDLE)
+                    Notification.show("Empleado recontratado. Su antigüedad ha reiniciado desde hoy.", 5000, Notification.Position.MIDDLE)
                             .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
                     crudEmpleado.refreshGrid();
                 });
+
+
+                Button btnVerLiquidacion = new Button(new Icon(VaadinIcon.FILE_TEXT_O));
+                btnVerLiquidacion.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_CONTRAST);
+                btnVerLiquidacion.getElement().setProperty("title", "Ver Recibo de Liquidación");
+
+                btnVerLiquidacion.addClickListener(e -> {
+                    liquidacionService.obtenerUltimaLiquidacion(empleado).ifPresentOrElse(
+                            liq -> {
+                                LiquidacionReciboDialog recibo = new LiquidacionReciboDialog(liq);
+                                recibo.open();
+                            },
+                            () -> Notification.show("No se encontró un registro histórico de liquidación.", 3000, Notification.Position.MIDDLE)
+                    );
+                });
+
+                acciones.add(btnEstado, btnVerLiquidacion);
             }
 
             Button btnEliminar = new Button(new Icon(VaadinIcon.TRASH));
@@ -147,8 +171,7 @@ public class EmpleadoView extends VerticalLayout {
                 btnEstado.setEnabled(false);
                 btnEliminar.setEnabled(false);
             }
-
-            HorizontalLayout acciones = new HorizontalLayout(btnEditar, btnEstado, btnEliminar);
+            acciones.add(btnEliminar);
             acciones.setSpacing(false);
             acciones.setPadding(false);
             return acciones;
@@ -331,6 +354,10 @@ public class EmpleadoView extends VerticalLayout {
         formFactory.setFieldCreationListener("cargos", campo -> {
             campo.setRequiredIndicatorVisible(false);
         });
+
+        formFactory.setFieldCreationListener("fechaIngreso", campo -> {
+            campo.setRequiredIndicatorVisible(false);
+        });
         formFactory.setErrorListener(this::mostrarError);
 
 
@@ -375,32 +402,125 @@ public class EmpleadoView extends VerticalLayout {
         add(toolbar, paginator, crudEmpleado);
     }
 
-    private void dialogBaja(Empleado empleado, GridCrud<Empleado> crudEmpleado, EmpleadoService empleadoService) {
-        ConfirmDialog dialog = new ConfirmDialog();
-        dialog.addClassName("dialog-baja-empleado");
-        dialog.setHeader("Dar de baja al empleado");
-        dialog.setText("¿Está seguro que desea dar de baja a " + empleado.getPersona().getNombre() + " " + empleado.getPersona().getApellido() + "? Se le cortará el acceso al sistema inmediatamente.");
-        dialog.setConfirmText("Sí, dar de baja");
-        dialog.setConfirmButtonTheme("error tonal");
-        dialog.setCancelable(true);
-        dialog.setCancelText("Cancelar");
-        dialog.setCancelButtonTheme("outlined");
-        dialog.addConfirmListener(event -> {
+    private void dialogBaja(Empleado empleado, GridCrud<Empleado> crudEmpleado,
+                            EmpleadoService empleadoService, LiquidacionService liquidacionService) {
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Liquidar y Dar de baja: " + empleado.getPersona().getNombre() + " " + empleado.getPersona().getApellido());
+        dialog.setWidth("450px");
+
+        final int[] topeDiasLegales = {0};
+
+        IntegerField txtDiasPreaviso = new IntegerField("Días de preaviso laborados");
+        txtDiasPreaviso.setWidthFull();
+        txtDiasPreaviso.setVisible(false);
+        txtDiasPreaviso.setMin(0);
+
+        ComboBox<MotivoSalida> comboMotivo = new ComboBox<>("Motivo de la salida");
+        comboMotivo.setItems(MotivoSalida.values());
+        comboMotivo.setItemLabelGenerator(MotivoSalida::getDescripcion);
+        comboMotivo.setWidthFull();
+        comboMotivo.setRequired(true);
+        comboMotivo.setRequiredIndicatorVisible(false);
+
+        DatePicker fechaSalida = new DatePicker("Fecha efectiva de salida");
+        fechaSalida.setValue(LocalDate.now());
+        fechaSalida.setMin(empleado.getFechaIngreso());
+        fechaSalida.setMax(LocalDate.now().plusMonths(1));
+        fechaSalida.setWidthFull();
+        fechaSalida.setRequired(true);
+        fechaSalida.setRequiredIndicatorVisible(false);
+
+        Runnable actualizarLimitesPreaviso = () -> {
+            if (fechaSalida.getValue() != null) {
+                topeDiasLegales[0] = liquidacionService.calcularDiasPreavisoLegales(empleado, fechaSalida.getValue());
+
+                if (topeDiasLegales[0] == 0) {
+                    txtDiasPreaviso.setHelperText("El empleado tiene menos de 3 meses. No aplica preaviso legal.");
+                    txtDiasPreaviso.setReadOnly(true);
+                    txtDiasPreaviso.setValue(0);
+                } else {
+                    txtDiasPreaviso.setReadOnly(false);
+                    txtDiasPreaviso.setHelperText("Tope legal para este empleado: " + topeDiasLegales[0] + " días.");
+
+                    if (txtDiasPreaviso.getValue() != null && txtDiasPreaviso.getValue() > topeDiasLegales[0]) {
+                        txtDiasPreaviso.setValue(topeDiasLegales[0]);
+                    }
+                }
+            }
+        };
+
+        fechaSalida.addValueChangeListener(e -> actualizarLimitesPreaviso.run());
+        actualizarLimitesPreaviso.run();
+
+        comboMotivo.addValueChangeListener(e -> {
+            MotivoSalida motivoSelec = e.getValue();
+            if (motivoSelec == MotivoSalida.DESAHUCIO || motivoSelec == MotivoSalida.RENUNCIA) {
+                txtDiasPreaviso.setVisible(true);
+            } else {
+                txtDiasPreaviso.setVisible(false);
+                txtDiasPreaviso.clear();
+            }
+            txtDiasPreaviso.setInvalid(false);
+        });
+
+        VerticalLayout dialogLayout = new VerticalLayout(
+                new Span("Esta acción calculará automáticamente la liquidación, cerrará préstamos/anticipos/embargos y bloqueará el acceso del empleado al sistema."),
+                comboMotivo,
+                txtDiasPreaviso,
+                fechaSalida
+        );
+        dialogLayout.setPadding(false);
+        dialog.add(dialogLayout);
+
+        Button btnConfirmar = new Button("Procesar Baja", event -> {
+            txtDiasPreaviso.setInvalid(false);
+
+            if (comboMotivo.isEmpty() || fechaSalida.isEmpty()) {
+                Notification.show("Debe seleccionar un motivo y una fecha", 3000, Notification.Position.MIDDLE)
+                        .addThemeVariants(NotificationVariant.LUMO_WARNING);
+                return;
+            }
+
+            Integer diasTrabajados = txtDiasPreaviso.getValue() != null ? txtDiasPreaviso.getValue() : 0;
+
+            if (txtDiasPreaviso.isVisible()) {
+                if (diasTrabajados < 0) {
+                    txtDiasPreaviso.setErrorMessage("No puedes ingresar números negativos.");
+                    txtDiasPreaviso.setInvalid(true);
+                    return;
+                }
+
+                if (diasTrabajados > topeDiasLegales[0]) {
+                    txtDiasPreaviso.setErrorMessage("No puede exceder el máximo legal de " + topeDiasLegales[0] + " días.");
+                    txtDiasPreaviso.setInvalid(true);
+                    return;
+                }
+            }
 
             try {
+                liquidacionService.generarLiquidacion(empleado.getIdEmpleado(), comboMotivo.getValue(), fechaSalida.getValue(), diasTrabajados);
                 empleadoService.darDeBaja(empleado);
-                Notification.show("Empleado inhabilitado correctamente", 4000, Notification.Position.MIDDLE)
+
+                Notification.show("Empleado liquidado e inhabilitado exitosamente", 5000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+
                 crudEmpleado.refreshGrid();
+                dialog.close();
 
             } catch (IllegalStateException | IllegalArgumentException ex) {
                 Notification.show(ex.getMessage(), 5000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             } catch (Exception ex) {
-                Notification.show("Ocurrió un error inesperado al intentar dar de baja al empleado.", 5000, Notification.Position.MIDDLE)
+                Notification.show("Error inesperado al liquidar: " + ex.getMessage(), 5000, Notification.Position.MIDDLE)
                         .addThemeVariants(NotificationVariant.LUMO_ERROR);
             }
         });
+        btnConfirmar.addThemeVariants(ButtonVariant.LUMO_ERROR);
+
+        Button btnCancelar = new Button("Cancelar", e -> dialog.close());
+
+        dialog.getFooter().add(btnConfirmar, btnCancelar);
         dialog.open();
     }
 

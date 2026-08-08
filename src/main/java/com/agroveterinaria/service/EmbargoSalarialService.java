@@ -27,6 +27,14 @@ public class EmbargoSalarialService {
     private final CorridaNominaRepository corridaNominaRepository;
 
     public EmbargoSalarial save(EmbargoSalarial embargo) {
+        if (embargo.getIdEmbargo() != null) {
+            EmbargoSalarial embargoBD = embargoSalarialRepository.findById(embargo.getIdEmbargo())
+                    .orElseThrow(() -> new IllegalStateException("Embargo no encontrado"));
+            if (embargoBD.getEstado() == EstadoEmbargo.CERRADO_POR_LIQUIDACION) {
+                throw new IllegalStateException("Acción denegada: No se puede modificar un embargo que ya fue cerrado por liquidación.");
+            }
+        }
+
         if (embargo.getMontoCuotaOrdinaria().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalStateException("La cuota del embargo debe ser mayor a cero.");
         }
@@ -64,6 +72,10 @@ public class EmbargoSalarialService {
     }
 
     public EmbargoSalarial cambiarEstado(EmbargoSalarial embargo, EstadoEmbargo nuevoEstado) {
+        if (embargo.getEstado() == EstadoEmbargo.CERRADO_POR_LIQUIDACION) {
+            throw new IllegalStateException("Acción denegada: Este embargo ya está cerrado definitivamente por liquidación.");
+        }
+
         if (embargo.getEstado() == EstadoEmbargo.INACTIVO) {
             throw new IllegalStateException("Un embargo cerrado Inactivo es de solo lectura y no puede ser reactivado. Para un nuevo caso, registre un nuevo embargo.");
         }

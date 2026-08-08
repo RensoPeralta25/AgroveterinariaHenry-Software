@@ -208,11 +208,39 @@ public class ConfiguracionNominaService {
         return obtenerValor("PLAZO_JUSTIFICACION_HORAS").longValue();
     }
 
-    public BigDecimal getPorcentajeUtilidadesBonificacion() {
-        return obtenerValor("BONIFICACION_PORCENTAJE_UTILIDADES");
-    }
+    public BigDecimal getPorcentajeUtilidadesBonificacion() { return obtenerValor("BONIFICACION_PORCENTAJE_UTILIDADES"); }
 
     public BigDecimal getPorcentajeInfotepBonificacion() {
         return obtenerValor("BONIFICACION_PORCENTAJE_INFOTEP");
     }
+
+    public int getPreavisoDiasTramo1() {
+        return obtenerValor("PREAVISO_DIAS_TRAMO_1").intValue();
+    }
+
+    public int getPreavisoDiasTramo2() {
+        return obtenerValor("PREAVISO_DIAS_TRAMO_2").intValue();
+    }
+
+    public int getPreavisoDiasTramo3() {
+        return obtenerValor("PREAVISO_DIAS_TRAMO_3").intValue();
+    }
+
+    public int getCesantiaDiasTramo1() { return obtenerValor("CESANTIA_DIAS_TRAMO_1").intValue(); }
+
+    public int getCesantiaDiasTramo2() { return obtenerValor("CESANTIA_DIAS_TRAMO_2").intValue(); }
+
+    public int getCesantiaDiasTramo3() { return obtenerValor("CESANTIA_DIAS_TRAMO_3").intValue(); }
+
+    public int getCesantiaDiasTramo4() { return obtenerValor("CESANTIA_DIAS_TRAMO_4").intValue(); }
+
+    public int getPreavisoMesesMinimoTramo1() { return obtenerValor("PREAVISO_MESES_MINIMO_TRAMO_1").intValue(); }
+
+    public int getPreavisoMesesMinimoTramo2() { return obtenerValor("PREAVISO_MESES_MINIMO_TRAMO_2").intValue(); }
+
+    public int getCesantiaMesesMinimoTramo1() { return obtenerValor("CESANTIA_MESES_MINIMO_TRAMO_1").intValue(); }
+
+    public int getCesantiaMesesMinimoTramo2() { return obtenerValor("CESANTIA_MESES_MINIMO_TRAMO_2").intValue(); }
+
+    public int getCesantiaAniosMinimoTramo4() { return obtenerValor("CESANTIA_ANIOS_MINIMO_TRAMO_4").intValue(); }
 }

@@ -25,6 +25,7 @@ import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
 import com.vaadin.flow.component.textfield.BigDecimalField;
 import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.textfield.TextField;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -485,6 +486,29 @@ public class NominaView extends VerticalLayout {
                 }))
                 .toList();
 
+        TextField txtBuscar = new TextField();
+        txtBuscar.setPlaceholder("Buscar empleado para agregar novedad...");
+        txtBuscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
+        txtBuscar.setWidthFull();
+        txtBuscar.getStyle().set("margin-bottom", "8px");
+        txtBuscar.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+
+        txtBuscar.addValueChangeListener(e -> {
+            String termino = e.getValue() != null ? e.getValue().toLowerCase().trim() : "";
+            if (termino.isEmpty()) {
+                gridNovedades.setItems(novedadesOrdenadas);
+            } else {
+                List<NovedadNominaDTO> filtrados = novedadesOrdenadas.stream()
+                        .filter(dto -> {
+                            String nombreCompleto = (dto.getEmpleado().getPersona().getNombre() + " " +
+                                    dto.getEmpleado().getPersona().getApellido()).toLowerCase();
+                            return nombreCompleto.contains(termino);
+                        })
+                        .toList();
+                gridNovedades.setItems(filtrados);
+            }
+        });
+
         gridNovedades.setItems(novedadesOrdenadas);
         gridNovedades.setHeight("400px");
 
@@ -512,7 +536,7 @@ public class NominaView extends VerticalLayout {
             }
         });
 
-        dialog.add(gridNovedades);
+        dialog.add(txtBuscar, gridNovedades);
         dialog.getFooter().add(btnGenerar, btnCancelar);
         dialog.open();
     }
@@ -643,6 +667,30 @@ public class NominaView extends VerticalLayout {
             return btnVer;
         }).setWidth("90px").setFlexGrow(0).setHeader("Acciones");
 
+        TextField txtBuscar = new TextField();
+        txtBuscar.setPlaceholder("Buscar empleado...");
+        txtBuscar.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
+        txtBuscar.setWidthFull();
+        txtBuscar.getStyle().set("margin-top", "8px");
+        txtBuscar.setValueChangeMode(com.vaadin.flow.data.value.ValueChangeMode.LAZY);
+
+        txtBuscar.addValueChangeListener(e -> {
+            String termino = e.getValue() != null ? e.getValue().toLowerCase().trim() : "";
+
+            if (termino.isEmpty()) {
+                gridNominas.setItems(nominasOrdenadas);
+            } else {
+                List<Nomina> filtrados = nominasOrdenadas.stream()
+                        .filter(n -> {
+                            String nombreCompleto = (n.getEmpleado().getPersona().getNombre() + " " +
+                                    n.getEmpleado().getPersona().getApellido()).toLowerCase();
+                            return nombreCompleto.contains(termino);
+                        })
+                        .collect(Collectors.toList());
+                gridNominas.setItems(filtrados);
+            }
+        });
+
         gridNominas.setItems(nominasOrdenadas);
         gridNominas.setHeight("300px");
 
@@ -651,7 +699,7 @@ public class NominaView extends VerticalLayout {
                 .set("align-self", "flex-end")
                 .set("margin-top", "10px");
 
-        VerticalLayout contenido = new VerticalLayout(gridNominas, totalGeneral);
+        VerticalLayout contenido = new VerticalLayout(txtBuscar, gridNominas, totalGeneral);
         contenido.setPadding(false);
         dialog.add(contenido);
 
